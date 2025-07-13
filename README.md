@@ -1,0 +1,1 @@
+# Trendy Stocks and Inventory Web App
