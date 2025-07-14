@@ -26,6 +26,7 @@ class ProductFactory extends Factory
             'name' => fake()->unique()->word(),
             'category_id' => Categories::inRandomOrder()->first()->id, // assumes a Category factory exists
             'sku' => fake()->unique()->bothify('SKU-####-???'),
+            'barcode' => fake()->unique()->isbn10(),
             'cost_price' => $costPrice,
             'selling_price' => $sellingPrice,
             'unit_profit' => $profit,

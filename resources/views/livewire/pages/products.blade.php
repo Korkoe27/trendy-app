@@ -68,7 +68,7 @@
                                 <div class="flex items-center">
                                     <div>
                                         <div class="text-base font-medium uppercase text-gray-900">{{ $product->name }}</div>
-                                        <div class="text-base uppercase text-gray-500">{{ $product->category->name }} • {{ $product->sku ?? 'N/A' }}</div>
+                                        <div class="text-base uppercase text-gray-500">{{ $product->category->name }} • {{ $product->barcode ?? 'N/A' }}</div>
                                     </div>
                                 </div>
                             </td>

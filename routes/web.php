@@ -1,7 +1,7 @@
 <?php
 
 use App\Http\Controllers\{ProductController,UserAuthController};
-use App\Livewire\Pages\{Dashboard,Products};
+use App\Livewire\Pages\{Dashboard,Products, Stocks};
 use Illuminate\Support\Facades\Route;
 
 // Route::get('/', function () {
@@ -18,6 +18,9 @@ use Illuminate\Support\Facades\Route;
 Route::get('/',Dashboard::class)->name('dashboard');
 
 Route::get('products',Products::class)->name('products');
+
+Route::get('stocks',Stocks::class)->name('stocks');
+// Route::get('products',Products::class)->name('products');
 
 
 

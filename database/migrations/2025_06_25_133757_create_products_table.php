@@ -24,6 +24,8 @@ return new class extends Migration
             ->unique()
             ->nullable();
 
+            $table->string('barcode')->unique();
+
             $table->decimal('cost_price', 8, 2)->default(0.00)->nullable();
 
             $table->decimal('selling_price', 8, 2)->default(0.00);
