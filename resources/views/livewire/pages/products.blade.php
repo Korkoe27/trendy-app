@@ -60,7 +60,7 @@
                 <tbody class="bg-white divide-y divide-gray-200">
                     @forelse($products as $product)
                         @php
-                            $stockStatus = $this->getStockStatus($product->current_stock ?? 0, $product->min_stock ?? 0);
+                            $stockStatus = $this->getStockStatus($product->id, $product->stock_limit);
                             $margin = $this->calculateMargin($product->cost_price, $product->selling_price);
                         @endphp
                         <tr class="hover:bg-gray-50">
@@ -74,21 +74,24 @@
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <div>
-                                    <div class="text-base font-medium text-gray-900">{{ $product->current_stock ?? 0 }} units</div>
+                                    <div class="text-base font-medium text-gray-900">{{ $stockStatus['current'] }} units</div>
+                                    @if($product->stock_limit)
+                                        <div class="text-xs text-gray-500 mb-1">Limit: {{ $product->stock_limit }}</div>
+                                    @endif
                                     <span class="inline-block px-2 py-1 text-xs font-medium rounded-full {{ $stockStatus['color'] }}">
                                         {{ $stockStatus['text'] }}
                                     </span>
                                 </div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
-                                <div class="text-base text-gray-900">${{ number_format($product->cost_price, 2) }}</div>
+                                  <div class="text-base text-gray-900">${{ number_format($product->cost_price, 2) }}</div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <div class="text-base text-gray-900">${{ number_format($product->selling_price, 2) }}</div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <div class="text-base font-medium {{ $margin > 50 ? 'text-green-600' : ($margin > 25 ? 'text-yellow-600' : 'text-red-600') }}">
-                                    {{ number_format($margin, 1) }}%
+                                    {{ number_format($margin, 1) }}
                                 </div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">

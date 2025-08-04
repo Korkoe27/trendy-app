@@ -17,7 +17,7 @@
                 <h1 class="hidden md:flex items-center gap-1 md:gap-3">
                     <span class="lg:text-3xl text-base">{{ $greeting }} </span>
                 {{-- <span class="text-[#0F51AE] text-lg lg:text-xl rounded-full bg-[#F2F8FF] px-2 p-1 font-semibold">{{ Auth::user()->name  }}</span>  --}}
-                    <span class="text-[#0F51AE] text-sm lg:text-xl rounded-full bg-[#F2F8FF] px-2 py-1 font-semibold">Admin</span>
+                    <span class="text-[#0F51AE] text-sm lg:text-xl rounded-full bg-[#F2F8FF] px-2 py-1 font-semibold">Trace</span>
                 </h1>
 
                 <livewire:components.clock/>

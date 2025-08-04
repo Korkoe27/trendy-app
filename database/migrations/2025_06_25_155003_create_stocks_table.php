@@ -17,19 +17,20 @@ return new class extends Migration
             $table->foreignId('product_id')
             ->constrained('products')
             ->onDelete('cascade'); //grab product details
-            $table->integer('opening_units')->default(0);   //number of bottles available at the start of day
 
-            $table->integer('opening_boxes')->default(0); //number of boxes available at the start of day
+            $table->decimal('available_units' ,8,2)->default(0)->nullable(); // number of units sold that day
 
-            $table->integer('added_units')->default(0)->nullable(); //number of units added during the day
+            $table->string('supplier')->nullable();
 
-            $table->integer('closing_units')->default(0); //number of units remaining at the end of day
 
-            $table->decimal('closing_boxes' ,8,2)->default(0); //number of boxes remaining at the end of day
 
-            $table->decimal('sales_units' ,8,2)->default(0); // number of units sold that day
+            $table->text('notes')->nullable();
 
-            $table->decimal('sales_boxes' ,8,2)->default(0); // number of boxes sold that day
+            $table->decimal('cost_margin' ,8,2)->default(0)->nullable(); // number of boxes sold that day
+
+            $table->decimal('cost_price' ,8,2)->default(0)->nullable(); // number of boxes sold that day
+            
+            $table->decimal('available_boxes' ,8,2)->default(0)->nullable(); // number of boxes sold that day
             // $table->foreignId('created_by')
             //     ->constrained('users')
             //     ->onDelete('cascade')

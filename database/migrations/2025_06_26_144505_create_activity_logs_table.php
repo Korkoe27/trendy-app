@@ -24,7 +24,7 @@ return new class extends Migration
 
             $table->string('entity_type'); //e.g. 'product', 'stock_record', 'coin_sale'
 
-            $table->uuid('entity_id')->nullable(); // ID of the entity related to the action, if applicable
+            $table->string('entity_id')->nullable(); // ID of the entity related to the action, if applicable
 
             $table->json('metadata')->nullable(); // Additional metadata related to the action
 

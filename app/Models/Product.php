@@ -15,6 +15,8 @@ class Product extends Model
         "name",
         "sku",
         "category_id",
+        "barcode",
+        "stock_limit",
         "cost_price",
         "selling_price",
         "units_per_box",
@@ -29,7 +31,16 @@ class Product extends Model
     }
 
     public function stocks(){
-        return $this->hasMany(Stock::class);
+        return $this->hasOne(Stock::class);
+    }
+
+    public function dailySales()
+    {
+        return $this->hasMany(DailySales::class);
+    }
+
+    public function dailySalesSummary(){
+        return $this->hasMany(DailySalesSummary::class);
     }
 
     public function coinSales(){

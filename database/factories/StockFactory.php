@@ -17,23 +17,22 @@ class StockFactory extends Factory
      */
     public function definition(): array
     {
-        // Generate random values for base fields
-        $openingUnits = fake()->numberBetween(1, 1000);
-        $addedUnits = fake()->numberBetween(1, 1000);
-        $closingUnits = fake()->numberBetween(1, min(800, $openingUnits + $addedUnits)); // Ensure closing_units is valid
+        // // Generate random values for base fields
+        // $openingUnits = fake()->numberBetween(1, 1000);
+        // $addedUnits = fake()->numberBetween(1, 1000);
+        // $closingUnits = fake()->numberBetween(1, min(800, $openingUnits + $addedUnits)); // Ensure closing_units is valid
 
-        // Calculate sales_units
-        $salesUnits = $openingUnits + $addedUnits - $closingUnits;
+        // // Calculate sales_units
+        // $salesUnits = $openingUnits + $addedUnits - $closingUnits;
 
         return [
             'product_id' => Product::inRandomOrder()->first()->id,
-            'opening_units' => $openingUnits,
-            'added_units' => $addedUnits,
-            'closing_units' => $closingUnits,
-            'closing_boxes' => fake()->numberBetween(1, 50),
-            'sales_units' => $salesUnits,
-            'sales_boxes' => $salesUnits / 24, // Calculate based on sales_units
-            // 'created_by' => User::inRandomOrder()->first()->id,
+            'available_units' => fake()->randomFloat(2, 0, 1000), // decimal with 2 precision
+            'supplier' => fake()->company,
+            'cost_price' => fake()->randomFloat(2, 10, 500), // assuming price range
+            'cost_margin' => fake()->randomFloat(2, 0, 100), // assuming margin range
+            'notes' => fake()->optional()->paragraph,
+            'available_boxes' => fake()->randomFloat(2, 0, 100), // decimal with 2 precision
         ];
     }
 }

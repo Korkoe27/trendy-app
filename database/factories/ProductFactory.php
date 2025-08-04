@@ -18,19 +18,20 @@ class ProductFactory extends Factory
     public function definition(): array
     {
         // Calculate cost and selling prices for profit
-        $costPrice = fake()->randomFloat(2, 5, 50);
-        $profit = fake()->numberBetween(1, 20);
-        $sellingPrice = $costPrice + $profit;
+        // $costPrice = fake()->randomFloat(2, 5, 50);
+        // $profit = fake()->numberBetween(1, 20);
+        // $sellingPrice = $costPrice + $profit;
 
         return [
             'name' => fake()->unique()->word(),
             'category_id' => Categories::inRandomOrder()->first()->id, // assumes a Category factory exists
             'sku' => fake()->unique()->bothify('SKU-####-???'),
+            'stock_limit' => fake()->numberBetween(1, 100),
             'barcode' => fake()->unique()->isbn10(),
-            'cost_price' => $costPrice,
-            'selling_price' => $sellingPrice,
-            'unit_profit' => $profit,
-            'units_per_box' => fake()->randomFloat(2, 1, 50),
+            // 'cost_price' => $costPrice,
+            'selling_price' => fake()->randomFloat(2, 1, 50),
+            // 'unit_profit' => $profit,
+            'units_per_box' => fake()->numberBetween(1,100),
             'is_active' => fake()->boolean(90),
         ];
     }

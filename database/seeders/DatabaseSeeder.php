@@ -19,11 +19,13 @@ class DatabaseSeeder extends Seeder
         $this->call([
             CategoriesSeeder::class,
             RoleSeeder::class,
+            UserSeeder::class,
             ProductSeeder::class
         ]);
-        // User::factory()->create([
-        //     'name' => 'Test User',
-        //     'email' => 'test@example.com',
-        // ]);
+        User::factory()->create([
+            'username' => 'admin',
+            'name' => 'Admin User',
+            'email' => 'admin'
+            ]);
     }
 }

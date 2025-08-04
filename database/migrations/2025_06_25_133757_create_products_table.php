@@ -24,15 +24,18 @@ return new class extends Migration
             ->unique()
             ->nullable();
 
-            $table->string('barcode')->unique();
 
-            $table->decimal('cost_price', 8, 2)->default(0.00)->nullable();
+            $table->integer('stock_limit')->nullable();
+
+            $table->string('barcode')->unique()->nullable();
+
+            // $table->decimal('cost_price', 8, 2)->default(0.00)->nullable();
 
             $table->decimal('selling_price', 8, 2)->default(0.00);
 
-            $table->integer('unit_profit')->nullable();
+            // $table->integer('unit_profit')->nullable();
 
-            $table->decimal('units_per_box', 8, 2)->default(0.00)->nullable();
+            $table->integer('units_per_box')->default(0)->nullable();
 
             $table->boolean('is_active')->default(true);
 

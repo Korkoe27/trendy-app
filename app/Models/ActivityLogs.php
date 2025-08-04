@@ -22,6 +22,10 @@ class ActivityLogs extends Model
 
     protected $table = 'activity_logs';
 
+
+    protected $casts = [
+        'metadata'=>'json',
+    ];
     public function user(){
         return $this->belongsTo(User::class);
     }
