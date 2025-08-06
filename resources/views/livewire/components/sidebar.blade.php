@@ -74,7 +74,7 @@
                 Stocks
             </a>
 
-            <!-- Settings Link -->
+            <!-- Logs Link -->
             <a href="{{ route('logs') }}" 
                wire:navigate
                wire:click="setActiveItem('logs')"
@@ -105,6 +105,16 @@
                     <p class="text-xs text-gray-500">Admin</p>
                 </div>
             </div>
+            <form action="{{ route('logout') }}" method="POST" class="mt-2">
+                @csrf
+                <button type="submit"
+                        class="flex items-center gap-3 px-4 py-2.5 text-sm font-medium rounded-lg transition-colors duration-200 bg-white text-gray-700 hover:bg-gray-100 hover:text-gray-900 w-full">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 shrink-0">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6A2.25 2.25 0 005.25 5.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75" />
+                    </svg>
+                    Logout
+                </button>
+            </form>
         </div>
     </div>
 

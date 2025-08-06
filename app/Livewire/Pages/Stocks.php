@@ -24,20 +24,21 @@ class Stocks extends Component
 
     protected $rules = [
         'newStockItems.*.product_id' => 'required|exists:products,id',
-        'newStockItems.*.available_units' => 'nullable|numeric|min:0',
-        'newStockItems.*.available_boxes' => 'nullable|numeric|min:0',
-        'newStockItems.*.cost_price' => 'required|numeric|min:0',
-        'newStockItems.*.supplier' => 'string|max:255',
+        'newStockItems.*.input_units' => 'nullable|numeric|min:0',
+        'newStockItems.*.input_boxes' => 'nullable|numeric|min:0',
+        'newStockItems.*.total_cost' => 'required|numeric|min:0',
+        'newStockItems.*.supplier' => 'required|string|max:255',
         'notes' => 'nullable|string|max:1000',
     ];
 
     protected $messages = [
         'newStockItems.*.product_id.required' => 'Product selection is required',
         'newStockItems.*.product_id.exists' => 'Selected product does not exist',
-        'newStockItems.*.available_boxes.numeric' => 'Boxes must be a valid number',
-        'newStockItems.*.available_units.numeric' => 'Units must be a valid number',
-        'newStockItems.*.cost_price.required' => 'Cost price is required',
-        'newStockItems.*.cost_price.numeric' => 'Cost price must be a valid number'
+        'newStockItems.*.input_boxes.numeric' => 'Boxes must be a valid number',
+        'newStockItems.*.input_units.numeric' => 'Units must be a valid number',
+        'newStockItems.*.total_cost.required' => 'Total cost is required',
+        'newStockItems.*.total_cost.numeric' => 'Total cost must be a valid number',
+        'newStockItems.*.supplier.required' => 'Supplier is required'
     ];
 
     public function mount()
@@ -74,12 +75,13 @@ class Stocks extends Component
         $this->newStockItems = [
             [
                 'product_id' => '',
-                'available_boxes' => '',
-                'available_units' => '',
-                'cost_price' => '',
+                'input_boxes' => '',
+                'input_units' => '',
+                'calculated_total_units' => 0,
+                'total_cost' => '',
                 'supplier' => '',
-                'unit_cost' => '',
-                'profit_margin' => '',
+                'calculated_cost_price' => 0,
+                'calculated_profit_margin' => 0,
                 'boxes_disabled' => false,
                 'units_disabled' => false,
             ]
@@ -90,16 +92,15 @@ class Stocks extends Component
 
     public function addStockItem()
     {
-        Log::info('Adding stock item');
-
         $this->newStockItems[] = [
             'product_id' => '',
-            'available_boxes' => '',
-            'available_units' => '',
-            'cost_price' => '',
+            'input_boxes' => '',
+            'input_units' => '',
+            'calculated_total_units' => 0,
+            'total_cost' => '',
             'supplier' => '',
-            'unit_cost' => '',
-            'profit_margin' => '',
+            'calculated_cost_price' => 0,
+            'calculated_profit_margin' => 0,
             'boxes_disabled' => false,
             'units_disabled' => false,
         ];
@@ -109,18 +110,16 @@ class Stocks extends Component
     {
         if (count($this->newStockItems) > 1) {
             unset($this->newStockItems[$index]);
-            $this->newStockItems = array_values($this->newStockItems); // Re-index array
+            $this->newStockItems = array_values($this->newStockItems);
         }
     }
 
     public function updatedNewStockItems($value, $key)
     {
-        // Parse the key to get index and field
         $parts = explode('.', $key);
         $index = $parts[0];
         $field = $parts[1];
 
-        // Only process if we have a product selected
         if (!isset($this->newStockItems[$index]['product_id']) || empty($this->newStockItems[$index]['product_id'])) {
             return;
         }
@@ -130,47 +129,52 @@ class Stocks extends Component
             return;
         }
 
-        // Convert string values to numbers for calculations
-        $availableBoxes = (float) ($this->newStockItems[$index]['available_boxes'] ?? 0);
-        $availableUnits = (float) ($this->newStockItems[$index]['available_units'] ?? 0);
-        $costPrice = (float) ($this->newStockItems[$index]['cost_price'] ?? 0);
+        $inputBoxes = (float) ($this->newStockItems[$index]['input_boxes'] ?? 0);
+        $inputUnits = (float) ($this->newStockItems[$index]['input_units'] ?? 0);
         $unitsPerBox = (float) ($product->units_per_box ?? 1);
+        $totalCost = (float) ($this->newStockItems[$index]['total_cost'] ?? 0);
 
         // Handle box/unit calculations
-        if ($field === 'available_boxes' && !empty($value) && $unitsPerBox > 0) {
-            // User is typing in boxes field - disable units and calculate units
+        if ($field === 'input_boxes' && !empty($value) && $unitsPerBox > 0) {
+            // User is inputting boxes - disable units field and calculate total units
             $this->newStockItems[$index]['units_disabled'] = true;
             $this->newStockItems[$index]['boxes_disabled'] = false;
             
-            $calculatedUnits = $availableBoxes * $unitsPerBox;
-            $this->newStockItems[$index]['available_units'] = $calculatedUnits;
+            $calculatedUnits = $inputBoxes * $unitsPerBox;
+            $this->newStockItems[$index]['input_units'] = $calculatedUnits;
+            $this->newStockItems[$index]['calculated_total_units'] = $calculatedUnits;
             
-        } elseif ($field === 'available_units' && !empty($value) && $unitsPerBox > 0) {
-            // User is typing in units field - disable boxes and calculate boxes
+        } elseif ($field === 'input_units' && !empty($value)) {
+            // User is inputting units directly - disable boxes and calculate boxes for display
             $this->newStockItems[$index]['boxes_disabled'] = true;
             $this->newStockItems[$index]['units_disabled'] = false;
             
-            $calculatedBoxes = $availableUnits / $unitsPerBox;
-            $this->newStockItems[$index]['available_boxes'] = round($calculatedBoxes, 2);
+            if ($unitsPerBox > 0) {
+                $calculatedBoxes = $inputUnits / $unitsPerBox;
+                $this->newStockItems[$index]['input_boxes'] = round($calculatedBoxes, 2);
+            }
+            $this->newStockItems[$index]['calculated_total_units'] = $inputUnits;
             
         } elseif (empty($value)) {
-            // If field is cleared, enable both fields
-            if ($field === 'available_boxes') {
+            // If field is cleared, enable both fields and reset calculations
+            if ($field === 'input_boxes') {
                 $this->newStockItems[$index]['units_disabled'] = false;
-                $this->newStockItems[$index]['available_units'] = '';
-            } elseif ($field === 'available_units') {
+                $this->newStockItems[$index]['input_units'] = '';
+                $this->newStockItems[$index]['calculated_total_units'] = 0;
+            } elseif ($field === 'input_units') {
                 $this->newStockItems[$index]['boxes_disabled'] = false;
-                $this->newStockItems[$index]['available_boxes'] = '';
+                $this->newStockItems[$index]['input_boxes'] = '';
+                $this->newStockItems[$index]['calculated_total_units'] = 0;
             }
         }
 
-        // Calculate profit margin when cost price changes
-        if ($field === 'cost_price' && $costPrice > 0 && $unitsPerBox > 0) {
-            $this->calculateProfitMargin($index);
+        // Recalculate costs when total cost or quantities change
+        if (in_array($field, ['total_cost', 'input_boxes', 'input_units']) && $totalCost > 0 && $unitsPerBox > 0) {
+            $this->calculateCostAndMargin($index);
         }
     }
 
-    private function calculateProfitMargin($index)
+    private function calculateCostAndMargin($index)
     {
         if (!isset($this->newStockItems[$index]['product_id']) || empty($this->newStockItems[$index]['product_id'])) {
             return;
@@ -181,22 +185,19 @@ class Stocks extends Component
             return;
         }
 
-        $costPrice = (float) ($this->newStockItems[$index]['cost_price'] ?? 0);
-
-        Log::debug("Cost Price". $costPrice);
+        $totalCost = (float) ($this->newStockItems[$index]['total_cost'] ?? 0);
         $unitsPerBox = (float) ($product->units_per_box ?? 1);
         $sellingPrice = (float) $product->selling_price;
 
-        if ($costPrice > 0 && $unitsPerBox > 0) {
-            // Calculate unit cost
-            $unitCost = $costPrice / $unitsPerBox;
+        if ($totalCost > 0 && $unitsPerBox > 0) {
+            // Calculate cost price per unit (total_cost / units_per_box)
+            $costPrice = $totalCost / $unitsPerBox;
             
-            // Calculate profit margin per unit
-            $profitMargin = $sellingPrice - $unitCost;
+            // Calculate profit margin per unit (selling_price - cost_price)
+            $profitMargin = $sellingPrice - $costPrice;
             
-            // Update the item with calculated values
-            $this->newStockItems[$index]['unit_cost'] = round($unitCost, 2);
-            $this->newStockItems[$index]['profit_margin'] = round($profitMargin, 2);
+            $this->newStockItems[$index]['calculated_cost_price'] = round($costPrice, 2);
+            $this->newStockItems[$index]['calculated_profit_margin'] = round($profitMargin, 2);
         }
     }
 
@@ -204,19 +205,16 @@ class Stocks extends Component
     {
         $this->validate();
 
-        Log::info('Validated form input');
-
         // Filter out empty items
         $validItems = array_filter($this->newStockItems, function($item) {
-            return !empty($item['product_id']) && (
-                !empty($item['available_boxes']) || !empty($item['available_units'])
-            ) && !empty($item['cost_price']) && !empty($item['supplier']);
+            return !empty($item['product_id']) && 
+                   $item['calculated_total_units'] > 0 && 
+                   !empty($item['total_cost']) && 
+                   !empty($item['supplier']);
         });
 
-        Log::info('Valid items: ' . json_encode($validItems));
-
         if (empty($validItems)) {
-            $this->addError('newStockItems', 'At least one item with quantities, cost price, and supplier is required');
+            $this->addError('newStockItems', 'At least one item with quantities, total cost, and supplier is required');
             return;
         }
 
@@ -226,28 +224,26 @@ class Stocks extends Component
             $product = Product::find($item['product_id']);
             if (!$product) continue;
 
-            // Convert to proper numeric values
-            $boxesAdded = (float) ($item['available_boxes'] ?? 0);
-            $unitsAdded = (float) ($item['available_units'] ?? 0);
-            $costPrice = (float) $item['cost_price'];
+            $totalUnitsToAdd = (float) $item['calculated_total_units'];
+            $totalCost = (float) $item['total_cost'];
             $supplier = $item['supplier'];
-
-            // Calculate unit cost and profit margin
+            
+            // Calculate cost price and margin
             $unitsPerBox = (float) ($product->units_per_box ?? 1);
-            $unitCost = $unitsPerBox > 0 ? $costPrice / $unitsPerBox : $costPrice;
-            $profitMargin = $product->selling_price - $unitCost;
+            $costPrice = $unitsPerBox > 0 ? $totalCost / $unitsPerBox : $totalCost;
+            $costMargin = $product->selling_price - $costPrice;
 
-            // Get existing stock entry for this product
+            // Get existing stock entry for this product (1:1 relationship)
             $existingStock = Stock::where('product_id', $product->id)->first();
 
             if ($existingStock) {
                 // Update existing stock entry
                 $existingStock->update([
-                    'available_units' => $existingStock->available_units + $unitsAdded,
-                    'available_boxes' => $existingStock->available_boxes + $boxesAdded,
+                    'total_units' => $existingStock->total_units + $totalUnitsToAdd,
                     'supplier' => $supplier,
+                    'total_cost' => $totalCost,
                     'cost_price' => $costPrice,
-                    'cost_margin' => $profitMargin,
+                    'cost_margin' => $costMargin,
                     'notes' => $this->notes,
                     'updated_at' => now()
                 ]);
@@ -255,57 +251,51 @@ class Stocks extends Component
                 // Create new stock entry
                 Stock::create([
                     'product_id' => $product->id,
-                    'available_units' => $unitsAdded,
-                    'available_boxes' => $boxesAdded,
+                    'total_units' => $totalUnitsToAdd,
                     'supplier' => $supplier,
+                    'total_cost' => $totalCost,
                     'cost_price' => $costPrice,
-                    'cost_margin' => $profitMargin,
+                    'cost_margin' => $costMargin,
                     'notes' => $this->notes
                 ]);
             }
 
             // Create activity log
-            $this->createActivityLog($product, $item, $profitMargin, $unitCost);
+            $this->createActivityLog($product, $item, $costMargin, $costPrice, $totalUnitsToAdd);
 
             $successCount++;
         }
 
         $this->closeAddStockModal();
-
-        session()->flash('message', "Successfully added stock for {$successCount} product(s)");
+        session()->flash('message', "Successfully updated stock for {$successCount} product(s)");
     }
 
-    private function createActivityLog($product, $stockItem, $profitMargin, $unitCost)
+    private function createActivityLog($product, $stockItem, $costMargin, $costPrice, $totalUnitsAdded)
     {
         $description = "Stock updated for {$product->name}";
         
-    $metadata = [
-        'product_name' => $product->name,
-        'product_id' => $product->id,
-        'supplier' => $stockItem['supplier'],
-        'cost_price' => (float) $stockItem['cost_price'],
-        'unit_cost' => round($unitCost, 2),
-        'selling_price' => (float) $product->selling_price,
-        'profit_margin' => round($profitMargin, 2),
-        'boxes_added' => (float) ($stockItem['available_boxes'] ?? 0),
-        'units_added' => (float) ($stockItem['available_units'] ?? 0),
-        'notes' => $this->notes,
-        'timestamp' => now()
-    ];
+        $metadata = [
+            'product_name' => $product->name,
+            'product_id' => $product->id,
+            'supplier' => $stockItem['supplier'],
+            'total_cost' => (float) $stockItem['total_cost'],
+            'cost_price' => round($costPrice, 2),
+            'selling_price' => (float) $product->selling_price,
+            'cost_margin' => round($costMargin, 2),
+            'units_added' => $totalUnitsAdded,
+            'boxes_equivalent' => $product->units_per_box > 0 ? round($totalUnitsAdded / $product->units_per_box, 2) : 0,
+            'notes' => $this->notes,
+            'timestamp' => now()
+        ];
 
-    Log::info('Creating activity log for stock update', $metadata);
-    
-    ActivityLogs::create([
-        'user_id' => 1,
-        // 'user_id' => Auth::id(),
-        'action_type' => 'stock_update',
-        'description' => $description,
-        'entity_type' => 'stock_record',
-        'entity_id' => $product->barcode ?? $product->sku ?? $product->id,
-        'metadata' => json_encode($metadata) // Convert array to JSON string
-    ]);
-
-        Log::info('Activity log created for stock update', $metadata);
+        ActivityLogs::create([
+            'user_id' => Auth::id(),
+            'action_type' => 'stock_update',
+            'description' => $description,
+            'entity_type' => 'stock_record',
+            'entity_id' => $product->barcode ?? $product->sku ?? $product->id,
+            'metadata' => json_encode($metadata)
+        ]);
     }
 
     public function deleteStockEntry($productId)
@@ -314,23 +304,24 @@ class Stocks extends Component
         
         if ($stock) {
             $product = Product::find($productId);
+            $boxesEquivalent = $product->units_per_box > 0 ? round($stock->total_units / $product->units_per_box, 2) : 0;
             
             // Create activity log for deletion
             ActivityLogs::create([
-                'user_id' => 1,
-                // 'user_id' => Auth::id(),
+                'user_id' => Auth::id(),
                 'action_type' => 'stock_delete',
                 'description' => "Stock entry deleted for {$product->name}",
                 'entity_type' => 'stock_record',
                 'entity_id' => $productId,
-                'metadata' => [
+                'metadata' => json_encode([
                     'product_name' => $product->name,
-                    'deleted_boxes' => $stock->available_boxes,
-                    'deleted_units' => $stock->available_units,
+                    'deleted_units' => $stock->total_units,
+                    'deleted_boxes_equivalent' => $boxesEquivalent,
                     'supplier' => $stock->supplier,
+                    'total_cost' => $stock->total_cost,
                     'cost_price' => $stock->cost_price,
-                    'timestamp' => now()->toISOString()
-                ]
+                    'timestamp' => now()
+                ])
             ]);
             
             $stock->delete();

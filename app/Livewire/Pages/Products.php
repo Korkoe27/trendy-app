@@ -59,7 +59,7 @@ class Products extends Component
             ->orderBy('created_at', 'desc')
             ->first();
         
-        return $stock ? $stock->available_units : 0;
+        return $stock ? $stock->total_units : 0;
     }
     
     public function getStockStatus($productId, $stockLimit)

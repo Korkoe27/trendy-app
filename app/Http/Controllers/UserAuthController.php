@@ -27,6 +27,8 @@ class UserAuthController extends Controller
             'password' => 'required|string'
         ]);
 
+        
+
 
         if(!Auth::attempt($user)){
             throw ValidationException::withMessages([
@@ -44,6 +46,21 @@ class UserAuthController extends Controller
         // if (auth()->attempt($credentials)) {
         //     return redirect()->intended('dashboard'); // Redirect to intended page after login
         // }
+
+        $metadata = [
+            // 'ip_address' => $request->ip(),
+            'username' => Auth::user()->username,
+            'login_time' => now(),
+        ];
+
+        ActivityLogs::create([
+            'user_id' => Auth::id(),
+            'action_type' => 'Log in',
+            'description' => 'User logged in successfully',
+            'entity_type' => 'user',
+            'entity_id' => Auth::id(),
+            'metadata' => json_encode($metadata),
+        ]);
         return redirect('/');
         // return back()->withErrors([
         //     'username' => 'The provided credentials do not match our records.',
@@ -53,18 +70,25 @@ class UserAuthController extends Controller
 
     public function destroy(Request $request)
     {
+
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
+        $metadata = [
+            // 'ip_address' => $request->ip(),
+            'username' => Auth::user()?->username,
+            'logout_time' => now(),
+        ];
         ActivityLogs::create([
-            'user_id' => Auth::id(),
+            'user_id' => Auth::user()?->id,
             'action_type' => 'logout',
             'description' => 'User logged out successfully',
             'entity_type' => 'user',
             'entity_id' => Auth::id(),
-            'metadata' => ''
+            'metadata' => json_encode($metadata),
         ]);
+
 
         return redirect()->route('login');
     }

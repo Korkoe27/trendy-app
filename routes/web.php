@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Route;
     
 // });
 
+Route::middleware(['auth'])->group(function(){
 
 Route::get('/',Dashboard::class)->name('dashboard');
 
@@ -28,14 +29,17 @@ Route::get('settings',Settings::class)->name('settings');
 Route::get('logs',Logs::class)->name('logs');
 
 
+});
 
-Route::controller(UserAuthController::class)->group(function(){
+Route::post('logout', [UserAuthController::class, 'destroy'])->name('logout');
+
+
+Route::middleware(['guest'])->controller(UserAuthController::class)->group(function(){
     Route::get('login','login')->name('login');
 
     
 
     Route::post('signin','signin')->name('signin');
 
-    Route::post('logout','destroy')->name('logout');
 });
 

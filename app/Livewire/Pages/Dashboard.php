@@ -54,8 +54,8 @@ class Dashboard extends Component
     public function getLowStockProductsProperty()
     {
         return Product::whereHas('stocks', function ($query) {
-            $query->whereRaw('stocks.available_units < products.stock_limit')
-                  ->where('stocks.available_units', '>', 0);
+            $query->whereRaw('stocks.total_units < products.stock_limit')
+                  ->where('stocks.total_units', '>', 0);
         })->with(['stocks', 'category'])->get();
     }
 
@@ -86,11 +86,11 @@ class Dashboard extends Component
             $stock = $product->stocks->first();
             return [
                 'name' => $product->name,
-                'current' => (int) $stock->available_units,
+                'current' => (int) $stock->total_units,
                 'minimum' => $product->stock_limit,
                 'category' => $product->category->name ?? 'N/A',
                 'percentage' => $product->stock_limit > 0 ? 
-                    min(100, ($stock->available_units / $product->stock_limit) * 100) : 0
+                    min(100, ($stock->total_units / $product->stock_limit) * 100) : 0
             ];
         });
     }

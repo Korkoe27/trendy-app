@@ -15,27 +15,21 @@ return new class extends Migration
             $table->id();
             
             $table->foreignId('product_id')
-            ->constrained('products')
-            ->onDelete('cascade'); //grab product details
-
-            $table->decimal('available_units' ,8,2)->default(0)->nullable(); // number of units sold that day
-
-            $table->string('supplier')->nullable();
-
-
-
-            $table->text('notes')->nullable();
-
-            $table->decimal('cost_margin' ,8,2)->default(0)->nullable(); // number of boxes sold that day
-
-            $table->decimal('cost_price' ,8,2)->default(0)->nullable(); // number of boxes sold that day
+                ->constrained('products')
+                ->onDelete('cascade'); // grab product details
             
-            $table->decimal('available_boxes' ,8,2)->default(0)->nullable(); // number of boxes sold that day
-            // $table->foreignId('created_by')
-            //     ->constrained('users')
-            //     ->onDelete('cascade')
-            //     ->nullable(); //user who created the stock entry
-
+            $table->decimal('total_units', 8, 2)->default(0); // only store total units
+            
+            $table->string('supplier')->nullable();
+            
+            $table->decimal('total_cost', 8, 2)->default(0); // total cost of all units purchased
+            
+            $table->decimal('cost_price', 8, 2)->default(0); // cost per unit (total_cost / units_per_box)
+            
+            $table->decimal('cost_margin', 8, 2)->default(0); // selling_price - cost_price
+            
+            $table->text('notes')->nullable();
+            
             $table->timestamps();
         });
     }

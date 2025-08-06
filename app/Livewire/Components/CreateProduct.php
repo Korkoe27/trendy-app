@@ -3,6 +3,7 @@
 namespace App\Livewire\Components;
 
 use App\Models\{Categories,Product,ActivityLogs};
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Livewire\Component;
 
@@ -136,8 +137,8 @@ class CreateProduct extends Component
         ];
 
         ActivityLogs::create([
-            // 'user_id'=>auth()->id(),
-            'user_id'=>1,
+            'user_id'=> Auth::id(),
+            // 'user_id'=>1,
             'action_type'=>'create_product',
             'description' => $description,
             'entity_type' => 'product_creation',

@@ -20,7 +20,7 @@ class DatabaseSeeder extends Seeder
             CategoriesSeeder::class,
             RoleSeeder::class,
             UserSeeder::class,
-            ProductSeeder::class
+            // ProductSeeder::class
         ]);
         User::factory()->create([
             'username' => 'admin',

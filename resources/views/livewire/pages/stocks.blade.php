@@ -83,10 +83,12 @@
                                 </div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
-                                <div class="text-base text-gray-900">{{ number_format($stock->available_boxes, 1) }}</div>
+                                <div class="text-base text-gray-900">
+                                    {{ $stock->product->units_per_box > 0 ? number_format($stock->total_units / $stock->product->units_per_box, 1) : 'N/A' }}
+                                </div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
-                                <div class="text-base text-gray-900">{{ number_format($stock->available_units, 0) }}</div>
+                                <div class="text-base text-gray-900">{{ number_format($stock->total_units, 0) }}</div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <div class="text-base text-gray-900">{{ $stock->supplier ?? 'N/A' }}</div>
@@ -184,9 +186,9 @@
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Boxes</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Units</th>
-                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cost Price*</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Cost*</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Supplier*</th>
-                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unit Cost</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cost Price</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Profit Margin</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
                                     </tr>
@@ -219,12 +221,12 @@
                                                     type="number" 
                                                     step="0.1"
                                                     placeholder="0.0"
-                                                    wire:model.live="newStockItems.{{ $index }}.available_boxes"
+                                                    wire:model.live="newStockItems.{{ $index }}.input_boxes"
                                                     class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm {{ isset($item['boxes_disabled']) && $item['boxes_disabled'] ? 'bg-gray-100 cursor-not-allowed' : '' }}"
                                                     min="0"
                                                     {{ isset($item['boxes_disabled']) && $item['boxes_disabled'] ? 'disabled' : '' }}
                                                 />
-                                                @error('newStockItems.' . $index . '.available_boxes')
+                                                @error('newStockItems.' . $index . '.input_boxes')
                                                     <div class="text-red-500 text-xs mt-1">{{ $message }}</div>
                                                 @enderror
                                             </td>
@@ -232,12 +234,12 @@
                                                 <input 
                                                     type="number" 
                                                     placeholder="0"
-                                                    wire:model.live="newStockItems.{{ $index }}.available_units"
+                                                    wire:model.live="newStockItems.{{ $index }}.input_units"
                                                     class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm {{ isset($item['units_disabled']) && $item['units_disabled'] ? 'bg-gray-100 cursor-not-allowed' : '' }}"
                                                     min="0"
                                                     {{ isset($item['units_disabled']) && $item['units_disabled'] ? 'disabled' : '' }}
                                                 />
-                                                @error('newStockItems.' . $index . '.available_units')
+                                                @error('newStockItems.' . $index . '.input_units')
                                                     <div class="text-red-500 text-xs mt-1">{{ $message }}</div>
                                                 @enderror
                                             </td>
@@ -246,12 +248,12 @@
                                                     type="number" 
                                                     step="0.01"
                                                     placeholder="0.00"
-                                                    wire:model.live="newStockItems.{{ $index }}.cost_price"
+                                                    wire:model.live="newStockItems.{{ $index }}.total_cost"
                                                     class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                                                     min="0"
                                                     required
                                                 />
-                                                @error('newStockItems.' . $index . '.cost_price')
+                                                @error('newStockItems.' . $index . '.total_cost')
                                                     <div class="text-red-500 text-xs mt-1">{{ $message }}</div>
                                                 @enderror
                                             </td>
@@ -261,6 +263,7 @@
                                                     placeholder="Supplier name"
                                                     wire:model.live="newStockItems.{{ $index }}.supplier"
                                                     class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                                                    required
                                                 />
                                                 @error('newStockItems.' . $index . '.supplier')
                                                     <div class="text-red-500 text-xs mt-1">{{ $message }}</div>
@@ -268,8 +271,8 @@
                                             </td>
                                             <td class="px-4 py-3">
                                                 <div class="text-sm text-gray-600">
-                                                    @if(isset($item['unit_cost']) && $item['unit_cost'])
-                                                        ₵{{ number_format($item['unit_cost'], 2) }}
+                                                    @if(isset($item['calculated_cost_price']) && $item['calculated_cost_price'])
+                                                        ₵{{ number_format($item['calculated_cost_price'], 2) }}
                                                     @else
                                                         -
                                                     @endif
@@ -277,9 +280,9 @@
                                             </td>
                                             <td class="px-4 py-3">
                                                 <div class="text-sm font-medium">
-                                                    @if(isset($item['profit_margin']) && $item['profit_margin'] !== '')
-                                                        <span class="text-{{ $item['profit_margin'] >= 0 ? 'green' : 'red' }}-600">
-                                                            ₵{{ number_format($item['profit_margin'], 2) }}
+                                                    @if(isset($item['calculated_profit_margin']) && $item['calculated_profit_margin'] !== '')
+                                                        <span class="text-{{ $item['calculated_profit_margin'] >= 0 ? 'green' : 'red' }}-600">
+                                                            ₵{{ number_format($item['calculated_profit_margin'], 2) }}
                                                         </span>
                                                     @else
                                                         <span class="text-gray-400">-</span>
