@@ -100,6 +100,13 @@ class CreateProduct extends Component
 
         foreach ($validProducts as $index => $productData) {
             try {
+                // Lowercase string fields
+                foreach ($productData as $key => $value) {
+                    if (is_string($value)) {
+                        $productData[$key] = strtolower($value);
+                    }
+                }
+
                 $cleanedData = array_filter($productData, function ($value) {
                     return $value !== '' && $value !== null;
                 });
@@ -113,6 +120,7 @@ class CreateProduct extends Component
                 $errors[] = "Product " . ($index + 1) . ": " . $e->getMessage();
             }
         }
+
 
         if ($successCount > 0) {
             $this->showModal = false;

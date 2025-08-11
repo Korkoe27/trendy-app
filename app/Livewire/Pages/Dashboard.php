@@ -62,17 +62,17 @@ class Dashboard extends Component
     public function getRecentSalesProperty()
     {
         return DailySales::whereDate('created_at', $this->displayDate)
-            ->with(['product.category'])
+            ->with(['products.category'])
             ->orderBy('updated_at', 'desc')
             ->take(5)
             ->get()
             ->map(function ($sale) {
                 $unitsSold = $sale->opening_stock - $sale->closing_stock;
                 $revenue = $sale->total_cash + $sale->total_momo + $sale->total_hubtel;
-                
+                $product = Product::find($sale->product_id);
                 return [
-                    'product' => $sale->product->name,
-                    'category' => $sale->product->category->name ?? 'N/A',
+                    'product' => $product->name ?? 'N/A',
+                    'category' => $sale->products->category->name ?? 'N/A',
                     'quantity' => $unitsSold,
                     'revenue' => number_format($revenue, 2),
                     'time' => $sale->updated_at->diffForHumans(),

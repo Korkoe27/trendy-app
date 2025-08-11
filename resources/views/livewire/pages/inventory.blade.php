@@ -96,7 +96,7 @@
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                 <button
                                     wire:click="openDetailsModal({{ $record->first_id }})"
-                                    class="text-blue-600 hover:text-blue-900 flex items-center space-x-1"
+                                    class="text-blue-600 cursor-pointer hover:text-blue-900 flex items-center space-x-1"
                                 >
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
@@ -372,7 +372,7 @@
 
     <!-- Details Modal -->
     @if($showDetailsModal && $selectedRecord)
-        <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="fixed inset-0 bg-black/50 bg-opacity-50 flex items-center justify-center z-50">
             <div class="bg-white rounded-lg p-6 w-full max-w-6xl mx-4 max-h-[90vh] overflow-y-auto">
                 <div class="flex justify-between items-center mb-6">
                     <div>

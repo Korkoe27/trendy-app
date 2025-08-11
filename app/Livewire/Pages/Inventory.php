@@ -110,7 +110,12 @@ class Inventory extends Component
         if (!$currentStock) return 0;
         
         // Calculate units sold
-        $openingStock = $currentStock->available_units;
+        $openingStock = $currentStock->total_units;
+
+        Log::info("Calculating expected revenue for product ID: $productId", [
+            'opening_stock' => $openingStock,
+            'current_stock' => $currentStock
+        ]);
         $closingStock = $this->calculateTotalUnits($productId);
         $unitsSold = max(0, $openingStock - $closingStock); // Ensure non-negative
         
@@ -159,8 +164,8 @@ class Inventory extends Component
                 $totalClosingUnits = $this->calculateTotalUnits($productId);
                 
                 // Get opening stock (current available units)
-                $openingStock = $stock->available_units;
-                $openingBoxes = $stock->available_boxes;
+                $openingStock = $stock->total_units;
+                $openingBoxes = $openingStock / $stock->product->units_per_box ?? 0;
                 
                 // Calculate units sold and revenue
                 $unitsSold = max(0, $openingStock - $totalClosingUnits);
@@ -189,10 +194,12 @@ class Inventory extends Component
                 
                 // Update stock with new closing values
                 $stock->update([
-                    'available_units' => $totalClosingUnits,
-                    'available_boxes' => $closingBoxes
+                    'total_units' => $totalClosingUnits,
+                    // 'available_boxes' => $closingBoxes
                 ]);
             }
+
+            
             
             // Create daily sales summary
             if ($mostSoldProductId) {
@@ -249,10 +256,11 @@ class Inventory extends Component
         }
         
         // Get all individual sales for the same date
-        $dailySales = DailySales::with(['product.category', 'stock'])
+        $dailySales = DailySales::with(['products.category', 'stock'])
             ->whereDate('created_at', $summary->created_at->format('Y-m-d'))
             ->get();
         
+        Log::info($dailySales);
         return [
             'id' => $recordId,
             'date' => $summary->created_at->format('Y-m-d'),
@@ -263,10 +271,11 @@ class Inventory extends Component
             'products' => $dailySales->map(function($sale) {
                 $unitsSold = $sale->opening_stock - $sale->closing_stock;
                 $boxesSold = $sale->opening_boxes - $sale->closing_boxes;
+                $product = Product::find($sale->product_id);
                 
                 return [
-                    'product_name' => $sale->product->name,
-                    'category' => $sale->product->category->name ?? 'N/A',
+                    'product_name' => $product->name ?? 'N/A',
+                    'category' => $product->category->name ?? 'N/A',
                     'opening_stock' => $sale->opening_stock,
                     'closing_stock' => $sale->closing_stock,
                     'opening_boxes' => $sale->opening_boxes,

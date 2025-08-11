@@ -39,20 +39,13 @@ class UserAuthController extends Controller
 
         $request->session()->regenerate();
 
-        Log::info("Hey");
-        // Example:
-        // $credentials = $request->only('username', 'password');
-        
-        // if (auth()->attempt($credentials)) {
-        //     return redirect()->intended('dashboard'); // Redirect to intended page after login
-        // }
 
         $metadata = [
             // 'ip_address' => $request->ip(),
             'username' => Auth::user()->username,
             'login_time' => now(),
         ];
-
+        
         ActivityLogs::create([
             'user_id' => Auth::id(),
             'action_type' => 'Log in',

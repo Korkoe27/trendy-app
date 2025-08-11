@@ -186,6 +186,7 @@
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Boxes</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Units</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Units</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Cost*</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Supplier*</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cost Price</th>
@@ -204,7 +205,7 @@
                                                 >
                                                     <option value="">Select Product</option>
                                                     @foreach($products as $product)
-                                                        <option value="{{ $product->id }}">
+                                                        <option value="{{ $product->id }}" class="uppercase font-semibold">
                                                             {{ $product->name }} - {{ $product->category->name }}
                                                             @if($product->sku)
                                                                 ({{ $product->sku }})
@@ -222,9 +223,8 @@
                                                     step="0.1"
                                                     placeholder="0.0"
                                                     wire:model.live="newStockItems.{{ $index }}.input_boxes"
-                                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm {{ isset($item['boxes_disabled']) && $item['boxes_disabled'] ? 'bg-gray-100 cursor-not-allowed' : '' }}"
+                                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                                                     min="0"
-                                                    {{ isset($item['boxes_disabled']) && $item['boxes_disabled'] ? 'disabled' : '' }}
                                                 />
                                                 @error('newStockItems.' . $index . '.input_boxes')
                                                     <div class="text-red-500 text-xs mt-1">{{ $message }}</div>
@@ -235,13 +235,25 @@
                                                     type="number" 
                                                     placeholder="0"
                                                     wire:model.live="newStockItems.{{ $index }}.input_units"
-                                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm {{ isset($item['units_disabled']) && $item['units_disabled'] ? 'bg-gray-100 cursor-not-allowed' : '' }}"
+                                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                                                     min="0"
-                                                    {{ isset($item['units_disabled']) && $item['units_disabled'] ? 'disabled' : '' }}
                                                 />
                                                 @error('newStockItems.' . $index . '.input_units')
                                                     <div class="text-red-500 text-xs mt-1">{{ $message }}</div>
                                                 @enderror
+                                            </td>
+                                            <td class="px-4 py-3">
+                                                <div class="flex items-center justify-center">
+                                                    @if(isset($item['calculated_total_units']) && $item['calculated_total_units'] > 0)
+                                                        <div class="bg-blue-100 text-blue-800 px-3 py-2 rounded-lg font-semibold text-sm min-w-[60px] text-center">
+                                                            {{ number_format($item['calculated_total_units'], 0) }}
+                                                        </div>
+                                                    @else
+                                                        <div class="bg-gray-100 text-gray-500 px-3 py-2 rounded-lg text-sm min-w-[60px] text-center">
+                                                            0
+                                                        </div>
+                                                    @endif
+                                                </div>
                                             </td>
                                             <td class="px-4 py-3">
                                                 <input 
@@ -270,7 +282,7 @@
                                                 @enderror
                                             </td>
                                             <td class="px-4 py-3">
-                                                <div class="text-sm text-gray-600">
+                                                <div class="text-sm text-gray-600 text-center">
                                                     @if(isset($item['calculated_cost_price']) && $item['calculated_cost_price'])
                                                         ₵{{ number_format($item['calculated_cost_price'], 2) }}
                                                     @else
@@ -279,7 +291,7 @@
                                                 </div>
                                             </td>
                                             <td class="px-4 py-3">
-                                                <div class="text-sm font-medium">
+                                                <div class="text-sm font-medium text-center">
                                                     @if(isset($item['calculated_profit_margin']) && $item['calculated_profit_margin'] !== '')
                                                         <span class="text-{{ $item['calculated_profit_margin'] >= 0 ? 'green' : 'red' }}-600">
                                                             ₵{{ number_format($item['calculated_profit_margin'], 2) }}
@@ -289,7 +301,7 @@
                                                     @endif
                                                 </div>
                                             </td>
-                                            <td class="px-4 py-3">
+                                            <td class="px-4 py-3 text-center">
                                                 @if(count($newStockItems) > 1)
                                                     <button 
                                                         type="button"
@@ -305,10 +317,10 @@
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="8" class="px-4 py-8 text-center text-gray-500">
+                                            <td colspan="9" class="px-4 py-8 text-center text-gray-500">
                                                 No items added yet. Click "Add Item" to start.
                                             </td>
-                                        </tr>
+                        </tr>
                                     @endforelse
                                 </tbody>
                             </table>
@@ -317,6 +329,39 @@
                         @error('newStockItems')
                             <div class="text-red-500 text-sm mt-2">{{ $message }}</div>
                         @enderror
+
+                        <!-- Total Summary -->
+                        @if(!empty($newStockItems))
+                            @php
+                                $totalUnitsAcrossAllItems = 0;
+                                $totalCostAcrossAllItems = 0;
+                                foreach($newStockItems as $item) {
+                                    if(isset($item['calculated_total_units']) && $item['calculated_total_units'] > 0) {
+                                        $totalUnitsAcrossAllItems += $item['calculated_total_units'];
+                                    }
+                                    if(isset($item['total_cost']) && $item['total_cost'] > 0) {
+                                        $totalCostAcrossAllItems += floatval($item['total_cost']);
+                                    }
+                                }
+                            @endphp
+                            @if($totalUnitsAcrossAllItems > 0 || $totalCostAcrossAllItems > 0)
+                                <div class="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                                    <div class="flex justify-between items-center">
+                                        <h4 class="font-semibold text-blue-900">Summary</h4>
+                                        <div class="flex space-x-6 text-sm">
+                                            <div class="text-blue-700">
+                                                <span class="font-medium">Total Units:</span> 
+                                                <span class="font-bold text-blue-900">{{ number_format($totalUnitsAcrossAllItems, 0) }}</span>
+                                            </div>
+                                            <div class="text-blue-700">
+                                                <span class="font-medium">Total Cost:</span> 
+                                                <span class="font-bold text-blue-900">₵{{ number_format($totalCostAcrossAllItems, 2) }}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            @endif
+                        @endif
                     </div>
 
                     <!-- Notes Section -->

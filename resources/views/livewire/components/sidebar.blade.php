@@ -7,7 +7,7 @@
          x-transition:leave="transition-opacity ease-linear duration-300"
          x-transition:leave-start="opacity-100"
          x-transition:leave-end="opacity-0"
-         class="fixed inset-0 z-50 bg-black bg-opacity-50 lg:hidden"
+         class="fixed inset-0 z-50 bg-black/50 bg-opacity-50 lg:hidden"
          wire:click="closeSidebar">
     </div>
 
