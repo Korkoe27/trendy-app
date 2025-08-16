@@ -22,10 +22,10 @@ class DatabaseSeeder extends Seeder
             UserSeeder::class,
             // ProductSeeder::class
         ]);
-        User::factory()->create([
-            'username' => 'admin',
-            'name' => 'Admin User',
-            'email' => 'admin'
-            ]);
+        // User::factory()->create([
+        //     'username' => 'admin',
+        //     'name' => 'Admin User',
+        //     'email' => 'admin'
+        //     ]);
     }
 }

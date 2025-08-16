@@ -55,7 +55,7 @@ class Dashboard extends Component
     {
         return Product::whereHas('stocks', function ($query) {
             $query->whereRaw('stocks.total_units < products.stock_limit')
-                  ->where('stocks.total_units', '>', 0);
+                ->orWhere('stocks.total_units', '=', 0);
         })->with(['stocks', 'category'])->get();
     }
 

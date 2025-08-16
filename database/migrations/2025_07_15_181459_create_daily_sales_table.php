@@ -24,6 +24,8 @@ return new class extends Migration
 
             $table->float('opening_stock')->nullable()->default(0.00);
 
+            $table->float('unit_profit')->nullable()->default(0.00);
+
             $table->float('closing_stock')->nullable()->default(0.00);
 
             $table->float('total_amount')->default(0.00);

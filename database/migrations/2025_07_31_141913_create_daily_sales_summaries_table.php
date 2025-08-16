@@ -19,6 +19,8 @@ return new class extends Migration
             $table->float('total_momo')->default(0.00);
             $table->float('total_hubtel')->default(0.00);
             //most sold
+            $table->float('total_profit')->default(0.00);
+            
             $table->foreignId('product_id')
                 ->constrained('products')
                 ->onDelete('cascade');

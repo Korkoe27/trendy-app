@@ -2,7 +2,8 @@
 
 namespace App\Livewire\Pages;
 
-use App\Models\{Product,Stock,DailySales,DailySalesSummary};
+use App\Models\{ActivityLogs, Product, Stock, DailySales, DailySalesSummary};
+use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -116,6 +117,7 @@ class Inventory extends Component
             'opening_stock' => $openingStock,
             'current_stock' => $currentStock
         ]);
+        
         $closingStock = $this->calculateTotalUnits($productId);
         $unitsSold = max(0, $openingStock - $closingStock); // Ensure non-negative
         
@@ -141,10 +143,18 @@ class Inventory extends Component
             'momoAmount' => 'required|numeric|min:0',
             'hubtelAmount' => 'required|numeric|min:0',
         ]);
+
+        Log::info('Submitting inventory', [
+            'cash_amount' => $this->cashAmount,
+            'momo_amount' => $this->momoAmount,
+            'hubtel_amount' => $this->hubtelAmount,
+            'product_stocks' => $this->productStocks
+        ]);
         
         DB::transaction(function () {
             $totalRevenue = 0;
             $totalItemsSold = 0;
+            $totalProfit = 0;
             $mostSoldProductId = null;
             $maxUnitsSold = 0;
             
@@ -157,23 +167,28 @@ class Inventory extends Component
                 $product = Product::find($productId);
                 $stock = Stock::where('product_id', $productId)->first();
                 
-                if (!$stock) continue;
+                if (!$stock || !$product) continue;
                 
-                $closingBoxes = (int) ($stockData['closing_boxes'] ?? 0);
-                $closingUnits = (int) ($stockData['closing_units'] ?? 0);
+                $closingBoxes = (float) ($stockData['closing_boxes'] ?? 0);
+                $closingUnits = (float) ($stockData['closing_units'] ?? 0);
                 $totalClosingUnits = $this->calculateTotalUnits($productId);
                 
                 // Get opening stock (current available units)
                 $openingStock = $stock->total_units;
-                $openingBoxes = $openingStock / $stock->product->units_per_box ?? 0;
+                $openingBoxes = $product->units_per_box > 0 ? 
+                    floor($openingStock / $product->units_per_box) : 0;
                 
                 // Calculate units sold and revenue
                 $unitsSold = max(0, $openingStock - $totalClosingUnits);
                 $productRevenue = $unitsSold * ($product->selling_price ?? 0);
                 
+                // Calculate profit per unit
+                $unitProfit = $unitsSold * (($product->selling_price ?? 0) - ($stock->cost_price ?? 0));
+                
                 // Track totals for summary
                 $totalRevenue += $productRevenue;
                 $totalItemsSold += $unitsSold;
+                $totalProfit += $unitProfit;
                 
                 // Track most sold product
                 if ($unitsSold > $maxUnitsSold) {
@@ -190,26 +205,41 @@ class Inventory extends Component
                     'opening_boxes' => $openingBoxes,
                     'closing_boxes' => $closingBoxes,
                     'total_amount' => $productRevenue,
+                    'unit_profit' => $unitProfit,
                 ]);
                 
                 // Update stock with new closing values
                 $stock->update([
                     'total_units' => $totalClosingUnits,
-                    // 'available_boxes' => $closingBoxes
                 ]);
             }
 
-            
-            
-            // Create daily sales summary
-            if ($mostSoldProductId) {
+            // Create daily sales summary only if we have sales data
+            if ($mostSoldProductId && $totalRevenue > 0) {
                 DailySalesSummary::create([
                     'total_revenue' => $totalRevenue,
                     'items_sold' => $totalItemsSold,
+                    'total_profit' => $totalProfit,
                     'total_cash' => (float) $this->cashAmount,
                     'total_momo' => (float) $this->momoAmount,
                     'total_hubtel' => (float) $this->hubtelAmount,
                     'product_id' => $mostSoldProductId, // Most sold product
+                ]);
+
+                ActivityLogs::create([
+                    'user_id' => Auth::id(),
+                    'action_type' => 'daily_sales',
+                    'description' => "Daily Sales recorded for " . now()->format('Y-m-d'),
+                    'entity_type' => 'inventory',
+                    'entity_id' => 'inventory',
+                    'metadata' => json_encode([
+                        'total_revenue' => $totalRevenue,
+                        'items_sold' => $totalItemsSold,
+                        'total_profit' => $totalProfit,
+                        'total_cash' => (float) $this->cashAmount,
+                        'total_momo' => (float) $this->momoAmount,
+                        'total_hubtel' => (float) $this->hubtelAmount
+                    ])
                 ]);
             }
         });
@@ -256,7 +286,7 @@ class Inventory extends Component
         }
         
         // Get all individual sales for the same date
-        $dailySales = DailySales::with(['products.category', 'stock'])
+        $dailySales = DailySales::with(['stock'])
             ->whereDate('created_at', $summary->created_at->format('Y-m-d'))
             ->get();
         
@@ -268,10 +298,11 @@ class Inventory extends Component
             'total_momo' => $summary->total_momo,
             'total_hubtel' => $summary->total_hubtel,
             'total_revenue' => $summary->total_revenue,
+            'total_profit' => $summary->total_profit,
             'products' => $dailySales->map(function($sale) {
                 $unitsSold = $sale->opening_stock - $sale->closing_stock;
                 $boxesSold = $sale->opening_boxes - $sale->closing_boxes;
-                $product = Product::find($sale->product_id);
+                $product = Product::with('category')->find($sale->product_id);
                 
                 return [
                     'product_name' => $product->name ?? 'N/A',

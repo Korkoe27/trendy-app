@@ -63,24 +63,24 @@ class UserAuthController extends Controller
 
     public function destroy(Request $request)
     {
-
-        Auth::logout();
-        $request->session()->invalidate();
-        $request->session()->regenerateToken();
-
         $metadata = [
             // 'ip_address' => $request->ip(),
             'username' => Auth::user()?->username,
             'logout_time' => now(),
         ];
         ActivityLogs::create([
-            'user_id' => Auth::user()?->id,
+            'user_id' => Auth::id(),
             'action_type' => 'logout',
             'description' => 'User logged out successfully',
             'entity_type' => 'user',
             'entity_id' => Auth::id(),
             'metadata' => json_encode($metadata),
         ]);
+        Auth::logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+
 
 
         return redirect()->route('login');
