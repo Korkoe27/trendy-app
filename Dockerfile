@@ -29,10 +29,10 @@ FROM php:8.2-fpm-alpine AS runtime
 WORKDIR /var/www/html
 
 # system deps
-RUN apk add --no-cache bash icu-dev libzip-dev zlib-dev curl oniguruma-dev nginx
+RUN apk add --no-cache bash icu-dev libzip-dev zlib-dev curl oniguruma-dev nginx postgresql-dev
 
 # php extensions
-RUN docker-php-ext-install pdo pdo_mysql zip intl
+RUN docker-php-ext-install pdo pdo_pgsql zip intl
 
 # Copy application from composer build stage
 COPY --from=composer_builder /app /var/www/html

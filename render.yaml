@@ -11,6 +11,8 @@ services:
         value: "10000"
       - key: APP_ENV
         value: "production"
+      - key: APP_KEY
+        value: "base64:zbBPuV85MABsxJzqFZ5xsIS8Ra2oEXrDro9S0KqaXow="
       - key: RUN_MIGRATIONS
         value: "true"
       - key: DB_CONNECTION
