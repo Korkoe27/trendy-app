@@ -12,17 +12,12 @@ fi
 mkdir -p storage app/storage bootstrap/cache
 chown -R www-data:www-data storage bootstrap/cache || true
 
- # Generate APP_KEY if missing and persist it into .env
+# Generate APP_KEY if missing
 if [ -f .env ]; then
   APP_KEY_LINE=$(grep -E '^APP_KEY=' .env || true)
   if [ -z "${APP_KEY_LINE}" ] || [ "${APP_KEY_LINE#APP_KEY=}" = "" ]; then
     echo "Generating APP_KEY"
-    GENERATED_KEY=$(php artisan key:generate --show || true)
-    if [ -n "${GENERATED_KEY}" ]; then
-      # Remove existing APP_KEY lines and append the new one
-      sed -i "/^APP_KEY=/d" .env || true
-      echo "APP_KEY=${GENERATED_KEY}" >> .env
-    fi
+    php artisan key:generate --force || true
   fi
 fi
 
@@ -31,15 +26,13 @@ if [ ! -L public/storage ]; then
   php artisan storage:link || true
 fi
 
- # Optionally run migrations
+# Clear caches to pick up runtime env
+php artisan optimize:clear || true
+
+# Optionally run migrations
 if [ "${RUN_MIGRATIONS:-false}" = "true" ]; then
   echo "Running migrations"
-  # Run migrations but tolerate missing DB driver error
   php artisan migrate --force || true
 fi
-
-# Clear caches to pick up runtime env and migrated schema
-# Some cache operations may attempt DB access; tolerate failures
-php artisan optimize:clear || true
 
 echo "Deploy script finished"

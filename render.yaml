@@ -13,6 +13,24 @@ services:
         value: "production"
       - key: RUN_MIGRATIONS
         value: "true"
+      - key: DB_CONNECTION
+        value: pgsql
+      - key: DB_HOST
+        value: dpg-d2g9dr75r7bs73eqer1g-a
+      - key: DB_PORT
+        value: "5432"
+      - key: DB_DATABASE
+        value: trendydb_ziy6
+      - key: DB_USERNAME
+        value: trendydb_ziy6_user
+      - key: DB_PASSWORD
+        value: hUcZhEIRm96WFAdxC8VZFtcshREdBWz3
+      - key: CACHE_DRIVER
+        value: file
+      - key: SESSION_DRIVER
+        value: file
+      - key: QUEUE_CONNECTION
+        value: sync
 
 databases:
   - name: trendy-db
