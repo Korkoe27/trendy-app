@@ -25,33 +25,38 @@ RUN composer dump-autoload --optimize
 #########################
 # Final runtime image
 #########################
-FROM php:8.2-cli-alpine
-WORKDIR /app
+FROM php:8.2-fpm-alpine AS runtime
+WORKDIR /var/www/html
 
 # system deps
-RUN apk add --no-cache bash icu-dev libzip-dev zlib-dev curl oniguruma-dev
+RUN apk add --no-cache bash icu-dev libzip-dev zlib-dev curl oniguruma-dev nginx
 
 # php extensions
 RUN docker-php-ext-install pdo pdo_mysql zip intl
 
 # Copy application from composer build stage
-COPY --from=composer_builder /app /app
+COPY --from=composer_builder /app /var/www/html
 
 # Copy built frontend assets
-COPY --from=node_builder /app/public/build /app/public/build
+COPY --from=node_builder /app/public/build /var/www/html/public/build
 
-# Ensure storage and cache dirs exist
-RUN mkdir -p /app/storage /app/bootstrap/cache || true
-RUN chown -R 1000:1000 /app/storage /app/bootstrap/cache || true
+# Ensure storage and cache dirs exist and correct ownership
+RUN mkdir -p /var/www/html/storage /var/www/html/bootstrap/cache /run/nginx \
+    && chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache || true
 
 ENV APP_ENV=production
-ENV HOST=0.0.0.0
 ENV PORT=10000
 
+# Nginx listens on PORT 10000 (configured via default.conf)
 EXPOSE 10000
 
-# Add entrypoint to handle runtime boot tasks
+# Copy nginx config and startup scripts
+COPY docker/nginx.conf /etc/nginx/nginx.conf
+COPY docker/default.conf /etc/nginx/conf.d/default.conf
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+COPY docker/deploy.sh /usr/local/bin/deploy.sh
+COPY docker/start-server.sh /usr/local/bin/start-server.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh /usr/local/bin/start-server.sh
+RUN chmod +x /usr/local/bin/deploy.sh
 
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
