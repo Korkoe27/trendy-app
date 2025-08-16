@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: trendy-app
+    env: docker
+    branch: main
+    plan: starter
+    dockerfilePath: Dockerfile
+    autoDeploy: true
+    envVars:
+      - key: PORT
+        value: "10000"
+      - key: APP_ENV
+        value: "production"
+      - key: RUN_MIGRATIONS
+        value: "true"
+
+databases:
+  - name: trendy-db
+    engine: postgresql
+    plan: starter
