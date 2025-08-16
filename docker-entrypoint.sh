@@ -1,35 +1,49 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# If no .env file exists, copy from example
-if [ ! -f /var/www/html/.env ] && [ -f /var/www/html/.env.example ]; then
-  cp /var/www/html/.env.example /var/www/html/.env
+log()  { echo "[$(date -u +'%Y-%m-%dT%H:%M:%SZ')] $*"; }
+warn() { echo "[$(date -u +'%Y-%m-%dT%H:%M:%SZ')] WARN: $*" >&2; }
+err()  { echo "[$(date -u +'%Y-%m-%dT%H:%M:%SZ')] ERROR: $*" >&2; }
+
+# --- 1) Sanity checks (no .env writes in containers) ---
+if [ -z "${APP_KEY:-}" ]; then
+  err "APP_KEY is not set. Set it in Render's Environment (e.g., base64:...)."
+  exit 1
 fi
 
-# Ensure writable directories exist
+# --- 2) Ensure writable dirs ---
 mkdir -p /var/www/html/storage /var/www/html/bootstrap/cache
 chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache || true
 
-# Generate APP_KEY if missing in .env
-if [ -f /var/www/html/.env ]; then
-  APP_KEY_LINE=$(grep -E '^APP_KEY=' /var/www/html/.env || true)
-  if [ -z "${APP_KEY_LINE}" ] || [ "${APP_KEY_LINE#APP_KEY=}" = "" ]; then
-    php artisan key:generate --force || true
-  fi
-fi
+# --- 3) One-time niceties (never fatal) ---
+php artisan storage:link || true
 
-# Optionally run migrations if RUN_MIGRATIONS=true
-if [ "${RUN_MIGRATIONS:-false}" = "true" ]; then
-  php artisan migrate --force || true
-fi
-
-# Clear config so runtime env vars are used
+# Build lightweight runtime caches (do NOT clear DB cache here)
 php artisan config:clear || true
+php artisan config:cache || true
+php artisan route:cache  || true
+php artisan view:cache   || true
 
-# Run deploy tasks
-if [ -x /usr/local/bin/deploy.sh ]; then
-  /usr/local/bin/deploy.sh || true
+# --- 4) Optional migrations with retries (no .env mutation) ---
+if [ "${RUN_MIGRATIONS:-false}" = "true" ]; then
+  log "RUN_MIGRATIONS=true — attempting database migrations..."
+  tries=0
+  until php artisan migrate --force; do
+    tries=$((tries+1))
+    if [ "$tries" -ge 5 ]; then
+      warn "Migrations still failing after ${tries} attempts; continuing startup."
+      break
+    fi
+    warn "Migration attempt ${tries} failed; retrying in 5s..."
+    sleep 5
+  done
 fi
 
-# Start php-fpm and nginx
+# --- 5) Optional deploy hook (safe if missing) ---
+if [ -x /usr/local/bin/deploy.sh ]; then
+  log "Running deploy.sh..."
+  /usr/local/bin/deploy.sh || warn "deploy.sh exited non-zero; continuing."
+fi
+
+# --- 6) Start services ---
 exec /usr/local/bin/start-server.sh
