@@ -16,7 +16,7 @@ return [
     |
     */
 
-    'default' => env('DB_CONNECTION', 'sqlite'),
+    'default' => env('DB_CONNECTION', 'pgsql'),
 
     /*
     |--------------------------------------------------------------------------
@@ -82,6 +82,20 @@ return [
             ]) : [],
         ],
 
+        // 'pgsql' => [
+        //     'driver' => 'pgsql',
+        //     'url' => env('DATABASE_URL'),
+        //     'host' => env('host', '127.0.0.1'),
+        //     'port' => env('port', '5432'),
+        //     'database' => env('dbname', 'trendy_app'),
+        //     'username' => env('user', 'postgres'),
+        //     'password' => env('password', 'postgres'),
+        //     'charset' => env('DB_CHARSET', 'utf8'),
+        //     'prefix' => '',
+        //     'prefix_indexes' => true,
+        //     'search_path' => 'public',
+        //     'sslmode' => 'prefer',
+        // ],
         'pgsql' => [
             'driver' => 'pgsql',
             'url' => env('DB_URL'),

@@ -27,6 +27,20 @@ class Inventory extends Component
         $this->selectedDate = now()->format('Y-m-d');
     }
     
+    public function updatedCashAmount($value)
+    {
+        $this->cashAmount = $value;
+    }
+
+    public function updatedMomoAmount($value) 
+    {
+        $this->momoAmount = $value;
+    }
+
+    public function updatedHubtelAmount($value)
+    {
+        $this->hubtelAmount = $value;
+    }
     public function openTakeInventoryModal()
     {
         $this->showTakeInventoryModal = true;
@@ -43,9 +57,9 @@ class Inventory extends Component
     public function resetForm()
     {
         $this->currentStep = 1;
-        $this->cashAmount = '';
-        $this->momoAmount = '';
-        $this->hubtelAmount = '';
+        // $this->cashAmount = '';
+        // $this->momoAmount = '';
+        // $this->hubtelAmount = '';
         $this->productStocks = [];
     }
     

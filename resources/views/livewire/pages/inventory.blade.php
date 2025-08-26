@@ -27,7 +27,7 @@
                 {{-- Date selector (binds to selectedDate if you want to query historical days later) --}}
                 <input
                     type="date"
-                    wire:model.defer="selectedDate"
+                    wire:model="selectedDate"
                     class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
                 <button
@@ -197,7 +197,7 @@
                 {{-- Step Content --}}
                 <div class="mb-8">
                     @if($currentStep == 1)
-                        <div class="space-y-4">
+                        <div wire:key="cash-step" class="space-y-4">
                             <div class="text-center mb-6">
                                 <svg class="w-12 h-12 text-green-600 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"></path>
@@ -208,14 +208,14 @@
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Cash Amount ($)</label>
                                 <input
-                                    type="number" step="0.01" wire:model="cashAmount" placeholder="0.00"
+                                    type="number" step="0.01" wire:model.defer="cashAmount" placeholder="0.00"
                                     class="w-full px-4 py-3 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-center"
                                 />
                                 @error('cashAmount') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
                             </div>
                         </div>
                     @elseif($currentStep == 2)
-                        <div class="space-y-4">
+                        <div wire:key="momo-step" class="space-y-4">
                             <div class="text-center mb-6">
                                 <svg class="w-12 h-12 text-blue-600 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
@@ -226,14 +226,14 @@
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Mobile Money Amount ($)</label>
                                 <input
-                                    type="number" step="0.01" wire:model="momoAmount" placeholder="0.00"
+                                    type="number" step="0.01" wire:model.defer="momoAmount" placeholder="0.00"
                                     class="w-full px-4 py-3 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-center"
                                 />
                                 @error('momoAmount') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
                             </div>
                         </div>
                     @elseif($currentStep == 3)
-                        <div class="space-y-4">
+                        <div wire:key="hubtel-step" class="space-y-4">
                             <div class="text-center mb-6">
                                 <svg class="w-12 h-12 text-purple-600 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v11a2 2 0 002 2z"></path>
@@ -244,14 +244,14 @@
                             <div>
                                 <label class="block text-xs font-medium text-gray-700 mb-2">Hubtel Amount ($)</label>
                                 <input
-                                    type="number" step="0.01" wire:model="hubtelAmount" placeholder="0.00"
+                                    type="number" step="0.01" wire:model.defer="hubtelAmount" placeholder="0.00"
                                     class="w-full px-4 py-3 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-center"
                                 />
                                 @error('hubtelAmount') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
                             </div>
                         </div>
                     @elseif($currentStep == 4)
-                        <div class="space-y-4">
+                        <div wire:key="stock-step" class="space-y-4">
                             <div class="text-center mb-6">
                                 <svg class="w-12 h-12 text-orange-600 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
