@@ -27,14 +27,31 @@ class Inventory extends Component
         $this->selectedDate = now()->format('Y-m-d');
     }
     
+
+    protected $rules = [
+        'cashAmount' => 'required|numeric|min:0',
+        'momoAmount' => 'required|numeric|min:0',
+        'hubtelAmount' => 'required|numeric|min:0',
+    ];
     public function updatedCashAmount($value)
     {
+        if ($value < 0) {
+        $this->cashAmount = 0;
+        return;
+    }
         $this->cashAmount = $value;
+        $this->validateOnly('cashAmount');
     }
 
     public function updatedMomoAmount($value) 
     {
+            if ($value < 0) {
+            $this->momoAmount = 0;
+            return;
+        }
+    
         $this->momoAmount = $value;
+        $this->validateOnly('momoAmount');
     }
 
     public function updatedHubtelAmount($value)
@@ -63,6 +80,16 @@ class Inventory extends Component
         $this->productStocks = [];
     }
     
+    public function resetAllFormData()
+    {
+        $this->currentStep = 1;
+        $this->cashAmount = '';
+        $this->momoAmount = '';
+        $this->hubtelAmount = '';
+        $this->productStocks = [];
+    }
+
+
     public function loadProductStocks()
     {
         $products = Product::with(['stocks', 'category'])->where('is_active', true)->get();
@@ -272,6 +299,7 @@ class Inventory extends Component
     {
         $this->showDetailsModal = false;
         $this->selectedRecord = null;
+        $this->resetAllFormData(); 
     }
     
     public function getDailySalesRecords()

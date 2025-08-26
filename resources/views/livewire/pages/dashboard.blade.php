@@ -50,13 +50,14 @@
                         <p class="text-sm font-medium text-gray-600">
                             {{ $hasTodayData ? "Today's Revenue" : "Yesterday's Revenue" }}
                         </p>
-                        <p class="text-2xl md:text-3xl font-bold text-gray-900 mt-2">GHC {{ $this->todayRevenue }}</p>
+                        <p class="text-2xl md:text-3xl font-bold text-gray-900 mt-2">GH₵ {{ $this->todayRevenue }}</p>
                     </div>
                     <div class="bg-blue-100 p-3 rounded-full">
-                        <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                            <line x1="12" x2="12" y1="2" y2="22"/>
-                            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                       <svg class="w-6 h-6 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                        <path d="M17 6a8 8 0 1 0 0 12" stroke-linecap="round" stroke-linejoin="round"/>
+                        <line x1="12" y1="2" x2="12" y2="22" stroke-linecap="round"/>
                         </svg>
+
                     </div>
                 </div>
             </div>
@@ -130,7 +131,7 @@
                                         <p class="text-xs text-gray-500">{{ $sale['category'] }} • Qty: {{ $sale['quantity'] }}</p>
                                     </div>
                                     <div class="text-right ml-4">
-                                        <p class="text-sm font-semibold text-gray-900">GHC {{ $sale['revenue'] }}</p>
+                                        <p class="text-sm font-semibold text-gray-900">GH₵ {{ $sale['revenue'] }}</p>
                                         <p class="text-xs text-gray-500">{{ $sale['time'] }}</p>
                                     </div>
                                 </div>

@@ -96,7 +96,7 @@
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <div class="text-base text-gray-900">
                                     @if($stock->cost_price)
-                                        ₵{{ number_format($stock->cost_price, 2) }}
+                                        GH₵ {{ number_format($stock->cost_price, 2) }}
                                     @else
                                         N/A
                                     @endif
@@ -106,7 +106,7 @@
                                 <div class="text-base">
                                     @if($stock->cost_margin)
                                         <span class="text-{{ $stock->cost_margin >= 0 ? 'green' : 'red' }}-600 font-semibold">
-                                            ₵{{ number_format($stock->cost_margin, 2) }}
+                                            GH₵ {{ number_format($stock->cost_margin, 2) }}
                                         </span>
                                     @else
                                         <span class="text-gray-400">N/A</span>

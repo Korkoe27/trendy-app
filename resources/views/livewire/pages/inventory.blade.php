@@ -81,16 +81,16 @@
                                 </div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
-                                <div class="text-sm font-medium text-green-600">${{ number_format($record->total_cash, 2) }}</div>
+                                <div class="text-sm font-medium text-green-600">GH₵ {{ number_format($record->total_cash, 2) }}</div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
-                                <div class="text-sm font-medium text-blue-600">${{ number_format($record->total_momo, 2) }}</div>
+                                <div class="text-sm font-medium text-blue-600">GH₵ {{ number_format($record->total_momo, 2) }}</div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
-                                <div class="text-sm font-medium text-purple-600">${{ number_format($record->total_hubtel, 2) }}</div>
+                                <div class="text-sm font-medium text-purple-600">GH₵ {{ number_format($record->total_hubtel, 2) }}</div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
-                                <div class="text-sm font-bold text-gray-900">${{ number_format($record->total_revenue, 2) }}</div>
+                                <div class="text-sm font-bold text-gray-900">GH₵ {{ number_format($record->total_revenue, 2) }}</div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <div class="text-sm text-gray-900">{{ $record->total_products }} items</div>
@@ -206,9 +206,9 @@
                                 <p class="text-sm text-gray-600">Enter the total cash amount collected today</p>
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Cash Amount ($)</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Cash Amount (GH₵)</label>
                                 <input
-                                    type="number" step="0.01" wire:model.defer="cashAmount" placeholder="0.00"
+                                    type="number" min="0" step="0.01" wire:model.lazy="cashAmount" placeholder="0.00"
                                     class="w-full px-4 py-3 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-center"
                                 />
                                 @error('cashAmount') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
@@ -224,9 +224,9 @@
                                 <p class="text-sm text-gray-600">Enter the total mobile money amount collected today</p>
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Mobile Money Amount ($)</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Mobile Money Amount (GH₵)</label>
                                 <input
-                                    type="number" step="0.01" wire:model.defer="momoAmount" placeholder="0.00"
+                                    type="number" min="0" step="0.01" wire:model.defer="momoAmount" placeholder="0.00"
                                     class="w-full px-4 py-3 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-center"
                                 />
                                 @error('momoAmount') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
@@ -242,9 +242,9 @@
                                 <p class="text-sm text-gray-600">Enter the total Hubtel amount collected today</p>
                             </div>
                             <div>
-                                <label class="block text-xs font-medium text-gray-700 mb-2">Hubtel Amount ($)</label>
+                                <label class="block text-xs font-medium text-gray-700 mb-2">Hubtel Amount (GH₵)</label>
                                 <input
-                                    type="number" step="0.01" wire:model.defer="hubtelAmount" placeholder="0.00"
+                                    type="number" step="0.01" min="0" wire:model.defer="hubtelAmount" placeholder="0.00"
                                     class="w-full px-4 py-3 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-center"
                                 />
                                 @error('hubtelAmount') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
@@ -491,7 +491,7 @@
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Closing (bx)</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Units Sold</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Boxes Sold</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Revenue ($)</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Revenue (GH₵)</th>
                                 </tr>
                             </thead>
                             <tbody class="bg-white divide-y divide-gray-200">
