@@ -73,7 +73,7 @@
                                                 >
                                                     <option value="">Select Category</option>
                                                     @foreach($categories as $category)
-                                                        <option value="{{ $category->id }}">{{ $category->name }}</option>
+                                                        <option class="capitalize" value="{{ $category->id }}">{{ $category->name }}</option>
                                                     @endforeach
                                                 </select>
                                                 @error('newProducts.' . $index . '.category_id')
