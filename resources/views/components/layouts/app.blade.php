@@ -1,4 +1,8 @@
 @props(['activeItem' => null])
+@php
+    $f_name = explode(' ', Auth::user()->name)[0];
+@endphp
+
 
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">

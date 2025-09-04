@@ -1,4 +1,11 @@
 <div class="relative h-full">
+    @php
+    $f_name = explode(' ', Auth::user()->name)[0];
+    $f_initial = strtoupper(substr(Auth::user()->name, 0, 1));
+    $l_initial = strtoupper(substr(strrchr(Auth::user()?->name, ' '), 1, 1));
+    $initials = $f_initial . $l_initial;
+@endphp
+
     <!-- Mobile overlay -->
     <div x-show="$wire.isOpen" 
          x-transition:enter="transition-opacity ease-linear duration-300"
@@ -99,10 +106,12 @@
         <!-- Footer -->
         <div class="p-4 border-t border-gray-200">
             <div class="flex items-center">
-                <img class="w-8 h-8 rounded-full" src="https://via.placeholder.com/32x32" alt="User avatar">
+                <span class="rounded-full bg-gray-200 text-gray-600 w-10 h-10 flex items-center justify-center font-semibold">
+                    {{ $initials }}
+                </span>
                 <div class="ml-3">
-                    <p class="text-sm font-medium text-gray-700">John Doe</p>
-                    <p class="text-xs text-gray-500">Admin</p>
+                    <p class="text-sm font-medium text-gray-700">{{ $f_name }}</p>
+                    {{-- <p class="text-xs text-gray-500">{{ Auth::user()->name }}</p> --}}
                 </div>
             </div>
             <form action="{{ route('logout') }}" method="POST" class="mt-2">

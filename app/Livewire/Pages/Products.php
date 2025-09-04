@@ -2,7 +2,8 @@
 
 namespace App\Livewire\Pages;
 
-use App\Models\{Categories, Product, Stock};
+use App\Models\{ActivityLogs, Categories, Product, Stock};
+use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 use Livewire\{WithPagination, WithoutUrlPagination};
 
@@ -163,6 +164,25 @@ class Products extends Component
             $this->dispatch('productUpdated');
             session()->flash('message', 'Product updated successfully!');
         }
+        $metadata = [
+            'product_id' => $this->productId,
+            'name' => $this->name,
+            'category_id' => $this->category_id,
+            'barcode' => $this->barcode,
+            'selling_price' => $this->selling_price,
+            'stock_limit' => $this->stock_limit,
+            'is_active' => $this->is_active,
+        ];
+        $description = "Product ID {$this->productId} updated by " . Auth::id();
+            ActivityLogs::create([
+            'user_id'=> Auth::id(),
+            // 'user_id'=>1,
+            'action_type'=>'create_product',
+            'description' => $description,
+            'entity_type' => 'product_update',
+            'metadata' => json_encode($metadata),
+            'entity_id'=>null
+        ]);
     }
     
     public function closeEditModal()
