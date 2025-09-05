@@ -91,7 +91,7 @@
                                 <div class="text-base text-gray-900">{{ number_format($stock->total_units, 0) }}</div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
-                                <div class="text-base text-gray-900">{{ $stock->supplier ?? 'N/A' }}</div>
+                                <div class="text-base uppercase text-gray-900">{{ $stock->supplier ?? 'N/A' }}</div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <div class="text-base text-gray-900">

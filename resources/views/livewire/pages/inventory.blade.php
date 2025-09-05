@@ -62,58 +62,75 @@
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                     </tr>
                 </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
-                    @forelse($dailySalesRecords as $record)
-                        <tr class="hover:bg-gray-50">
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                <div class="flex items-center">
-                                    <svg class="w-4 h-4 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                                    </svg>
-                                    <div>
-                                        <div class="text-sm font-medium text-gray-900">
-                                            {{ \Carbon\Carbon::parse($record->date)->format('M j, Y') }}
-                                        </div>
-                                        <div class="text-xs text-gray-500">
-                                            {{ \Carbon\Carbon::parse($record->date)->format('l') }}
-                                        </div>
-                                    </div>
-                                </div>
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                <div class="text-sm font-medium text-green-600">GH₵ {{ number_format($record->total_cash, 2) }}</div>
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                <div class="text-sm font-medium text-blue-600">GH₵ {{ number_format($record->total_momo, 2) }}</div>
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                <div class="text-sm font-medium text-purple-600">GH₵ {{ number_format($record->total_hubtel, 2) }}</div>
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                <div class="text-sm font-bold text-gray-900">GH₵ {{ number_format($record->total_revenue, 2) }}</div>
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                <div class="text-sm text-gray-900">{{ $record->total_products }} items</div>
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                <button
-                                    wire:click="openDetailsModal({{ $record->first_id }})"
-                                    class="text-blue-600 cursor-pointer hover:text-blue-900 flex items-center space-x-1"
-                                >
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-                                    </svg>
-                                    <span>View Details</span>
-                                </button>
-                            </td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="7" class="px-6 py-4 text-center text-gray-500">No sales records found</td>
-                        </tr>
-                    @endforelse
-                </tbody>
+<tbody class="bg-white divide-y divide-gray-200">
+    @if(count($dailySalesRecords) > 0)
+        @foreach($dailySalesRecords as $record)
+            <tr class="hover:bg-gray-50">
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <div class="flex items-center">
+                        <svg class="w-4 h-4 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                        </svg>
+                        <div>
+                            <div class="text-sm font-medium text-gray-900">
+                                {{ \Carbon\Carbon::parse($record->date)->format('M j, Y') }}
+                            </div>
+                            <div class="text-xs text-gray-500">
+                                {{ \Carbon\Carbon::parse($record->date)->format('l') }}
+                            </div>
+                        </div>
+                    </div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <div class="text-sm font-medium text-green-600">
+                        GH₵ {{ number_format($record->total_cash, 2) }}
+                    </div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <div class="text-sm font-medium text-blue-600">
+                        GH₵ {{ number_format($record->total_momo, 2) }}
+                    </div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <div class="text-sm font-medium text-purple-600">
+                        GH₵ {{ number_format($record->total_hubtel, 2) }}
+                    </div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <div class="text-sm font-bold text-gray-900">
+                        GH₵ {{ number_format($record->total_revenue, 2) }}
+                    </div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <div class="text-sm text-gray-900">
+                        {{ $record->total_products }} items
+                    </div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <button
+                        wire:click="openDetailsModal({{ $record->first_id }})"
+                        class="text-blue-600 cursor-pointer hover:text-blue-900 flex items-center space-x-1"
+                    >
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 
+                                  4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                        </svg>
+                        <span>View Details</span>
+                    </button>
+                </td>
+            </tr>
+        @endforeach
+    @else
+        <tr>
+            <td colspan="7" class="px-6 py-4 text-center text-gray-500">No sales records found</td>
+        </tr>
+    @endif
+</tbody>
+
             </table>
         </div>
     </div>
@@ -494,7 +511,7 @@
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Revenue (GH₵)</th>
                                 </tr>
                             </thead>
-                            <tbody class="bg-white divide-y divide-gray-200">
+                            <tbody class="bg-white uppercase divide-y divide-gray-200">
                                 @forelse($selectedRecord['products'] ?? [] as $sale)
                                     <tr class="hover:bg-gray-50">
                                         <td class="px-6 py-4 whitespace-nowrap">
