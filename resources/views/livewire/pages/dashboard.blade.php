@@ -56,7 +56,7 @@
                         <p class="text-2xl md:text-3xl font-bold text-gray-900 mt-2">GH₵ {{ $this->todayRevenue }}</p>
                     </div>
                     <div class="bg-blue-100 p-3 rounded-full">
-                       <svg class="w-6 h-6 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <svg class="w-6 h-6 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                         <path d="M17 6a8 8 0 1 0 0 12" stroke-linecap="round" stroke-linejoin="round"/>
                         <line x1="12" y1="2" x2="12" y2="22" stroke-linecap="round"/>
                         </svg>

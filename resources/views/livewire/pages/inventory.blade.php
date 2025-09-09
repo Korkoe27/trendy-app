@@ -327,7 +327,7 @@
                                                 <div>
                                                     <label class="block text-xs font-medium text-gray-700 mb-1">Expected Revenue</label>
                                                     <div class="w-full px-3 py-2 text-sm bg-green-50 border border-green-200 rounded-md text-green-700 font-medium">
-                                                        ${{ number_format($this->calculateExpectedRevenue($product->id), 2) }}
+                                                        GH₵ {{ number_format($this->calculateExpectedRevenue($product->id), 2) }}
                                                     </div>
                                                 </div>
                                             </div>
@@ -407,13 +407,14 @@
                     {{-- Cash --}}
                     <div class="bg-green-50 border border-green-200 rounded-lg p-4">
                         <div class="flex items-center">
-                            <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"></path>
+                            <svg class="w-6 h-6 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                            <path d="M17 6a8 8 0 1 0 0 12" stroke-linecap="round" stroke-linejoin="round"/>
+                            <line x1="12" y1="2" x2="12" y2="22" stroke-linecap="round"/>
                             </svg>
                             <div class="ml-4">
                                 <p class="text-sm font-medium text-green-600">Cash Sales</p>
                                 <p class="text-lg font-semibold text-green-900">
-                                    ${{ number_format($selectedRecord['total_cash'] ?? 0, 2) }}
+                                    GH₵ {{ number_format($selectedRecord['total_cash'] ?? 0, 2) }}
                                 </p>
                             </div>
                         </div>
@@ -428,7 +429,7 @@
                             <div class="ml-4">
                                 <p class="text-sm font-medium text-blue-600">Mobile Money</p>
                                 <p class="text-lg font-semibold text-blue-900">
-                                    ${{ number_format($selectedRecord['total_momo'] ?? 0, 2) }}
+                                    GH₵ {{ number_format($selectedRecord['total_momo'] ?? 0, 2) }}
                                 </p>
                             </div>
                         </div>
@@ -443,7 +444,7 @@
                             <div class="ml-4">
                                 <p class="text-sm font-medium text-purple-600">Hubtel</p>
                                 <p class="text-lg font-semibold text-purple-900">
-                                    ${{ number_format($selectedRecord['total_hubtel'] ?? 0, 2) }}
+                                    GH₵ {{ number_format($selectedRecord['total_hubtel'] ?? 0, 2) }}
                                 </p>
                             </div>
                         </div>
@@ -458,7 +459,7 @@
                             <div class="ml-4">
                                 <p class="text-sm font-medium text-gray-600">Total Revenue</p>
                                 <p class="text-lg font-semibold text-gray-900">
-                                    ${{ number_format($selectedRecord['total_revenue'] ?? 0, 2) }}
+                                    GH₵ {{ number_format($selectedRecord['total_revenue'] ?? 0, 2) }}
                                 </p>
                             </div>
                         </div>
@@ -467,13 +468,14 @@
                     {{-- Total Profit --}}
                     <div class="bg-amber-50 border border-amber-200 rounded-lg p-4">
                         <div class="flex items-center">
-                            <svg class="w-8 h-8 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"></path>
-                            </svg>
+                            <svg class="w-6 h-6 text-amber-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                        <path d="M17 6a8 8 0 1 0 0 12" stroke-linecap="round" stroke-linejoin="round"/>
+                        <line x1="12" y1="2" x2="12" y2="22" stroke-linecap="round"/>
+                        </svg>
                             <div class="ml-4">
                                 <p class="text-sm font-medium text-amber-600">Total Profit</p>
                                 <p class="text-lg font-semibold text-amber-900">
-                                    ${{ number_format($selectedRecord['total_profit'] ?? 0, 2) }}
+                                    GH₵ {{ number_format($selectedRecord['total_profit'] ?? 0, 2) }}
                                 </p>
                             </div>
                         </div>
@@ -492,7 +494,7 @@
                         <div class="text-sm text-gray-600">
                             <span class="mr-4">Units sold: <span class="font-semibold text-gray-900">{{ number_format($sumUnits) }}</span></span>
                             <span class="mr-4">Boxes sold: <span class="font-semibold text-gray-900">{{ number_format($sumBoxes) }}</span></span>
-                            <span>Total: <span class="font-semibold text-gray-900">${{ number_format($sumRevenue, 2) }}</span></span>
+                            <span>Total: <span class="font-semibold text-gray-900">GH₵ {{ number_format($sumRevenue, 2) }}</span></span>
                         </div>
                     </div>
 
@@ -526,7 +528,7 @@
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ number_format($sale['closing_boxes']) }}</td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">{{ number_format($sale['units_sold']) }}</td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">{{ number_format($sale['boxes_sold']) }}</td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">${{ number_format($sale['revenue'], 2) }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">GH₵ {{ number_format($sale['revenue'], 2) }}</td>
                                     </tr>
                                 @empty
                                     <tr>
@@ -540,7 +542,7 @@
                                         <th colspan="6" class="px-6 py-3 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">Totals</th>
                                         <th class="px-6 py-3 text-sm font-semibold text-gray-900">{{ number_format($sumUnits) }}</th>
                                         <th class="px-6 py-3 text-sm font-semibold text-gray-900">{{ number_format($sumBoxes) }}</th>
-                                        <th class="px-6 py-3 text-sm font-semibold text-gray-900">${{ number_format($sumRevenue, 2) }}</th>
+                                        <th class="px-6 py-3 text-sm font-semibold text-gray-900">GH₵ {{ number_format($sumRevenue, 2) }}</th>
                                     </tr>
                                 </tfoot>
                             @endif
