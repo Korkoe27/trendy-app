@@ -27,6 +27,7 @@ class Inventory extends Component
     // Form data
     public $cashAmount = '';
 
+
     public $momoAmount = '';
 
     public $hubtelAmount = '';
@@ -113,6 +114,8 @@ class Inventory extends Component
             $this->productStocks[$product->id] = [
                 'closing_boxes' => '',
                 'closing_units' => '',
+                'damaged_units' => '',
+                'credit_units' => '',
                 'product' => $product,
             ];
         }
@@ -180,21 +183,46 @@ class Inventory extends Component
         ]);
 
         $closingStock = $this->calculateTotalUnits($productId);
-        $unitsSold = max(0, $openingStock - $closingStock); // Ensure non-negative
+        $damagedUnits = (float) ($stock['damaged_units'] ?? 0);
+        $creditUnits = (float) ($stock['credit_units'] ?? 0);
+        $unitsSold = max(0, $openingStock - $closingStock - $damagedUnits - $creditUnits);
 
         // Calculate revenue for this product
         $sellingPrice = $product->selling_price ?? 0;
         $productRevenue = $unitsSold * $sellingPrice;
 
+        $creditRevenue = $creditUnits * $sellingPrice;
+
         Log::info("Revenue calculation for product ID: $productId", [
             'opening_stock' => $openingStock,
             'closing_stock' => $closingStock,
+            'damaged_units' => $damagedUnits,
+            'credit_units' => $creditUnits,
             'units_sold' => $unitsSold,
             'selling_price' => $sellingPrice,
+            'credit_revenue' => $creditRevenue,
             'product_revenue' => $productRevenue,
         ]);
 
-        return $productRevenue;
+        ActivityLogs::create([
+            'user_id' => Auth::id(),
+            'action_type' => 'revenue_calculation',
+            'description' => 'Calculated expected revenue for product ID: '.$productId,
+            'entity_type' => 'inventory',
+            'entity_id' => $productId,
+            'metadata' => json_encode([
+                'opening_stock' => $openingStock,
+                'closing_stock' => $closingStock,
+                'damaged_units' => $damagedUnits,
+                'credited_items' => $creditUnits,
+                'units_sold' => $unitsSold,
+                'selling_price' => $sellingPrice,
+                'amount_on_credit' => $creditRevenue,
+                'product_revenue' => $productRevenue,
+            ]),
+        ]);
+
+        return $productRevenue + $creditRevenue;
     }
 
     public function submitInventory()
@@ -216,6 +244,10 @@ class Inventory extends Component
             $totalRevenue = 0;
             $totalItemsSold = 0;
             $totalProfit = 0;
+            $totalDamaged = 0;
+            $totalCredit = 0;
+            $totalCreditAmount = 0;
+            $totalLossAmount = 0;
             $mostSoldProductId = null;
             $maxUnitsSold = 0;
 
@@ -234,6 +266,10 @@ class Inventory extends Component
 
                 $closingBoxes = (float) ($stockData['closing_boxes'] ?? 0);
                 $closingUnits = (float) ($stockData['closing_units'] ?? 0);
+                $damagedUnits = (float) ($stockData['damaged_units'] ?? 0);
+                $creditUnits = (float) ($stockData['credit_units'] ?? 0);
+                // $totalLosses = $damagedUnits + $creditUnits;
+
                 $totalClosingUnits = $this->calculateTotalUnits($productId);
 
                 // Get opening stock (current available units)
@@ -242,16 +278,30 @@ class Inventory extends Component
                     floor($openingStock / $product->units_per_box) : 0;
 
                 // Calculate units sold and revenue
-                $unitsSold = max(0, $openingStock - $totalClosingUnits);
-                $productRevenue = $unitsSold * ($product->selling_price ?? 0);
+                $unitsSold = max(0, $openingStock - $totalClosingUnits - $damagedUnits - $creditUnits);
+
+                $sellingPrice = $product->selling_price ?? 0;
+                $cashRevenue = $unitsSold * $sellingPrice;
+                $creditAmount = $creditUnits * $sellingPrice;
+                $lossAmount = $damagedUnits * $sellingPrice;
+                $productRevenue = $cashRevenue + $creditAmount;
 
                 // Calculate profit per unit
-                $unitProfit = $unitsSold * (($product->selling_price ?? 0) - ($stock->cost_price ?? 0));
+                // $unitProfit = $unitsSold * (($product->selling_price ?? 0) - ($stock->cost_price ?? 0));
+                $totalSoldUnits = $unitsSold + $creditUnits;
+                $unitProfit = $totalSoldUnits * (($product->selling_price ?? 0) - ($stock->cost_price ?? 0));
 
                 // Track totals for summary
+                // $totalRevenue += $productRevenue;
+                // $totalItemsSold += $unitsSold;
+                // $totalProfit += $unitProfit;
                 $totalRevenue += $productRevenue;
-                $totalItemsSold += $unitsSold;
+                $totalItemsSold += $totalSoldUnits;
                 $totalProfit += $unitProfit;
+                $totalDamaged += $damagedUnits;
+                $totalCredit += $creditUnits;
+                $totalCreditAmount += $creditAmount;
+                $totalLossAmount += $lossAmount;
 
                 // Track most sold product
                 if ($unitsSold > $maxUnitsSold) {
@@ -267,7 +317,11 @@ class Inventory extends Component
                     'closing_stock' => $totalClosingUnits,
                     'opening_boxes' => $openingBoxes,
                     'closing_boxes' => $closingBoxes,
-                    'total_amount' => $productRevenue,
+                    'damaged_units' => $damagedUnits,
+                    'credit_units' => $creditUnits,
+                    'credit_amount' => $creditAmount,
+                    'loss_amount' => $lossAmount,
+                    'total_amount' => $cashRevenue, // Only cash revenue in total_amount
                     'unit_profit' => $unitProfit,
                 ]);
 
@@ -281,11 +335,16 @@ class Inventory extends Component
             if ($mostSoldProductId && $totalRevenue > 0) {
                 DailySalesSummary::create([
                     'total_revenue' => $totalRevenue,
+                    'total_money' => $this->cashAmount + $this->momoAmount + $this->hubtelAmount,
                     'items_sold' => $totalItemsSold,
                     'total_profit' => $totalProfit,
                     'total_cash' => (float) $this->cashAmount,
                     'total_momo' => (float) $this->momoAmount,
                     'total_hubtel' => (float) $this->hubtelAmount,
+                    'total_damaged' => $totalDamaged,
+                    'total_credit_units' => $totalCredit,
+                    'total_credit_amount' => $totalCreditAmount,
+                    'total_loss_amount' => $totalLossAmount,
                     'product_id' => $mostSoldProductId, // Most sold product
                 ]);
 
@@ -302,6 +361,11 @@ class Inventory extends Component
                         'total_cash' => (float) $this->cashAmount,
                         'total_momo' => (float) $this->momoAmount,
                         'total_hubtel' => (float) $this->hubtelAmount,
+                        'total_money' => $this->cashAmount + $this->momoAmount + $this->hubtelAmount,
+                        'total_damaged' => $totalDamaged,
+                        'total_credit_units' => $totalCredit,
+                        'total_credit_amount' => $totalCreditAmount,
+                        'most_sold_product_id' => $mostSoldProductId,
                     ]),
                 ]);
             }
@@ -324,67 +388,79 @@ class Inventory extends Component
         $this->resetAllFormData();
     }
 
-public function getDailySalesRecords()
-{
+    public function getDailySalesRecords()
+    {
 
-    Log::info('Fetching daily sales records');
-    return DailySalesSummary::select(
-        DB::raw('DATE(created_at) as date'),
-        'total_cash',
-        'total_momo', 
-        'total_hubtel',
-        'total_revenue',
-        'items_sold as total_products',
-        'id as first_id'
-    )
-    ->orderBy('created_at', 'desc')
-    ->get();
+        Log::info('Fetching daily sales records');
 
-    // Log::info('Fetched '. $dailySalesRecords->count() .' daily sales records');
-}
+        return DailySalesSummary::select(
+            DB::raw('DATE(created_at) as date'),
+            'total_cash',
+            'total_momo',
+            'total_hubtel',
+            'total_revenue',
+            'total_money',
+            'items_sold as total_products',
+            'id as first_id'
+        )
+            ->orderBy('created_at', 'desc')
+            ->get();
 
-public function getDailySalesRecord($recordId)
-{
-    // Get the summary record
-    $summary = DailySalesSummary::find($recordId);
-    Log::info("Fetching daily sales record for ID: $recordId");
-    if (! $summary) {
-        return null;
+        // Log::info('Fetched '. $dailySalesRecords->count() .' daily sales records');
     }
 
-    // Get all individual sales for the same date
-    $dailySales = DailySales::with(['stock'])
-        ->whereDate('created_at', $summary->created_at->format('Y-m-d'))
-        ->get();
+    public function getDailySalesRecord($recordId)
+    {
+        // Get the summary record
+        $summary = DailySalesSummary::find($recordId);
+        Log::info("Fetching daily sales record for ID: $recordId");
+        if (! $summary) {
+            return null;
+        }
 
-        Log::info("Found ". $dailySales->count() ." daily sales for summary ID: $recordId");
-    return [
-        'id' => $recordId,
-        'date' => $summary->created_at->format('Y-m-d'),
-        'total_cash' => $summary->total_cash,
-        'total_momo' => $summary->total_momo,
-        'total_hubtel' => $summary->total_hubtel,
-        'total_revenue' => $summary->total_revenue,
-        'total_profit' => $summary->total_profit,
-        'products' => $dailySales->map(function ($sale) {
-            $unitsSold = $sale->opening_stock - $sale->closing_stock;
-            $boxesSold = $sale->opening_boxes - $sale->closing_boxes;
-            $product = Product::with('category')->find($sale->product_id);
+        // Get all individual sales for the same date
+        $dailySales = DailySales::with(['stock'])
+            ->whereDate('created_at', $summary->created_at->format('Y-m-d'))
+            ->get();
 
-            return [
-                'product_name' => $product->name ?? 'N/A',
-                'category' => $product->category->name ?? 'N/A',
-                'opening_stock' => $sale->opening_stock,
-                'closing_stock' => $sale->closing_stock,
-                'opening_boxes' => $sale->opening_boxes,
-                'closing_boxes' => $sale->closing_boxes,
-                'units_sold' => $unitsSold,
-                'boxes_sold' => $boxesSold,
-                'revenue' => $sale->total_amount,
-            ];
-        }),
-    ];
-}
+        Log::info('Found '.$dailySales->count()." daily sales for summary ID: $recordId");
+
+        return [
+            'id' => $recordId,
+            'date' => $summary->created_at->format('Y-m-d'),
+            'total_cash' => $summary->total_cash,
+            'total_momo' => $summary->total_momo,
+            'total_hubtel' => $summary->total_hubtel,
+            'total_revenue' => $summary->total_revenue,
+            'total_money' => $summary->total_money,
+            'total_profit' => $summary->total_profit,
+            'total_loss_amount' => $summary->total_loss_amount,
+            'total_credit_amount' => $summary->total_credit_amount,
+            'total_credit_units' => $summary->total_credit_units,
+            'total_damaged' => $summary->total_damaged,
+            'products' => $dailySales->map(function ($sale) {
+                $unitsSold = $sale->opening_stock - $sale->closing_stock - ($sale->damaged_units ?? 0) - ($sale->credit_units ?? 0);
+                $boxesSold = $sale->opening_boxes - $sale->closing_boxes;
+                $product = Product::with('category')->find($sale->product_id);
+
+                return [
+                    'product_name' => $product->name ?? 'N/A',
+                    'category' => $product->category->name ?? 'N/A',
+                    'opening_stock' => $sale->opening_stock,
+                    'closing_stock' => $sale->closing_stock,
+                    'opening_boxes' => $sale->opening_boxes,
+                    'closing_boxes' => $sale->closing_boxes,
+                    'damaged_units' => $sale->damaged_units ?? 0,
+                    'credit_units' => $sale->credit_units ?? 0,
+                    'credit_amount' => $sale->credit_amount ?? 0,
+                    'loss_amount' => $sale->loss_amount ?? 0,
+                    'units_sold' => $unitsSold,
+                    'boxes_sold' => $boxesSold,
+                    'revenue' => $sale->total_amount + ($sale->credit_amount ?? 0), // Include credit in total revenue display
+                ];
+            }),
+        ];
+    }
 
     public function render()
     {
@@ -395,6 +471,7 @@ public function getDailySalesRecord($recordId)
         $products = Product::with(['stocks', 'category'])->where('is_active', true)->get();
 
         Log::info('Fetched products');
+
         return view('livewire.pages.inventory', [
             'dailySalesRecords' => $dailySalesRecords,
             'products' => $products,

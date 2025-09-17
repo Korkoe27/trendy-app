@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Livewire\Pages;
+namespace App\Livewire;
 
 use App\Models\DailySalesSummary;
 use App\Models\Product;

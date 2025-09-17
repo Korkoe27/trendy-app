@@ -1,7 +1,7 @@
 <?php
 
 use App\Http\Controllers\{ProductController,UserAuthController};
-use App\Livewire\Pages\{Dashboard, Inventory, Products,Logs, Settings, Stocks};
+use App\Livewire\Pages\{Analytics, Dashboard, Inventory, Products,Logs, Settings, Stocks};
 use Illuminate\Support\Facades\Route;
 
 // Route::get('/', function () {
@@ -27,6 +27,8 @@ Route::get('inventory',Inventory::class)->name('inventory');
 Route::get('settings',Settings::class)->name('settings');
 
 Route::get('logs',Logs::class)->name('logs');
+
+Route::get('analytics', Analytics::class)->name('analytics');
 
 
 });

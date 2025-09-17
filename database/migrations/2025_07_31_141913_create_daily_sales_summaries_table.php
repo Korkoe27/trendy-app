@@ -18,6 +18,12 @@ return new class extends Migration
             $table->float('total_cash')->default(0.00);
             $table->float('total_momo')->default(0.00);
             $table->float('total_hubtel')->default(0.00);
+            $table->float('total_money')->default(0.00);
+            $table->float('total_loss_amount')->default(0.00);
+            $table->float('total_credit_amount')->default(0.00);
+            $table->float('total_credit_units')->default(0.00);
+            $table->float('total_damaged')->default(0.00);
+
             //most sold
             $table->float('total_profit')->default(0.00);
             
