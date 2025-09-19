@@ -184,7 +184,7 @@
                                 <thead class="bg-gray-50">
                                     <tr>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
-                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Boxes</th>
+                                        {{-- <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Boxes</th> --}}
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Units</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Units</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Cost*</th>
@@ -217,7 +217,7 @@
                                                     <div class="text-red-500 text-xs mt-1">{{ $message }}</div>
                                                 @enderror
                                             </td>
-                                            <td class="px-4 py-3">
+                                            {{-- <td class="px-4 py-3">
                                                 <input 
                                                     type="number" 
                                                     step="0.1"
@@ -229,7 +229,7 @@
                                                 @error('newStockItems.' . $index . '.input_boxes')
                                                     <div class="text-red-500 text-xs mt-1">{{ $message }}</div>
                                                 @enderror
-                                            </td>
+                                            </td> --}}
                                             <td class="px-4 py-3">
                                                 <input 
                                                     type="number" 
