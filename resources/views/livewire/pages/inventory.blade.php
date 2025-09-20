@@ -533,6 +533,63 @@
                         </div>
                     </div>
 
+
+
+                    {{-- Difference --}}
+                    @php
+                        $collected = $selectedRecord['total_money'] ?? 0;
+                        $expectedVal = $selectedRecord['total_revenue'] ?? 0;
+                        $difference = $collected - $expectedVal;
+                        $diffFormatted = number_format($difference, 2);
+
+                        // Decide color classes and icons
+                        if ($difference > 0) {
+                            $iconBg = 'bg-green-100';
+                            $iconColor = 'text-green-700';
+                            $labelColor = 'text-green-700';
+                            $iconPath = 'M13 7h8m0 0v8m0-8l-8 8-4-4-6 6'; // Trending up icon
+                        } elseif ($difference < 0) {
+                            $iconBg = 'bg-rose-100';
+                            $iconColor = 'text-rose-700';
+                            $labelColor = 'text-rose-700';
+                            $iconPath = 'M13 17h8m0 0V9m0 8l-8-8-4 4-6-6'; // Trending down icon
+                        } else {
+                            $iconBg = 'bg-purple-100';
+                            $iconColor = 'text-purple-700';
+                            $labelColor = 'text-purple-700';
+                            $iconPath = 'M5 12h14'; // Minus/equal icon
+                        }
+                    @endphp
+                    <div class="rounded-xl border border-slate-400 bg-slate-50 p-5">
+                        <div class="flex items-start justify-between">
+                            <div>
+                                <p class="text-xs font-medium {{ $labelColor }} uppercase tracking-wider">Difference
+                                </p>
+                                <p class="mt-2 text-2xl font-bold text-slate-900">
+                                    GH₵ {{ $diffFormatted }}
+                                </p>
+                            </div>
+                            <div class="shrink-0 rounded-lg {{ $iconBg }} p-2">
+                                <svg class="w-6 h-6 {{ $iconColor }}" fill="none" stroke="currentColor"
+                                    viewBox="0 0 24 24" stroke-width="2" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="{{ $iconPath }}" />
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="mt-4 rounded-lg border border-slate-100 bg-white p-3 text-sm">
+                            <p class="{{ $labelColor }}">
+                                @if ($difference > 0)
+                                    Surplus: Collected more than expected.
+                                @elseif($difference < 0)
+                                    Deficit: Collected less than expected.
+                                @else
+                                    Perfect match: Collected equals expected.
+                                @endif
+                            </p>
+                        </div>
+                    </div>
+
+
                     {{-- Profit --}}
                     <div class="rounded-xl border border-amber-400 bg-amber-50 p-5">
                         <div class="flex items-start justify-between">
@@ -552,7 +609,8 @@
                         <div class="mt-4 flex items-center gap-3 text-xs text-amber-700">
                             {{-- <span class="inline-flex items-center ">After
                                 adjustments</span> --}}
-                            <span class="rounded-full bg-amber-100 px-2 py-0.5 text-amber-600">Damages & credits accounted for</span>
+                            <span class="rounded-full bg-amber-100 px-2 py-0.5 text-amber-600">Damages & credits
+                                accounted for</span>
                         </div>
                     </div>
                 </div>

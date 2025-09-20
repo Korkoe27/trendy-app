@@ -309,6 +309,9 @@ class Inventory extends Component
                     $mostSoldProductId = $productId;
                 }
 
+
+                Log::info("calculated sales");
+
                 // Create individual daily sales record
                 DailySales::create([
                     'product_id' => $productId,
@@ -325,6 +328,7 @@ class Inventory extends Component
                     'unit_profit' => $unitProfit,
                 ]);
 
+                Log::info("Submitted new Sales ");
                 // Update stock with new closing values
                 $stock->update([
                     'total_units' => $totalClosingUnits,
