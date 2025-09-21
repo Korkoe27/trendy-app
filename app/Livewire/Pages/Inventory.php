@@ -149,7 +149,7 @@ class Inventory extends Component
 
         // Validate based on user role
         if (Auth::user()) {
-        // if (auth()->user()->role === 'admin') {
+            // if (auth()->user()->role === 'admin') {
             $this->validate([
                 'cashAmount' => 'required|numeric|min:0',
                 'momoAmount' => 'required|numeric|min:0',
@@ -180,7 +180,7 @@ class Inventory extends Component
 
             // Process each product's updated inventory (same logic as submitInventory)
             foreach ($this->productStocks as $productId => $stockData) {
-                if (empty($stockData['closing_boxes']) && empty($stockData['closing_units'])) {
+                if (! filled($stockData['closing_boxes']) && ! filled($stockData['closing_units'])) {
                     continue;
                 }
 
@@ -265,7 +265,7 @@ class Inventory extends Component
 
             // Only update money fields if user is admin
             if (Auth::user()) {
-            // if (auth()->user()->role === 'admin') {
+                // if (auth()->user()->role === 'admin') {
                 $updateData['total_cash'] = (float) $this->cashAmount;
                 $updateData['total_momo'] = (float) $this->momoAmount;
                 $updateData['total_hubtel'] = (float) $this->hubtelAmount;
@@ -328,9 +328,14 @@ class Inventory extends Component
 
     public function loadProductStocks()
     {
-        $products = Product::with(['stocks', 'category'])->where('is_active', true)->get();
+        $products = Product::with(['stocks', 'category'])
+            ->where('is_active', true)
+            ->whereHas('stocks', function ($query) {
+                $query->where('total_units', '>', 0);
+            })
+            ->get();
 
-        Log::info('Products loaded for inventory', ['count' => $products->count()]);
+        Log::info('Products with available stock loaded for inventory', ['count' => $products->count()]);
 
         foreach ($products as $product) {
             $this->productStocks[$product->id] = [
@@ -409,6 +414,13 @@ class Inventory extends Component
         $creditUnits = (float) ($stock['credit_units'] ?? 0);
         $unitsSold = max(0, $openingStock - $closingStock - $damagedUnits - $creditUnits);
 
+        Log::info("Units sold calculation for product ID: $productId", [
+            'closing_stock' => $closingStock,
+            'damaged_units' => $damagedUnits,
+            'credit_units' => $creditUnits,
+            'units_sold' => $unitsSold,
+        ]);
+
         // Calculate revenue for this product
         $sellingPrice = $product->selling_price ?? 0;
         $productRevenue = $unitsSold * $sellingPrice;
@@ -475,7 +487,7 @@ class Inventory extends Component
 
             // Process each product's inventory
             foreach ($this->productStocks as $productId => $stockData) {
-                if (empty($stockData['closing_boxes']) && empty($stockData['closing_units'])) {
+                if (! filled($stockData['closing_boxes']) && ! filled($stockData['closing_units'])) {
                     continue;
                 }
 
@@ -492,7 +504,7 @@ class Inventory extends Component
                 $creditUnits = (float) ($stockData['credit_units'] ?? 0);
                 // $totalLosses = $damagedUnits + $creditUnits;
 
-                $totalClosingUnits = $this->calculateTotalUnits($productId);
+                // $totalClosingUnits = $this->calculateTotalUnits($productId);
 
                 // Get opening stock (current available units)
                 $openingStock = $stock->total_units;
@@ -500,7 +512,7 @@ class Inventory extends Component
                     floor($openingStock / $product->units_per_box) : 0;
 
                 // Calculate units sold and revenue
-                $unitsSold = max(0, $openingStock - $totalClosingUnits - $damagedUnits - $creditUnits);
+                $unitsSold = max(0, $openingStock - $closingUnits - $damagedUnits - $creditUnits);
 
                 $sellingPrice = $product->selling_price ?? 0;
                 $cashRevenue = $unitsSold * $sellingPrice;
@@ -538,7 +550,7 @@ class Inventory extends Component
                     'product_id' => $productId,
                     'stock_id' => $stock->id,
                     'opening_stock' => $openingStock,
-                    'closing_stock' => $totalClosingUnits,
+                    'closing_stock' => $closingUnits,
                     'opening_boxes' => $openingBoxes,
                     'closing_boxes' => $closingBoxes,
                     'damaged_units' => $damagedUnits,
@@ -552,7 +564,7 @@ class Inventory extends Component
                 Log::info('Submitted new Sales ');
                 // Update stock with new closing values
                 $stock->update([
-                    'total_units' => $totalClosingUnits,
+                    'total_units' => $closingUnits,
                 ]);
             }
 
