@@ -115,16 +115,31 @@
                                     </div>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                    <button wire:click="openDetailsModal({{ $record->first_id }})"
-                                        class="text-blue-600 cursor-pointer hover:text-blue-900 flex items-center space-x-1">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274
-                                  4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-                                        </svg>
-                                        <span>View Details</span>
-                                    </button>
+                                    <div class="flex items-center space-x-3">
+                                        <button wire:click="openDetailsModal({{ $record->first_id }})"
+                                            class="text-blue-600 cursor-pointer hover:text-blue-900 flex items-center space-x-1">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor"
+                                                viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z">
+                                                </path>
+                                            </svg>
+                                            <span>View</span>
+                                        </button>
+
+                                        <button wire:click="openEditModal({{ $record->first_id }})"
+                                            class="text-amber-600 cursor-pointer hover:text-amber-900 flex items-center space-x-1">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor"
+                                                viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z">
+                                                </path>
+                                            </svg>
+                                            <span>Edit</span>
+                                        </button>
+                                    </div>
                                 </td>
                             </tr>
                         @endforeach
@@ -145,7 +160,16 @@
             <div class="bg-white rounded-lg p-6 w-full max-w-4xl mx-4 max-h-[90vh] overflow-y-auto">
                 <div class="flex justify-between items-center mb-6">
                     <h3 class="text-lg font-semibold text-gray-900">
-                        Take Inventory - {{ \Carbon\Carbon::parse($selectedDate)->format('M j, Y') }}
+                        @if ($isEditing)
+                            Edit Inventory -
+                            {{ \Carbon\Carbon::parse($editingOriginalRecord['date'])->format('M j, Y') }}
+                            @if (Auth::user())
+                            {{-- @if (auth()->user()->role !== 'admin') --}}
+                                <span class="text-sm font-normal text-amber-600">(Stock counts only)</span>
+                            @endif
+                        @else
+                            Take Inventory - {{ \Carbon\Carbon::parse($selectedDate)->format('M j, Y') }}
+                        @endif
                     </h3>
                     <button wire:click="closeTakeInventoryModal" class="text-gray-400 hover:text-gray-600">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -175,7 +199,8 @@
                                             ? 'bg-blue-600 border-blue-600 text-white'
                                             : 'border-gray-300 text-gray-400') }}">
                                     @if ($currentStep > $step['number'])
-                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor"
+                                            viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                                 d="M5 13l4 4L19 7"></path>
                                         </svg>
@@ -397,7 +422,8 @@
                 {{-- Modal Footer --}}
                 <div class="flex justify-between items-center pt-6 border-t border-gray-200">
                     <div class="flex space-x-3">
-                        @if ($currentStep > 1)
+                        @if ($currentStep > 1 && (!$isEditing || Auth::user()))
+                        {{-- @if ($currentStep > 1 && (!$isEditing || auth()->user()->role === 'admin')) --}}
                             <button wire:click="previousStep"
                                 class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                                 Previous
@@ -411,20 +437,32 @@
                             Cancel
                         </button>
 
-                        @if ($currentStep < 4)
+                        @if ($currentStep < 4 && (!$isEditing || Auth::user()))
                             <button wire:click="nextStep"
                                 class="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                                 Next
                             </button>
                         @else
-                            <button wire:click="submitInventory"
-                                class="px-6 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 flex items-center space-x-2">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M5 13l4 4L19 7"></path>
-                                </svg>
-                                <span>Submit Inventory</span>
-                            </button>
+                            @if ($isEditing)
+                                <button wire:click="updateInventory"
+                                    class="px-6 py-2 text-sm font-medium text-white bg-amber-600 border border-transparent rounded-md hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 flex items-center space-x-2">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z">
+                                        </path>
+                                    </svg>
+                                    <span>Update Record</span>
+                                </button>
+                            @else
+                                <button wire:click="submitInventory"
+                                    class="px-6 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 flex items-center space-x-2">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M5 13l4 4L19 7"></path>
+                                    </svg>
+                                    <span>Submit Inventory</span>
+                                </button>
+                            @endif
                         @endif
                     </div>
                 </div>
