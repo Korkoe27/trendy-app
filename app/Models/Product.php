@@ -17,7 +17,7 @@ class Product extends Model
         "category_id",
         "barcode",
         "stock_limit",
-        "cost_price",
+        // "cost_price",    
         "selling_price",
         "units_per_box",
     ];

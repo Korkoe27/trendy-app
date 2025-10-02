@@ -35,6 +35,8 @@ class Inventory extends Component
 
     public $momoAmount = '';
 
+    public $foodTotal = '';
+
     public $hubtelAmount = '';
 
     public $productStocks = [];
@@ -50,6 +52,7 @@ class Inventory extends Component
         'cashAmount' => 'required|numeric|min:0',
         'momoAmount' => 'required|numeric|min:0',
         'hubtelAmount' => 'required|numeric|min:0',
+        'foodTotal' => 'required|numeric|min:0',
     ];
 
     public function updatedCashAmount($value)
@@ -80,6 +83,11 @@ class Inventory extends Component
         $this->hubtelAmount = $value;
     }
 
+    public function updateFoodTotal($value)
+    {
+        $this->foodTotal = $value;
+    }
+
     public function openTakeInventoryModal()
     {
         $this->showTakeInventoryModal = true;
@@ -103,6 +111,7 @@ class Inventory extends Component
         $this->cashAmount = $this->editingOriginalRecord['total_cash'];
         $this->momoAmount = $this->editingOriginalRecord['total_momo'];
         $this->hubtelAmount = $this->editingOriginalRecord['total_hubtel'];
+        $this->foodTotal = $this->editingOriginalRecord['food_total'];
 
         // Load existing product stocks
         $this->loadEditingProductStocks();
@@ -114,7 +123,11 @@ class Inventory extends Component
 
     private function loadEditingProductStocks()
     {
-        $products = Product::with(['stocks', 'category'])->where('is_active', true)->get();
+        // $products = Product::with(['stocks', 'category'])->where('is_active', true)->get();
+
+        $products = Stock::with('product')
+            ->where('total_units', '>', 0)
+            ->get();
 
         foreach ($products as $product) {
             // Find existing data for this product
@@ -156,6 +169,7 @@ class Inventory extends Component
                 'cashAmount' => 'required|numeric|min:0',
                 'momoAmount' => 'required|numeric|min:0',
                 'hubtelAmount' => 'required|numeric|min:0',
+                'foodTotal' => 'required|numeric|min:0',
             ]);
         }
 
@@ -168,7 +182,12 @@ class Inventory extends Component
             }
 
             // Delete existing daily sales for this date
-            DailySales::whereDate('created_at', $summary->created_at->format('Y-m-d'))->delete();
+            // DailySales::whereDate('created_at', $summary->created_at->format('Y-m-d'))->delete();
+
+            $targetDay = $summary->created_at->startOfDay();
+            $nextDay = $summary->created_at->endOfDay();
+
+            DailySales::whereBetween('created_at', [$targetDay, $nextDay])->delete();
 
             $totalRevenue = 0;
             $totalItemsSold = 0;
@@ -356,7 +375,7 @@ class Inventory extends Component
 
     public function nextStep()
     {
-        if ($this->currentStep < 4) {
+        if ($this->currentStep < 5) {
             $this->currentStep++;
         }
     }
@@ -404,7 +423,9 @@ class Inventory extends Component
 
         $product = $stock['product'];
         Log::info('product Details'.$product);
-        $currentStock = Stock::where('product_id', $productId)->first();
+        // $currentStock = Stock::select('total_units')->where('product_id', $productId)->first();
+
+        $currentStock = $product->total_units;
 
         if (! $currentStock) {
             return 0;
@@ -415,13 +436,17 @@ class Inventory extends Component
         }
         $currentStock = $this->stocksCache[$productId];
 
-        // Calculate units sold
-        $openingStock = $currentStock->total_units;
+        Log::debug('Current Stock: '.$currentStock);
 
-        Log::info("Calculating expected revenue for product ID: $productId", [
-            'opening_stock' => $openingStock,
-            'current_stock' => $currentStock,
-        ]);
+        // Calculate units sold
+        // $openingStock = $currentStock->total_units;
+
+        $openingStock = optional($this->stocksCache[$productId])->total_units ?? 0;
+
+        // Log::info("Calculating expected revenue for product ID: $productId", [
+        //     'opening_stock' => $openingStock,
+        //     'current_stock' => $currentStock,
+        // ]);
 
         $closingStock = $this->calculateTotalUnits($productId);
         $damagedUnits = (float) ($stock['damaged_units'] ?? 0);
@@ -441,35 +466,6 @@ class Inventory extends Component
 
         $creditRevenue = $creditUnits * $sellingPrice;
 
-        Log::info("Revenue calculation for product ID: $productId", [
-            'opening_stock' => $openingStock,
-            'closing_stock' => $closingStock,
-            'damaged_units' => $damagedUnits,
-            'credit_units' => $creditUnits,
-            'units_sold' => $unitsSold,
-            'selling_price' => $sellingPrice,
-            'credit_revenue' => $creditRevenue,
-            'product_revenue' => $productRevenue,
-        ]);
-
-        ActivityLogs::create([
-            'user_id' => Auth::id(),
-            'action_type' => 'revenue_calculation',
-            'description' => 'Calculated expected revenue for product ID: '.$productId,
-            'entity_type' => 'inventory',
-            'entity_id' => $productId,
-            'metadata' => json_encode([
-                'opening_stock' => $openingStock,
-                'closing_stock' => $closingStock,
-                'damaged_units' => $damagedUnits,
-                'credited_items' => $creditUnits,
-                'units_sold' => $unitsSold,
-                'selling_price' => $sellingPrice,
-                'amount_on_credit' => $creditRevenue,
-                'product_revenue' => $productRevenue,
-            ]),
-        ]);
-
         return $productRevenue + $creditRevenue;
     }
 
@@ -479,6 +475,7 @@ class Inventory extends Component
             'cashAmount' => 'required|numeric|min:0',
             'momoAmount' => 'required|numeric|min:0',
             'hubtelAmount' => 'required|numeric|min:0',
+            'foodTotal' => 'required|numeric|min:0',
         ]);
 
         Log::info('Submitting inventory', [
@@ -511,6 +508,9 @@ class Inventory extends Component
 
             Log::info('Retrieved Products: '.$products);
             // Process each product's inventory
+
+            $salesRows = [];
+
             foreach ($this->productStocks as $productId => $stockData) {
                 if (! filled($stockData['closing_boxes']) && ! filled($stockData['closing_units'])) {
                     continue;
@@ -573,7 +573,23 @@ class Inventory extends Component
                 Log::info('calculated sales');
 
                 // Create individual daily sales record
-                DailySales::create([
+                // DailySales::create([
+                //     'product_id' => $productId,
+                //     'stock_id' => $stock->id,
+                //     'opening_stock' => $openingStock,
+                //     'closing_stock' => $closingUnits,
+                //     'opening_boxes' => $openingBoxes,
+                //     'closing_boxes' => $closingBoxes,
+                //     'damaged_units' => $damagedUnits,
+                //     'credit_units' => $creditUnits,
+                //     'credit_amount' => $creditAmount,
+                //     'loss_amount' => $lossAmount,
+                //     'total_amount' => $cashRevenue,
+                //     'unit_profit' => $unitProfit,
+                // ]);
+
+                // inside foreach (instead of DailySales::create([...]))
+                $salesRows[] = [
                     'product_id' => $productId,
                     'stock_id' => $stock->id,
                     'opening_stock' => $openingStock,
@@ -584,9 +600,16 @@ class Inventory extends Component
                     'credit_units' => $creditUnits,
                     'credit_amount' => $creditAmount,
                     'loss_amount' => $lossAmount,
-                    'total_amount' => $cashRevenue, // Only cash revenue in total_amount
+                    'total_amount' => $cashRevenue,
                     'unit_profit' => $unitProfit,
-                ]);
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
+
+                // after the loop
+                if (! empty($salesRows)) {
+                    DB::table('daily_sales')->insert($salesRows);
+                }
 
                 Log::info('Submitted new Sales ');
                 // Update stock with new closing values
@@ -599,12 +622,13 @@ class Inventory extends Component
             if ($mostSoldProductId && $totalRevenue > 0) {
                 DailySalesSummary::create([
                     'total_revenue' => $totalRevenue,
-                    'total_money' => $this->cashAmount + $this->momoAmount + $this->hubtelAmount,
+                    'total_money' => $this->cashAmount + $this->momoAmount + $this->hubtelAmount + $this->foodTotal,
                     'items_sold' => $totalItemsSold,
                     'total_profit' => $totalProfit,
                     'total_cash' => (float) $this->cashAmount,
                     'total_momo' => (float) $this->momoAmount,
                     'total_hubtel' => (float) $this->hubtelAmount,
+                    'food_total' => (float) $this->foodTotal,
                     'total_damaged' => $totalDamaged,
                     'total_credit_units' => $totalCredit,
                     'total_credit_amount' => $totalCreditAmount,
@@ -625,7 +649,7 @@ class Inventory extends Component
                         'total_cash' => (float) $this->cashAmount,
                         'total_momo' => (float) $this->momoAmount,
                         'total_hubtel' => (float) $this->hubtelAmount,
-                        'total_money' => $this->cashAmount + $this->momoAmount + $this->hubtelAmount,
+                        'total_money' => $this->cashAmount + $this->momoAmount + $this->hubtelAmount + $this->foodTotal,
                         'total_damaged' => $totalDamaged,
                         'total_credit_units' => $totalCredit,
                         'total_credit_amount' => $totalCreditAmount,
@@ -663,6 +687,7 @@ class Inventory extends Component
             'total_momo',
             'total_hubtel',
             'total_revenue',
+            'food_total',
             'total_money',
             'items_sold as total_products',
             'id as first_id'
@@ -733,7 +758,7 @@ class Inventory extends Component
         $dailySalesRecords = $this->getDailySalesRecords();
         Log::info('Rendering inventory');
 
-        $products = Product::with(['stocks', 'category'])
+        $products = Product::with(['stocks'])
             ->where('is_active', true)
             ->whereHas('stocks', function ($query) {
                 $query->where('total_units', '>', 0);

@@ -187,7 +187,8 @@
                                 ['number' => 1, 'title' => 'Cash Sales', 'icon' => 'dollar'],
                                 ['number' => 2, 'title' => 'Mobile Money', 'icon' => 'phone'],
                                 ['number' => 3, 'title' => 'Hubtel', 'icon' => 'credit-card'],
-                                ['number' => 4, 'title' => 'Stock Count', 'icon' => 'package'],
+                                ['number' => 4, 'title' => 'Food Total', 'icon' => 'food'],
+                                ['number' => 5, 'title' => 'Stock Count', 'icon' => 'package'],
                             ];
                         @endphp
                         @foreach ($steps as $index => $step)
@@ -218,6 +219,27 @@
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                                     d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z">
                                                 </path>
+                                            </svg>
+                                        @elseif($step['icon'] == 'food')
+                                            {{-- <svg class="w-5 h-5" fill="none" stroke="currentColor"
+                                                viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z">
+                                                </path>
+                                            </svg> --}}
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
+                                                viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                                                class="w-5 h-5">
+                                                <path d="M12 21a9 9 0 0 0 9-9H3a9 9 0 0 0 9 9Z" />
+                                                <path d="M7 21h10" />
+                                                <path d="M19.5 12 22 6" />
+                                                <path
+                                                    d="M16.25 3c.27.1.8.53.75 1.36-.06.83-.93 1.2-1 2.02-.05.78.34 1.24.73 1.62" />
+                                                <path
+                                                    d="M11.25 3c.27.1.8.53.74 1.36-.05.83-.93 1.2-.98 2.02-.06.78.33 1.24.72 1.62" />
+                                                <path
+                                                    d="M6.25 3c.27.1.8.53.75 1.36-.06.83-.93 1.2-1 2.02-.05.78.34 1.24.74 1.62" />
                                             </svg>
                                         @elseif($step['icon'] == 'credit-card')
                                             <svg class="w-5 h-5" fill="none" stroke="currentColor"
@@ -327,6 +349,29 @@
                             </div>
                         </div>
                     @elseif($currentStep == 4)
+                        <div wire:key="foodSales-step" class="space-y-4">
+                            <div class="text-center mb-6">
+                                {{-- <svg class="w-12 h-12 text-purple-600 mx-auto mb-2" fill="none"
+                                    stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M3 10h18M7 15h1m4 0h1m-7 4h12a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v11a2 2 0 002 2z">
+                                    </path>
+                                </svg> --}}
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-12 h-12 text-amber-600 mx-auto mb-2"><path d="M12 21a9 9 0 0 0 9-9H3a9 9 0 0 0 9 9Z"/><path d="M7 21h10"/><path d="M19.5 12 22 6"/><path d="M16.25 3c.27.1.8.53.75 1.36-.06.83-.93 1.2-1 2.02-.05.78.34 1.24.73 1.62"/><path d="M11.25 3c.27.1.8.53.74 1.36-.05.83-.93 1.2-.98 2.02-.06.78.33 1.24.72 1.62"/><path d="M6.25 3c.27.1.8.53.75 1.36-.06.83-.93 1.2-1 2.02-.05.78.34 1.24.74 1.62"/></svg>
+                                <h3 class="text-lg font-semibold text-gray-900">Food Sales</h3>
+                                <p class="text-sm text-gray-600">Enter the total Food amount collected today</p>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-700 mb-2">Food Total (GH₵)</label>
+                                <input type="number" step="0.01" min="0" wire:model.defer="foodTotal"
+                                    placeholder="0.00"
+                                    class="w-full px-4 py-3 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-center" />
+                                @error('foodTotal')
+                                    <span class="text-red-500 text-sm">{{ $message }}</span>
+                                @enderror
+                            </div>
+                        </div>
+                    @elseif($currentStep == 5)
                         <div wire:key="stock-step" class="space-y-4">
                             <div class="text-center mb-6">
                                 <svg class="w-12 h-12 text-orange-600 mx-auto mb-2" fill="none"
@@ -437,7 +482,7 @@
                             Cancel
                         </button>
 
-                        @if ($currentStep < 4 && (!$isEditing || Auth::user()))
+                        @if ($currentStep < 5 && (!$isEditing || Auth::user()))
                             <button wire:click="nextStep"
                                 class="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                                 Next
