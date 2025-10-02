@@ -164,7 +164,7 @@
                             Edit Inventory -
                             {{ \Carbon\Carbon::parse($editingOriginalRecord['date'])->format('M j, Y') }}
                             @if (Auth::user())
-                            {{-- @if (auth()->user()->role !== 'admin') --}}
+                                {{-- @if (auth()->user()->role !== 'admin') --}}
                                 <span class="text-sm font-normal text-amber-600">(Stock counts only)</span>
                             @endif
                         @else
@@ -355,8 +355,8 @@
                                             <div class="flex items-center justify-between mb-3">
                                                 <div>
                                                     <h4 class="font-medium text-gray-900">{{ $product->name }}</h4>
-                                                    <p class="text-sm text-gray-500">
-                                                        {{ $product->category->name ?? 'N/A' }}</p>
+                                                    {{-- <p class="text-sm text-gray-500">
+                                                        {{ $product->category->name ?? 'N/A' }}</p> --}}
                                                 </div>
                                                 <div class="text-right text-sm text-gray-600">
                                                     <div>Current: {{ $currentTotalUnits }} units</div>
@@ -423,7 +423,7 @@
                 <div class="flex justify-between items-center pt-6 border-t border-gray-200">
                     <div class="flex space-x-3">
                         @if ($currentStep > 1 && (!$isEditing || Auth::user()))
-                        {{-- @if ($currentStep > 1 && (!$isEditing || auth()->user()->role === 'admin')) --}}
+                            {{-- @if ($currentStep > 1 && (!$isEditing || auth()->user()->role === 'admin')) --}}
                             <button wire:click="previousStep"
                                 class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                                 Previous

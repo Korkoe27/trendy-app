@@ -200,6 +200,27 @@ class Products extends Component
             session()->flash('message', 'Product deleted successfully!');
             $this->resetPage();
         }
+
+
+            $metadata = [
+            'product_id' => $this->productId,
+            'name' => $product->name,
+            'category_id' => $this->category_id,
+            'barcode' => $this->barcode,
+            'selling_price' => $this->selling_price,
+            'stock_limit' => $this->stock_limit,
+            'is_active' => $this->is_active,
+        ];
+        $description = "Product ID {$this->productId} updated by " . Auth::id();
+            ActivityLogs::create([
+            'user_id'=> Auth::id(),
+            // 'user_id'=>1,
+            'action_type'=>'delete_product',
+            'description' => $description,
+            'entity_type' => 'product_delete',
+            'metadata' => json_encode($metadata),
+            'entity_id'=>null
+        ]);
     }
 
     public function render()

@@ -39,6 +39,8 @@ class Inventory extends Component
 
     public $productStocks = [];
 
+    private $stocksCache = [];
+
     public function mount()
     {
         $this->selectedDate = now()->format('Y-m-d');
@@ -328,17 +330,21 @@ class Inventory extends Component
 
     public function loadProductStocks()
     {
-        $products = Product::with(['stocks', 'category'])
-            ->where('is_active', true)
-            ->whereHas('stocks', function ($query) {
-                $query->where('total_units', '>', 0);
-            })
+        // $products = Product::with(['stocks', 'category'])
+        //     ->where('is_active', true)
+        //     ->whereHas('stocks', function ($query) {
+        //         $query->where('total_units', '>', 0);
+        //     })
+        //     ->get();
+
+        $products = Stock::with('product')
+            ->where('total_units', '>', 0)
             ->get();
 
         Log::info('Products with available stock loaded for inventory', ['count' => $products->count()]);
 
         foreach ($products as $product) {
-            $this->productStocks[$product->id] = [
+            $this->productStocks[$product->product->id] = [
                 'closing_boxes' => '',
                 'closing_units' => '',
                 'damaged_units' => '',
@@ -394,12 +400,20 @@ class Inventory extends Component
             return 0;
         }
 
+        Log::info('Stock details', $stock);
+
         $product = $stock['product'];
+        Log::info('product Details'.$product);
         $currentStock = Stock::where('product_id', $productId)->first();
 
         if (! $currentStock) {
             return 0;
         }
+
+        if (! isset($this->stocksCache[$productId])) {
+            $this->stocksCache[$productId] = Stock::where('product_id', $productId)->first();
+        }
+        $currentStock = $this->stocksCache[$productId];
 
         // Calculate units sold
         $openingStock = $currentStock->total_units;
@@ -485,14 +499,27 @@ class Inventory extends Component
             $mostSoldProductId = null;
             $maxUnitsSold = 0;
 
+            $productIds = array_keys($this->productStocks);
+            $products = Product::select('id', 'units_per_box', 'selling_price')
+                ->whereIn('id', $productIds)
+                ->get()
+                ->keyBy('id');
+
+            $stocks = Stock::whereIn('product_id', $productIds)
+                ->where('total_units', '>', 0)
+                ->get()->keyBy('product_id');
+
+            Log::info('Retrieved Products: '.$products);
             // Process each product's inventory
             foreach ($this->productStocks as $productId => $stockData) {
                 if (! filled($stockData['closing_boxes']) && ! filled($stockData['closing_units'])) {
                     continue;
                 }
 
-                $product = Product::find($productId);
-                $stock = Stock::where('product_id', $productId)->first();
+                // $product = Product::find($productId);
+                // $stock = Stock::where('product_id', $productId)->first();
+                $product = $products->get($productId);
+                $stock = $stocks->get($productId);
 
                 if (! $stock || ! $product) {
                     continue;
@@ -650,7 +677,7 @@ class Inventory extends Component
     {
         // Get the summary record
         $summary = DailySalesSummary::find($recordId);
-        Log::info("Fetching daily sales record for ID: $recordId");
+        Log::debug("Fetching daily sales record for ID: $recordId");
         if (! $summary) {
             return null;
         }
@@ -660,7 +687,7 @@ class Inventory extends Component
             ->whereDate('created_at', $summary->created_at->format('Y-m-d'))
             ->get();
 
-        Log::info('Found '.$dailySales->count()." daily sales for summary ID: $recordId");
+        Log::debug('Found '.$dailySales->count()." daily sales for summary ID: $recordId");
 
         return [
             'id' => $recordId,
@@ -705,7 +732,13 @@ class Inventory extends Component
         // dd('rendering');
         $dailySalesRecords = $this->getDailySalesRecords();
         Log::info('Rendering inventory');
-        $products = Product::with(['stocks', 'category'])->where('is_active', true)->get();
+
+        $products = Product::with(['stocks', 'category'])
+            ->where('is_active', true)
+            ->whereHas('stocks', function ($query) {
+                $query->where('total_units', '>', 0);
+            })
+            ->get();
 
         Log::info('Fetched products');
 
