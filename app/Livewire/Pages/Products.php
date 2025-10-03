@@ -11,10 +11,11 @@ use Illuminate\Support\Facades\Log;
 use Livewire\Component;
 use Livewire\WithoutUrlPagination;
 use Livewire\WithPagination;
+use Livewire\WithFileUploads;
 
 class Products extends Component
 {
-    use WithoutUrlPagination, WithPagination;
+    use WithoutUrlPagination,WithFileUploads, WithPagination;
 
     public $product = null;          // currently viewed product
 
