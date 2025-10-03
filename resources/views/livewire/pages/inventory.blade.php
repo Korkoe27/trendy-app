@@ -548,6 +548,7 @@
                     $momo = number_format($selectedRecord['total_momo'] ?? 0, 2);
                     $cash = number_format($selectedRecord['total_cash'] ?? 0, 2);
                     $hubtel = number_format($selectedRecord['total_hubtel'] ?? 0, 2);
+                    $foodTotal = number_format($selectedRecord['food_total'] ?? 0, 2);
 
                     $expected = number_format($selectedRecord['total_revenue'] ?? 0, 2);
                     $profit = number_format($selectedRecord['total_profit'] ?? 0, 2);
@@ -694,6 +695,28 @@
                                 adjustments</span> --}}
                             <span class="rounded-full bg-amber-100 px-2 py-0.5 text-amber-600">Damages & credits
                                 accounted for</span>
+                        </div>
+                    </div>
+                    <div class="rounded-xl border border-teal-400 bg-teal-50 p-5">
+                        <div class="flex items-start justify-between">
+                            <div>
+                                <p class="text-xs font-medium text-teal-700 uppercase tracking-wider">Food Sales</p>
+                                <p class="mt-2 text-2xl font-bold text-teal-900">GH₵ {{ $foodTotal }}</p>
+                            </div>
+                            <div class="shrink-0 rounded-lg bg-teal-100 p-2">
+                                {{-- <svg class="w-6 h-6 text-teal-700" viewBox="0 0 24 24" fill="none"
+                                    stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                    <path d="M17 6a8 8 0 1 0 0 12" stroke-linecap="round" stroke-linejoin="round" />
+                                    <line x1="12" y1="2" x2="12" y2="22"
+                                        stroke-linecap="round" />
+                                </svg> --}}
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6 text-teal-600 "><path d="M12 21a9 9 0 0 0 9-9H3a9 9 0 0 0 9 9Z"/><path d="M7 21h10"/><path d="M19.5 12 22 6"/><path d="M16.25 3c.27.1.8.53.75 1.36-.06.83-.93 1.2-1 2.02-.05.78.34 1.24.73 1.62"/><path d="M11.25 3c.27.1.8.53.74 1.36-.05.83-.93 1.2-.98 2.02-.06.78.33 1.24.72 1.62"/><path d="M6.25 3c.27.1.8.53.75 1.36-.06.83-.93 1.2-1 2.02-.05.78.34 1.24.74 1.62"/></svg>
+                            </div>
+                        </div>
+                        <div class="mt-4 flex items-center gap-3 text-xs text-teal-700">
+                            {{-- <span class="inline-flex items-center ">After
+                                adjustments</span> --}}
+                            <span class="rounded-full bg-teal-100 px-2 py-0.5 text-teal-600">Total amount sold.</span>
                         </div>
                     </div>
                 </div>

@@ -722,6 +722,7 @@ class Inventory extends Component
             'total_hubtel' => $summary->total_hubtel,
             'total_revenue' => $summary->total_revenue,
             'total_money' => $summary->total_money,
+            'food_total' => $summary->food_total,
             'total_profit' => $summary->total_profit,
             'total_loss_amount' => $summary->total_loss_amount,
             'total_credit_amount' => $summary->total_credit_amount,
