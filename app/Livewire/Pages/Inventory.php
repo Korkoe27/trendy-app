@@ -622,7 +622,7 @@ class Inventory extends Component
             if ($mostSoldProductId && $totalRevenue > 0) {
                 DailySalesSummary::create([
                     'total_revenue' => $totalRevenue,
-                    'total_money' => $this->cashAmount + $this->momoAmount + $this->hubtelAmount + $this->foodTotal,
+                    'total_money' => $this->cashAmount + $this->momoAmount + $this->hubtelAmount,
                     'items_sold' => $totalItemsSold,
                     'total_profit' => $totalProfit,
                     'total_cash' => (float) $this->cashAmount,
@@ -649,7 +649,7 @@ class Inventory extends Component
                         'total_cash' => (float) $this->cashAmount,
                         'total_momo' => (float) $this->momoAmount,
                         'total_hubtel' => (float) $this->hubtelAmount,
-                        'total_money' => $this->cashAmount + $this->momoAmount + $this->hubtelAmount + $this->foodTotal,
+                        'total_money' => $this->cashAmount + $this->momoAmount + $this->hubtelAmount,
                         'total_damaged' => $totalDamaged,
                         'total_credit_units' => $totalCredit,
                         'total_credit_amount' => $totalCreditAmount,
