@@ -9,13 +9,13 @@ use App\Models\Stock;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Livewire\Component;
+use Livewire\WithFileUploads;
 use Livewire\WithoutUrlPagination;
 use Livewire\WithPagination;
-use Livewire\WithFileUploads;
 
 class Products extends Component
 {
-    use WithoutUrlPagination,WithFileUploads, WithPagination;
+    use WithFileUploads,WithoutUrlPagination, WithPagination;
 
     public $product = null;          // currently viewed product
 
@@ -91,187 +91,213 @@ class Products extends Component
     }
 
     public function exportProducts()
-{
-    $filePath = storage_path('app/products_export_' . now()->format('Y-m-d_His') . '.csv');
-    
-    $header = [
-        'name',
-        'category_id',
-        'sku',
-        'barcode',
-        'stock_limit',
-        'selling_price',
-        'units_per_box',
-        'is_active'
-    ];
-    
-    $file = fopen($filePath, 'w');
-    fputcsv($file, $header);
-    
-    // Export existing products (optional - remove if you only want template)
-    $products = Product::with('category')->get();
-    foreach ($products as $product) {
-        fputcsv($file, [
-            $product->name,
-            $product->category->name,
-            $product->sku ?? '',
-            $product->barcode ?? '',
-            $product->stock_limit ?? '',
-            $product->selling_price,
-            $product->units_per_box ?? '',
-            $product->is_active ? '1' : '0'
-        ]);
-    }
-    
-    fclose($file);
-    
-    return response()->download($filePath)->deleteFileAfterSend(true);
-}
+    {
+        $filePath = storage_path('app/products_export_'.now()->format('Y-m-d_His').'.csv');
 
-public function exportTemplate()
-{
-    $filePath = storage_path('app/products_import_template.csv');
-    
-    $header = [
-        'name',
-        'category_id',
-        'sku',
-        'barcode',
-        'stock_limit',
-        'selling_price',
-        'units_per_box',
-        'is_active'
-    ];
-    
-    $file = fopen($filePath, 'w');
-    fputcsv($file, $header);
-    
-    // Add example row
-    fputcsv($file, [
-        'small club beer',
-        '1',
-        'SKU123',
-        '1234567890',
-        '100',
-        '5.50',
-        '24',
-        '1'
-    ]);
-    
-    fclose($file);
-    
-    return response()->download($filePath)->deleteFileAfterSend(true);
-}
+        $header = [
+            'name',
+            'category_id',
+            'sku',
+            'stock_limit',
+            'barcode',
+            'selling_price',
+            'units_per_box',
+            'is_active',
+        ];
 
-public function importProducts()
-{
-    $this->validate([
-        'importFile' => 'required|file|mimes:xlsx,xls,csv|max:2048'
-    ]);
-    
-    try {
-        $path = $this->importFile->getRealPath();
-        $file = fopen($path, 'r');
-        
-        // Read and validate header
-        $header = fgetcsv($file);
-        $expectedHeader = ['name', 'category_id', 'sku', 'barcode', 'stock_limit', 'selling_price', 'units_per_box', 'is_active'];
-        
-        if ($header !== $expectedHeader) {
-            $this->addError('importFile', 'Invalid file format. Please use the correct template.');
-            fclose($file);
-            return;
+        $file = fopen($filePath, 'w');
+        fputcsv($file, $header);
+
+        // Export existing products (optional - remove if you only want template)
+        $products = Product::with('category')->get();
+        foreach ($products as $product) {
+            fputcsv($file, [
+                $product->name,
+                $product->category->name,
+                $product->sku ?? '',
+                $product->stock_limit ?? '',
+                $product->barcode ?? '',
+                $product->selling_price,
+                $product->units_per_box ?? '',
+                $product->is_active ? '1' : '0',
+            ]);
         }
-        
-        $successCount = 0;
-        $errorCount = 0;
-        $errors = [];
-        $rowNumber = 1;
-        
-        while (($row = fgetcsv($file)) !== false) {
-            $rowNumber++;
-            
+
+        fclose($file);
+
+        return response()->download($filePath)->deleteFileAfterSend(true);
+    }
+
+    public function exportTemplate()
+    {
+        $filePath = storage_path('app/products_import_template.csv');
+
+        $header = [
+            'name',
+            'category',
+            'sku',
+            'stock_limit',
+            'barcode',
+            'selling_price',
+            'units_per_box',
+            'is_active',
+        ];
+
+        $file = fopen($filePath, 'w');
+        fputcsv($file, $header);
+
+        // Add example row
+        fputcsv($file, [
+            'example',
+            'drinks',
+            'SKU123',
+            '1234567890',
+            '100',
+            '5.50',
+            '24',
+            '1',
+        ]);
+
+        fclose($file);
+
+        return response()->download($filePath)->deleteFileAfterSend(true);
+    }
+
+    public function importProducts()
+    {
+        $this->validate([
+            'importFile' => 'required|file|mimes:csv,txt|max:2048',
+            // 'importFile' => 'required|file|mimes:xlsx,xls,csv|max:2048'
+        ]);
+
+        try {
+            $path = $this->importFile->getRealPath();
+
+            Log::debug('file path: '.$path);
+
+            $file = fopen($path, 'r');
+
+            Log::debug('file name: '.$file);
+            // Read and validate header
+            $expectedHeader = ['name', 'category', 'sku', 'stock_limit', 'barcode', 'selling_price', 'units_per_box', 'is_active'];
+
+            $header = fgetcsv($file);
+            Log::debug('headers: '.json_encode($header));
+
+            if ($header !== $expectedHeader) {
+                $this->addError('importFile', 'Invalid file format. Please use the correct template.');
+                fclose($file);
+
+                return;
+            }
+
+            $successCount = 0;
+            $errorCount = 0;
+            $errors = [];
+            $rowNumber = 1;
+
+            while (($row = fgetcsv($file)) !== false) {
+                $rowNumber++;
+
+                // try {
+                    // Skip empty rows
+                    if (empty(array_filter($row))) {
+                        continue;
+                    }
+
+                    // Prepare data
+                    $name = strtolower(trim($row[0]));
+                    $categoryName = strtolower(trim($row[1]));
+                    $sku = ! empty($row[2]) ? strtolower(trim($row[2])) : null;
+                    $stockLimit = ! empty($row[4]) ? (int) $row[3] : null;
+                    $barcode = ! empty($row[3]) ? trim($row[4]) : null;
+                    $sellingPrice = ! empty($row[5]) ? (float) $row[5] : 0.00;
+                    $unitsPerBox = ! empty($row[6]) ? (int) $row[6] : 0;
+                    $isActive = isset($row[7]) && in_array(strtolower(trim($row[7])), ['1', 'true', 'yes', 'y']);
+
+
+                    // Validate required fields
+                    if (empty($name) || empty($categoryName)) {
+                        $errors[] = "Row {$rowNumber}: Name and Category are required";
+                        $errorCount++;
+
+                        continue;
+                    }
+
+                    // Check if category exists
+                    // if (! Categories::find($productData['category_id'])) {
+                    //     $errors[] = "Row {$rowNumber}: Category ID {$productData['category_id']} does not exist";
+                    //     $errorCount++;
+
+                    //     continue;
+                    // }
+
+                    $category = Categories::firstOrCreate(
+                        ['name'=>$categoryName],
+                        ['pricing_model'=>'per_unit']
+
+                    );
+
+                    // Create product
             try {
-                // Skip empty rows
-                if (empty(array_filter($row))) {
-                    continue;
-                }
-                
-                // Prepare data
-                $productData = [
-                    'name' => strtolower(trim($row[0])),
-                    'category_id' => trim($row[1]),
-                    'sku' => !empty($row[2]) ? strtolower(trim($row[2])) : null,
-                    'barcode' => !empty($row[3]) ? trim($row[3]) : null,
-                    'stock_limit' => !empty($row[4]) ? (int)$row[4] : null,
-                    'selling_price' => !empty($row[5]) ? (float)$row[5] : 0.00,
-                    'units_per_box' => !empty($row[6]) ? (int)$row[6] : 0,
-                    'is_active' => !empty($row[7]) ? (bool)$row[7] : true,
-                ];
-                
-                // Validate required fields
-                if (empty($productData['name']) || empty($productData['category_id'])) {
-                    $errors[] = "Row {$rowNumber}: Name and Category are required";
-                    $errorCount++;
-                    continue;
-                }
-                
-                // Check if category exists
-                if (!Categories::find($productData['category_id'])) {
-                    $errors[] = "Row {$rowNumber}: Category ID {$productData['category_id']} does not exist";
-                    $errorCount++;
-                    continue;
-                }
-                
-                // Create product
-                Product::create($productData);
+                Product::create([
+                    'name' => $name,
+                    'category_id' => $category->id,
+                    'sku' => $sku,
+                    'barcode' => $barcode,
+                    'stock_limit' => $stockLimit,
+                    'selling_price' => $sellingPrice,
+                    'units_per_box' => $unitsPerBox,
+                    'is_active' => $isActive,
+                ]);
                 $successCount++;
-                
             } catch (\Exception $e) {
                 $errorCount++;
                 $errors[] = "Row {$rowNumber}: " . $e->getMessage();
             }
-        }
-        
-        fclose($file);
-        
-        // Log activity
-        ActivityLogs::create([
-            'user_id' => Auth::id(),
-            'action_type' => 'import_products',
-            'description' => "Imported {$successCount} products from CSV/Excel",
-            'entity_type' => 'product_import',
-            'metadata' => json_encode([
-                'success_count' => $successCount,
-                'error_count' => $errorCount,
-                'errors' => $errors
-            ]),
-            'entity_id' => null
-        ]);
-        
-        // Show results
-        if ($successCount > 0) {
-            $message = "Successfully imported {$successCount} product(s)";
-            if ($errorCount > 0) {
-                $message .= " with {$errorCount} error(s)";
             }
-            session()->flash('message', $message);
-            
-            if (!empty($errors)) {
-                session()->flash('import_errors', array_slice($errors, 0, 10)); // Show first 10 errors
+
+            fclose($file);
+
+            // Log activity
+            ActivityLogs::create([
+                'user_id' => Auth::id(),
+                'action_type' => 'import_products',
+                'description' => "Imported {$successCount} products from CSV/Excel",
+                'entity_type' => 'product_import',
+                'metadata' => json_encode([
+                    'success_count' => $successCount,
+                    'error_count' => $errorCount,
+                    'errors' => $errors,
+                ]),
+                'entity_id' => null,
+            ]);
+
+            // Show results
+            if ($successCount > 0) {
+                $message = "Successfully imported {$successCount} product(s)";
+                if ($errorCount > 0) {
+                    $message .= " with {$errorCount} error(s)";
+                    session()->flash('import_errors', array_slice($errors, 0, 10));
+                }
+                session()->flash('message', $message);
+
+                if (! empty($errors)) {
+                    session()->flash('import_errors', array_slice($errors, 0, 10)); // Show first 10 errors
+                }
+            } else {
+                $this->addError('importFile', 'No products were imported. '.implode(', ', array_slice($errors, 0, 5)));
             }
-        } else {
-            $this->addError('importFile', 'No products were imported. ' . implode(', ', array_slice($errors, 0, 5)));
+
+            $this->showImportModal = false;
+            $this->reset('importFile');
+
+        } catch (\Exception $e) {
+            $this->addError('importFile', 'Import failed: '.$e->getMessage());
+            Log::error('Product import error', ['error' => $e->getMessage()]);
         }
-        
-        $this->showImportModal = false;
-        $this->reset('importFile');
-        
-    } catch (\Exception $e) {
-        $this->addError('importFile', 'Import failed: ' . $e->getMessage());
-        Log::error('Product import error', ['error' => $e->getMessage()]);
     }
-}
+
     public function getFilteredProductsProperty()
     {
         $query = Product::with(['category', 'stocks'])
