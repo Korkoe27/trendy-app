@@ -2,24 +2,35 @@
 
 namespace App\Livewire\Pages;
 
-use App\Models\{Categories, Product, Stock, ActivityLogs};
-use Livewire\{Component, WithPagination};
+use App\Models\ActivityLogs;
+use App\Models\Categories;
+use App\Models\Product;
+use App\Models\Stock;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\{Log, Auth};
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
+use Livewire\Component;
+use Livewire\WithPagination;
 
 class Stocks extends Component
 {
     use WithPagination;
 
     public $searchTerm = '';
+
     public $selectedCategory = 'all';
+
     public $selectedDate;
+
     public $showTakeStockModal = false;
+
     public $addNewStockModal = false;
-    
+
     // New stock modal properties
     public $newStockItems = [];
+
     public $notes = '';
+
     public $products = [];
 
     protected $rules = [
@@ -38,13 +49,14 @@ class Stocks extends Component
         'newStockItems.*.input_units.numeric' => 'Units must be a valid number',
         'newStockItems.*.total_cost.required' => 'Total cost is required',
         'newStockItems.*.total_cost.numeric' => 'Total cost must be a valid number',
-        'newStockItems.*.supplier.required' => 'Supplier is required'
+        'newStockItems.*.supplier.required' => 'Supplier is required',
     ];
 
     public function mount()
     {
         $this->selectedDate = Carbon::today()->format('Y-m-d');
         $this->products = Product::with('category')->where('is_active', true)->get();
+        // $this->products = Product::all();    
         $this->resetNewStockForm();
     }
 
@@ -82,7 +94,7 @@ class Stocks extends Component
                 'supplier' => '',
                 'calculated_cost_price' => 0,
                 'calculated_profit_margin' => 0,
-            ]
+            ],
         ];
         $this->notes = '';
         $this->resetErrorBag();
@@ -116,7 +128,7 @@ class Stocks extends Component
         $index = $parts[0];
         $field = $parts[1];
 
-        if (!isset($this->newStockItems[$index]['product_id']) || empty($this->newStockItems[$index]['product_id'])) {
+        if (! isset($this->newStockItems[$index]['product_id']) || empty($this->newStockItems[$index]['product_id'])) {
             return;
         }
 
@@ -132,14 +144,16 @@ class Stocks extends Component
      */
     public function calculateTotalUnits($index)
     {
-        if (!isset($this->newStockItems[$index]['product_id']) || empty($this->newStockItems[$index]['product_id'])) {
+        if (! isset($this->newStockItems[$index]['product_id']) || empty($this->newStockItems[$index]['product_id'])) {
             $this->newStockItems[$index]['calculated_total_units'] = 0;
+
             return;
         }
 
         $product = Product::find($this->newStockItems[$index]['product_id']);
-        if (!$product) {
+        if (! $product) {
             $this->newStockItems[$index]['calculated_total_units'] = 0;
+
             return;
         }
 
@@ -149,27 +163,20 @@ class Stocks extends Component
 
         // Calculate total units: (boxes * units_per_box) + individual_units
         $totalUnits = ($inputBoxes * $unitsPerBox) + $inputUnits;
-        
+
         $this->newStockItems[$index]['calculated_total_units'] = $totalUnits;
 
-        Log::info("Total units calculation for index $index", [
-            'product_id' => $product->id,
-            'product_name' => $product->name,
-            'input_boxes' => $inputBoxes,
-            'input_units' => $inputUnits,
-            'units_per_box' => $unitsPerBox,
-            'calculated_total_units' => $totalUnits
-        ]);
+        Log::debug("Total units calculation for index $index");
     }
 
     private function calculateCostAndMargin($index)
     {
-        if (!isset($this->newStockItems[$index]['product_id']) || empty($this->newStockItems[$index]['product_id'])) {
+        if (! isset($this->newStockItems[$index]['product_id']) || empty($this->newStockItems[$index]['product_id'])) {
             return;
         }
 
         $product = Product::find($this->newStockItems[$index]['product_id']);
-        if (!$product) {
+        if (! $product) {
             return;
         }
 
@@ -180,20 +187,14 @@ class Stocks extends Component
         if ($totalCost > 0 && $totalUnits > 0) {
             // Calculate cost price per unit (total_cost / total_units)
             $costPrice = $totalCost / $totalUnits;
-            
+
             // Calculate profit margin per unit (selling_price - cost_price)
             $profitMargin = $sellingPrice - $costPrice;
-            
+
             $this->newStockItems[$index]['calculated_cost_price'] = round($costPrice, 2);
             $this->newStockItems[$index]['calculated_profit_margin'] = round($profitMargin, 2);
 
-            Log::info("Cost calculation for index $index", [
-                'total_cost' => $totalCost,
-                'total_units' => $totalUnits,
-                'cost_price_per_unit' => $costPrice,
-                'selling_price' => $sellingPrice,
-                'profit_margin' => $profitMargin
-            ]);
+            Log::debug("Cost calculation for index $index");
         } else {
             $this->newStockItems[$index]['calculated_cost_price'] = 0;
             $this->newStockItems[$index]['calculated_profit_margin'] = 0;
@@ -205,15 +206,16 @@ class Stocks extends Component
         $this->validate();
 
         // Filter out empty items
-        $validItems = array_filter($this->newStockItems, function($item) {
-            return !empty($item['product_id']) && 
-                   $item['calculated_total_units'] > 0 && 
-                   !empty($item['total_cost']) && 
-                   !empty($item['supplier']);
+        $validItems = array_filter($this->newStockItems, function ($item) {
+            return ! empty($item['product_id']) &&
+                   $item['calculated_total_units'] > 0 &&
+                   ! empty($item['total_cost']) &&
+                   ! empty($item['supplier']);
         });
 
         if (empty($validItems)) {
             $this->addError('newStockItems', 'At least one item with quantities, total cost, and supplier is required');
+
             return;
         }
 
@@ -221,12 +223,14 @@ class Stocks extends Component
 
         foreach ($validItems as $item) {
             $product = Product::find($item['product_id']);
-            if (!$product) continue;
+            if (! $product) {
+                continue;
+            }
 
             $totalUnitsToAdd = (int) $item['calculated_total_units'];
             $totalCost = (float) $item['total_cost'];
             $supplier = $item['supplier'];
-            
+
             // Calculate cost price and margin using the calculated values
             $costPrice = (float) $item['calculated_cost_price'];
             $costMargin = (float) $item['calculated_profit_margin'];
@@ -243,7 +247,7 @@ class Stocks extends Component
                     'cost_price' => $costPrice,
                     'cost_margin' => $costMargin,
                     'notes' => $this->notes,
-                    'updated_at' => now()
+                    'updated_at' => now(),
                 ]);
             } else {
                 // Create new stock entry
@@ -254,7 +258,7 @@ class Stocks extends Component
                     'total_cost' => $totalCost,
                     'cost_price' => $costPrice,
                     'cost_margin' => $costMargin,
-                    'notes' => $this->notes
+                    'notes' => $this->notes,
                 ]);
             }
 
@@ -267,7 +271,6 @@ class Stocks extends Component
         $this->closeAddStockModal();
         session()->flash('message', "Successfully updated stock for {$successCount} product(s)");
 
-        
         ActivityLogs::create([
             'user_id' => Auth::id(),
             'action_type' => 'stock_update',
@@ -276,20 +279,19 @@ class Stocks extends Component
             'entity_id' => 'bulk_update',
             'metadata' => json_encode([
                 'total_items_updated' => $successCount,
-                'timestamp' => now()
-            ])
+                'timestamp' => now(),
+            ]),
         ]);
-
 
     }
 
     private function createActivityLog($product, $stockItem, $costMargin, $costPrice, $totalUnitsAdded)
     {
         $description = "Stock updated for {$product->name}";
-        
+
         // Calculate boxes equivalent for logging
         $boxesEquivalent = $product->units_per_box > 0 ? round($totalUnitsAdded / $product->units_per_box, 2) : 0;
-        
+
         $metadata = [
             'product_name' => $product->name,
             'product_id' => $product->id,
@@ -303,7 +305,7 @@ class Stocks extends Component
             'selling_price' => (float) $product->selling_price,
             'cost_margin_per_unit' => round($costMargin, 2),
             'notes' => $this->notes,
-            'timestamp' => now()
+            'timestamp' => now(),
         ];
 
         ActivityLogs::create([
@@ -312,18 +314,18 @@ class Stocks extends Component
             'description' => $description,
             'entity_type' => 'stock_record',
             'entity_id' => $product->barcode ?? $product->sku ?? $product->id,
-            'metadata' => json_encode($metadata)
+            'metadata' => json_encode($metadata),
         ]);
     }
 
     public function deleteStockEntry($productId)
     {
         $stock = Stock::where('product_id', $productId)->first();
-        
+
         if ($stock) {
             $product = Product::find($productId);
             $boxesEquivalent = $product->units_per_box > 0 ? round($stock->total_units / $product->units_per_box, 2) : 0;
-            
+
             // Create activity log for deletion
             ActivityLogs::create([
                 'user_id' => Auth::id(),
@@ -338,27 +340,27 @@ class Stocks extends Component
                     'supplier' => $stock->supplier,
                     'total_cost' => $stock->total_cost,
                     'cost_price' => $stock->cost_price,
-                    'timestamp' => now()
-                ])
+                    'timestamp' => now(),
+                ]),
             ]);
-            
+
             $stock->delete();
         }
-        
+
         session()->flash('message', 'Stock entry deleted successfully');
     }
 
     public function render()
     {
         $categories = Categories::all();
-        
+
         $query = Stock::with(['product.category']);
 
         if ($this->searchTerm) {
             $query->whereHas('product', function ($q) {
-                $q->where('name', 'like', '%' . $this->searchTerm . '%')
-                ->orWhere('barcode', 'like', '%' . $this->searchTerm . '%')
-                ->orWhere('sku', 'like', '%' . $this->searchTerm . '%');
+                $q->where('name', 'like', '%'.$this->searchTerm.'%')
+                    ->orWhere('barcode', 'like', '%'.$this->searchTerm.'%')
+                    ->orWhere('sku', 'like', '%'.$this->searchTerm.'%');
             });
         }
 
@@ -372,7 +374,7 @@ class Stocks extends Component
 
         return view('livewire.pages.stocks', [
             'stocks' => $stocks,
-            'categories' => $categories
+            'categories' => $categories,
         ]);
     }
 }

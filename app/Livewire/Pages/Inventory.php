@@ -199,8 +199,11 @@ class Inventory extends Component
             $mostSoldProductId = null;
             $maxUnitsSold = 0;
 
+            $salesRows = [];
+            $stockUpdates = [];
             // Process each product's updated inventory (same logic as submitInventory)
             foreach ($this->productStocks as $productId => $stockData) {
+
                 if (! filled($stockData['closing_boxes']) && ! filled($stockData['closing_units'])) {
                     continue;
                 }
@@ -250,11 +253,28 @@ class Inventory extends Component
                 }
 
                 // Create updated daily sales record
-                DailySales::create([
+                // DailySales::create([
+                //     'product_id' => $productId,
+                //     'stock_id' => $stock->id,
+                //     'opening_stock' => $openingStock,
+                //     'closing_stock' => $totalClosingUnits,
+                //     'opening_boxes' => $openingBoxes,
+                //     'closing_boxes' => $closingBoxes,
+                //     'damaged_units' => $damagedUnits,
+                //     'credit_units' => $creditUnits,
+                //     'credit_amount' => $creditAmount,
+                //     'loss_amount' => $lossAmount,
+                //     'total_amount' => $cashRevenue,
+                //     'unit_profit' => $unitProfit,
+                //     'created_at' => $summary->created_at, // Keep original date
+                //     'updated_at' => now(),
+                // ]);
+
+                $salesRows[] = [
                     'product_id' => $productId,
                     'stock_id' => $stock->id,
                     'opening_stock' => $openingStock,
-                    'closing_stock' => $totalClosingUnits,
+                    'closing_stock' => $closingUnits,
                     'opening_boxes' => $openingBoxes,
                     'closing_boxes' => $closingBoxes,
                     'damaged_units' => $damagedUnits,
@@ -263,16 +283,33 @@ class Inventory extends Component
                     'loss_amount' => $lossAmount,
                     'total_amount' => $cashRevenue,
                     'unit_profit' => $unitProfit,
-                    'created_at' => $summary->created_at, // Keep original date
+                    'created_at' => now(),
                     'updated_at' => now(),
-                ]);
+                ];
 
-                // Update stock with new closing values
-                $stock->update([
-                    'total_units' => $totalClosingUnits,
-                ]);
+                $stockUpdates[$stock->id] = $closingUnits;
+
+                // // Update stock with new closing values
+                // $stock->update([
+                //     'total_units' => $totalClosingUnits,
+                // ]);
             }
 
+            if (! empty($salesRows)) {
+                DB::table('daily_sales')->insert($salesRows);
+                Log::info('Submitted new Sales', ['count' => count($salesRows)]);
+            }
+
+            if (! empty($stockUpdates)) {
+                foreach ($stockUpdates as $stockId => $totalUnits) {
+                    DB::table('stocks')
+                        ->where('id', $stockId)
+                        ->update([
+                            'total_units' => $totalUnits,
+                            'updated_at' => now(),
+                        ]);
+                }
+            }
             // Update the summary record
             $updateData = [
                 'total_revenue' => $totalRevenue,
@@ -391,7 +428,7 @@ class Inventory extends Component
     {
         $stock = $this->productStocks[$productId] ?? null;
 
-        Log::info("Calculating total units for product ID: $productId", [
+        Log::debug("Calculating total units for product ID: $productId", [
             'stock' => $stock,
         ]);
 
@@ -405,7 +442,7 @@ class Inventory extends Component
         $units = (int) ($stock['closing_units'] ?? 0);
         $unitsPerBox = $product->units_per_box ?? 1;
 
-        Log::info("Product ID: $productId, Boxes: $boxes, Units: $units, Units per Box: $unitsPerBox");
+        Log::debug("Product ID: $productId, Boxes: $boxes, Units: $units, Units per Box: $unitsPerBox");
 
         $totalClosingUnits = ($boxes * $unitsPerBox) + $units;
 
@@ -422,7 +459,7 @@ class Inventory extends Component
         Log::info('Stock details', $stock);
 
         $product = $stock['product'];
-        Log::info('product Details'.$product);
+        Log::debug('product Details'.$product);
         // $currentStock = Stock::select('total_units')->where('product_id', $productId)->first();
 
         $currentStock = $product->total_units;
@@ -453,7 +490,7 @@ class Inventory extends Component
         $creditUnits = (float) ($stock['credit_units'] ?? 0);
         $unitsSold = max(0, $openingStock - $closingStock - $damagedUnits - $creditUnits);
 
-        Log::info("Units sold calculation for product ID: $productId", [
+        Log::debug("Units sold calculation for product ID: $productId", [
             'closing_stock' => $closingStock,
             'damaged_units' => $damagedUnits,
             'credit_units' => $creditUnits,
@@ -471,6 +508,7 @@ class Inventory extends Component
 
     public function submitInventory()
     {
+
         $this->validate([
             'cashAmount' => 'required|numeric|min:0',
             'momoAmount' => 'required|numeric|min:0',
@@ -510,6 +548,7 @@ class Inventory extends Component
             // Process each product's inventory
 
             $salesRows = [];
+            $stockUpdates = [];
 
             foreach ($this->productStocks as $productId => $stockData) {
                 if (! filled($stockData['closing_boxes']) && ! filled($stockData['closing_units'])) {
@@ -606,18 +645,35 @@ class Inventory extends Component
                     'updated_at' => now(),
                 ];
 
-                // after the loop
-                if (! empty($salesRows)) {
-                    DB::table('daily_sales')->insert($salesRows);
-                }
+                $stockUpdates[$stock->id] = $closingUnits;
 
-                Log::info('Submitted new Sales ');
+                // after the loop
+                // if (! empty($salesRows)) {
+                //     DB::table('daily_sales')->insert($salesRows);
+                // }
+
+                Log::debug('checked new sales for product: '.$productId);
                 // Update stock with new closing values
-                $stock->update([
-                    'total_units' => $closingUnits,
-                ]);
+                // $stock->update([
+                //     'total_units' => $closingUnits,
+                // ]);
             }
 
+            if (! empty($salesRows)) {
+                DB::table('daily_sales')->insert($salesRows);
+                Log::debug('Submitted new Sales', ['count' => count($salesRows)]);
+            }
+
+            if (! empty($stockUpdates)) {
+                foreach ($stockUpdates as $stockId => $totalUnits) {
+                    DB::table('stocks')
+                        ->where('id', $stockId)
+                        ->update([
+                            'total_units' => $totalUnits,
+                            'updated_at' => now(),
+                        ]);
+                }
+            }
             // Create daily sales summary only if we have sales data
             if ($mostSoldProductId && $totalRevenue > 0) {
                 DailySalesSummary::create([
@@ -708,9 +764,12 @@ class Inventory extends Component
         }
 
         // Get all individual sales for the same date
-        $dailySales = DailySales::with(['stock'])
-            ->whereDate('created_at', $summary->created_at->format('Y-m-d'))
-            ->get();
+        // $dailySales = DailySales::with(['stock'])
+        //     ->whereDate('created_at', $summary->created_at->format('Y-m-d'))
+        //     ->get();
+        $dailySales = DailySales::with(['stock', 'product.category'])
+        ->whereDate('created_at', $summary->created_at->format('Y-m-d'))
+        ->get();
 
         Log::debug('Found '.$dailySales->count()." daily sales for summary ID: $recordId");
 
@@ -731,11 +790,15 @@ class Inventory extends Component
             'products' => $dailySales->map(function ($sale) {
                 $unitsSold = $sale->opening_stock - $sale->closing_stock - ($sale->damaged_units ?? 0) - ($sale->credit_units ?? 0);
                 $boxesSold = $sale->opening_boxes - $sale->closing_boxes;
-                $product = Product::with('category')->find($sale->product_id);
+                // $product = Product::with('category')->find($sale->product_id);
+
+                $productName = $sale->product->name ?? 'Error';
+                $productCategory = $sale->product->category->name ?? 'Error';
 
                 return [
-                    'product_name' => $product->name ?? 'N/A',
-                    'category' => $product->category->name ?? 'N/A',
+                    // 'product_name' => $product->name ?? 'N/A',
+                    'product_name' => $productName,
+                    'category' => $productCategory,
                     'opening_stock' => $sale->opening_stock,
                     'closing_stock' => $sale->closing_stock,
                     'opening_boxes' => $sale->opening_boxes,
