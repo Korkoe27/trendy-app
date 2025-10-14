@@ -86,14 +86,14 @@
 
                         <tr class="hover:bg-gray-50" wire:key="product-row-{{ $product->id }}">
                             {{-- Product --}}
-                            <td class="px-6 py-4 whitespace-nowrap">
+                            <td class="px-6 py-2 whitespace-nowrap">
                                 <div class="text-base font-medium uppercase text-gray-900">{{ $product->name }}</div>
                                 <div class="text-base uppercase text-gray-500">{{ $product->category->name }} •
                                     {{ $product->barcode ?? 'N/A' }}</div>
                             </td>
 
                             {{-- Stock --}}
-                            <td class="px-6 py-4 whitespace-nowrap">
+                            <td class="px-6 py-2 whitespace-nowrap">
                                 <div class="text-base font-medium text-gray-900">{{ $stockStatus['current'] }} units
                                 </div>
                                 @if ($product->stock_limit)
@@ -106,15 +106,15 @@
                             </td>
 
                             {{-- Cost/Sell/Margin --}}
-                            <td class="px-6 py-4 whitespace-nowrap">
+                            <td class="px-6 py-2 whitespace-nowrap">
                                 <div class="text-base text-gray-900">GH₵
                                     {{ number_format($product->stocks->cost_price ?? 0, 2) }}</div>
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap">
+                            <td class="px-6 py-2 whitespace-nowrap">
                                 <div class="text-base text-gray-900">GH₵
                                     {{ number_format($product->selling_price, 2) }}</div>
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap">
+                            <td class="px-6 py-2 whitespace-nowrap">
                                 <div
                                     class="text-base font-medium {{ $margin > 50 ? 'text-green-600' : ($margin > 25 ? 'text-yellow-600' : 'text-red-600') }}">
                                     {{ $margin }}
@@ -122,7 +122,7 @@
                             </td>
 
                             {{-- Active/Inactive --}}
-                            <td class="px-6 py-4 whitespace-nowrap">
+                            <td class="px-6 py-2 whitespace-nowrap">
                                 <button wire:click="toggleProductStatus({{ $product->id }})"
                                     class="inline-block px-2 py-1 text-xs font-medium rounded-full {{ $product->is_active ? 'text-green-600 bg-green-100 hover:bg-green-200' : 'text-gray-600 bg-gray-100 hover:bg-gray-200' }} transition-colors">
                                     {{ $product->is_active ? 'Active' : 'Inactive' }}

@@ -42,6 +42,9 @@ return new class extends Migration
 
             $table->float('closing_boxes')->nullable()->default(0.00);
 
+            $table->date('sales_date')->nullable()->after('id');
+            $table->index('sales_date');
+
             $table->timestamps();
         });
     }

@@ -8,6 +8,7 @@ use App\Models\Product;
 use App\Models\Stock;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -18,9 +19,31 @@ class Stocks extends Component
 
     public $searchTerm = '';
 
+    public $viewStockModal = false;
+
+    public $editStockModal = false;
+
+    public $selectedStock;
+
+    public $editSupplier;
+
+    public $editTotalUnits;
+
+    public $editStockItem = [];
+
+    public $editTotalCost;
+
+    // public $editCostPrice;
+    // public $editCostMargin;
+    public $editRestockDate;
+
+    public $editNotes;
+
     public $selectedCategory = 'all';
 
     public $selectedDate;
+
+    public $restockDate = '';
 
     public $showTakeStockModal = false;
 
@@ -39,6 +62,7 @@ class Stocks extends Component
         'newStockItems.*.input_boxes' => 'nullable|numeric|min:0',
         'newStockItems.*.total_cost' => 'required|numeric|min:0',
         'newStockItems.*.supplier' => 'required|string|max:255',
+        'restockDate' => 'required|date|before_or_equal:today',
         'notes' => 'nullable|string|max:1000',
     ];
 
@@ -50,14 +74,27 @@ class Stocks extends Component
         'newStockItems.*.total_cost.required' => 'Total cost is required',
         'newStockItems.*.total_cost.numeric' => 'Total cost must be a valid number',
         'newStockItems.*.supplier.required' => 'Supplier is required',
+        'restockDate.required' => 'Restock date is required',
+        'restockDate.date' => 'Restock date must be a valid date',
+        'restockDate.before_or_equal' => 'Restock date cannot be in the future',
     ];
 
     public function mount()
     {
         $this->selectedDate = Carbon::today()->format('Y-m-d');
+        $this->restockDate = Carbon::today()->format('Y-m-d');
         $this->products = Product::with('category')->where('is_active', true)->get();
-        // $this->products = Product::all();    
+        // $this->products = Product::all();
         $this->resetNewStockForm();
+    }
+
+    public function updatedRestockDate($value)
+    {
+        // Ensure restock date is not in the future
+        if ($value && strtotime($value) > time()) {
+            $this->restockDate = Carbon::today()->format('Y-m-d');
+            session()->flash('error', 'Restock date cannot be in the future');
+        }
     }
 
     public function updatedSearchTerm()
@@ -70,9 +107,53 @@ class Stocks extends Component
         $this->resetPage();
     }
 
+    public function viewStock($stockId)
+    {
+        $this->selectedStock = Stock::with('product.category')->findOrFail($stockId);
+        Log::debug('View stock details: '.$this->selectedStock);
+        $this->viewStockModal = true;
+    }
+
+    public function editStock($stockId)
+    {
+        $this->selectedStock = Stock::with('product.category')->findOrFail($stockId);
+
+        // Initialize editStockItem array with existing data (similar to newStockItems structure)
+        $this->editStockItem = [
+            'product_id' => $this->selectedStock->product_id,
+            'input_units' => $this->selectedStock->total_units,
+            'calculated_total_units' => $this->selectedStock->total_units,
+            'total_cost' => $this->selectedStock->total_cost,
+            'supplier' => $this->selectedStock->supplier,
+            'calculated_cost_price' => $this->selectedStock->cost_price,
+            'calculated_profit_margin' => $this->selectedStock->cost_margin,
+        ];
+
+        $this->editRestockDate = $this->selectedStock->restock_date;
+        $this->editNotes = $this->selectedStock->notes;
+
+        $this->editStockModal = true;
+    }
+
+    public function closeViewStockModal()
+    {
+        $this->viewStockModal = false;
+        $this->selectedStock = null;
+    }
+
+    public function closeEditStockModal()
+    {
+        $this->editStockModal = false;
+        $this->selectedStock = null;
+        $this->editStockItem = [];
+        $this->editRestockDate = null;
+        $this->editNotes = null;
+    }
+
     public function showAddNewStockModal()
     {
         $this->addNewStockModal = true;
+        $this->restockDate = Carbon::today()->format('Y-m-d');
         $this->resetNewStockForm();
     }
 
@@ -132,9 +213,14 @@ class Stocks extends Component
             return;
         }
 
-        // Recalculate total units and costs when any relevant field changes
-        if (in_array($field, ['input_boxes', 'input_units', 'total_cost'])) {
-            $this->calculateTotalUnits($index);
+        // Recalculate when relevant fields change
+        if (in_array($field, ['input_units', 'total_cost'])) {
+            // For edit modal, input_units IS the total units (no boxes calculation needed)
+            if ($this->editStockModal) {
+                $this->newStockItems[$index]['calculated_total_units'] = (int) ($this->newStockItems[$index]['input_units'] ?? 0);
+            } else {
+                $this->calculateTotalUnits($index);
+            }
             $this->calculateCostAndMargin($index);
         }
     }
@@ -201,6 +287,88 @@ class Stocks extends Component
         }
     }
 
+    public function updatedEditStockItem($value, $key)
+    {
+        $field = str_replace('editStockItem.', '', $key);
+
+        // Recalculate when relevant fields change
+        if (in_array($field, ['input_units', 'total_cost'])) {
+            // Update calculated_total_units
+            $this->editStockItem['calculated_total_units'] = (int) ($this->editStockItem['input_units'] ?? 0);
+
+            // Use existing calculateCostAndMargin method by passing a pseudo-index
+            $this->calculateEditItemCostAndMargin();
+        }
+    }
+
+    private function calculateEditItemCostAndMargin()
+    {
+        if (! $this->selectedStock || ! isset($this->editStockItem['product_id'])) {
+            return;
+        }
+
+        $product = $this->selectedStock->product;
+        $totalCost = (float) ($this->editStockItem['total_cost'] ?? 0);
+        $totalUnits = (int) ($this->editStockItem['calculated_total_units'] ?? 0);
+        $sellingPrice = (float) $product->selling_price;
+
+        if ($totalCost > 0 && $totalUnits > 0) {
+            $costPrice = $totalCost / $totalUnits;
+            $profitMargin = $sellingPrice - $costPrice;
+
+            $this->editStockItem['calculated_cost_price'] = round($costPrice, 2);
+            $this->editStockItem['calculated_profit_margin'] = round($profitMargin, 2);
+        } else {
+            $this->editStockItem['calculated_cost_price'] = 0;
+            $this->editStockItem['calculated_profit_margin'] = 0;
+        }
+    }
+
+    public function updateStock()
+    {
+        $this->validate([
+            'editStockItem.supplier' => 'required|string|max:255',
+            'editStockItem.input_units' => 'required|numeric|min:0',
+            'editStockItem.total_cost' => 'required|numeric|min:0',
+            'editRestockDate' => 'required|date|before_or_equal:today',
+            'editNotes' => 'nullable|string|max:1000',
+        ]);
+
+        $this->selectedStock->update([
+            'supplier' => $this->editStockItem['supplier'],
+            'total_units' => $this->editStockItem['calculated_total_units'],
+            'total_cost' => $this->editStockItem['total_cost'],
+            'cost_price' => $this->editStockItem['calculated_cost_price'],
+            'cost_margin' => $this->editStockItem['calculated_profit_margin'],
+            'restock_date' => $this->editRestockDate,
+            'notes' => $this->editNotes,
+        ]);
+
+        // Create activity log
+        $productName = $this->selectedStock->product->name;
+        ActivityLogs::create([
+            'user_id' => Auth::id(),
+            'action_type' => 'stock_update',
+            'description' => "Stock entry updated for {$productName}",
+            'entity_type' => 'stock_record',
+            'entity_id' => $this->selectedStock->id,
+            'metadata' => json_encode([
+                'product_name' => $productName,
+                'supplier' => $this->editStockItem['supplier'],
+                'total_units' => $this->editStockItem['calculated_total_units'],
+                'total_cost' => $this->editStockItem['total_cost'],
+                'cost_price' => $this->editStockItem['calculated_cost_price'],
+                'profit_margin' => $this->editStockItem['calculated_profit_margin'],
+                'restock_date' => $this->editRestockDate,
+                'timestamp' => now(),
+            ]),
+        ]);
+
+        $this->closeEditStockModal();
+        session()->flash('message', 'Stock entry updated successfully!');
+    }
+    // Replace the saveNewStock() method in Stocks.php with this refactored version
+
     public function saveNewStock()
     {
         $this->validate();
@@ -208,9 +376,8 @@ class Stocks extends Component
         // Filter out empty items
         $validItems = array_filter($this->newStockItems, function ($item) {
             return ! empty($item['product_id']) &&
-                   $item['calculated_total_units'] > 0 &&
-                   ! empty($item['total_cost']) &&
-                   ! empty($item['supplier']);
+                $item['calculated_total_units'] > 0 &&
+                ! empty($item['total_cost']);
         });
 
         if (empty($validItems)) {
@@ -219,10 +386,28 @@ class Stocks extends Component
             return;
         }
 
+        $restockDate = $this->restockDate ?: Carbon::today()->format('Y-m-d');
+
+        // Get all product IDs for batch query
+        $productIds = array_column($validItems, 'product_id');
+
+        // Fetch all products at once
+        $products = Product::select('id', 'name', 'barcode', 'sku')
+            ->whereIn('id', $productIds)
+            ->get()
+            ->keyBy('id');
+
+        // Fetch all existing stocks at once
+        $existingStocks = Stock::whereIn('product_id', $productIds)
+            ->get()
+            ->keyBy('product_id');
+
+        $stockCreateRows = [];
+        $stockUpdateRows = [];
         $successCount = 0;
 
         foreach ($validItems as $item) {
-            $product = Product::find($item['product_id']);
+            $product = $products->get($item['product_id']);
             if (! $product) {
                 continue;
             }
@@ -230,28 +415,27 @@ class Stocks extends Component
             $totalUnitsToAdd = (int) $item['calculated_total_units'];
             $totalCost = (float) $item['total_cost'];
             $supplier = $item['supplier'];
-
-            // Calculate cost price and margin using the calculated values
             $costPrice = (float) $item['calculated_cost_price'];
             $costMargin = (float) $item['calculated_profit_margin'];
 
-            // Get existing stock entry for this product (1:1 relationship)
-            $existingStock = Stock::where('product_id', $product->id)->first();
+            $existingStock = $existingStocks->get($item['product_id']);
 
             if ($existingStock) {
-                // Update existing stock entry
-                $existingStock->update([
+                // Prepare update data
+                $stockUpdateRows[] = [
+                    'id' => $existingStock->id,
                     'total_units' => $existingStock->total_units + $totalUnitsToAdd,
                     'supplier' => $supplier,
                     'total_cost' => $totalCost,
                     'cost_price' => $costPrice,
                     'cost_margin' => $costMargin,
                     'notes' => $this->notes,
+                    'restock_date' => $restockDate,
                     'updated_at' => now(),
-                ]);
+                ];
             } else {
-                // Create new stock entry
-                Stock::create([
+                // Prepare create data
+                $stockCreateRows[] = [
                     'product_id' => $product->id,
                     'total_units' => $totalUnitsToAdd,
                     'supplier' => $supplier,
@@ -259,30 +443,58 @@ class Stocks extends Component
                     'cost_price' => $costPrice,
                     'cost_margin' => $costMargin,
                     'notes' => $this->notes,
-                ]);
+                    'restock_date' => $restockDate,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
             }
 
-            // Create activity log
-            // $this->createActivityLog($product, $item, $costMargin, $costPrice, $totalUnitsToAdd);
-
             $successCount++;
+        }
+
+        // Batch insert new stocks
+        if (! empty($stockCreateRows)) {
+            DB::table('stocks')->insert($stockCreateRows);
+            Log::info('Created new stock entries', ['count' => count($stockCreateRows)]);
+        }
+
+        // Batch update existing stocks
+        if (! empty($stockUpdateRows)) {
+            foreach ($stockUpdateRows as $updateData) {
+                DB::table('stocks')
+                    ->where('id', $updateData['id'])
+                    ->update([
+                        'total_units' => $updateData['total_units'],
+                        'supplier' => $updateData['supplier'],
+                        'total_cost' => $updateData['total_cost'],
+                        'cost_price' => $updateData['cost_price'],
+                        'cost_margin' => $updateData['cost_margin'],
+                        'notes' => $updateData['notes'],
+                        'restock_date' => $updateData['restock_date'],
+                        'updated_at' => $updateData['updated_at'],
+                    ]);
+            }
+            Log::info('Updated existing stock entries', ['count' => count($stockUpdateRows)]);
         }
 
         $this->closeAddStockModal();
         session()->flash('message', "Successfully updated stock for {$successCount} product(s)");
 
+        // Create activity log
         ActivityLogs::create([
             'user_id' => Auth::id(),
             'action_type' => 'stock_update',
-            'description' => "Stock updated for {$successCount} product(s)",
+            'description' => "Stock updated for {$successCount} product(s) (Restock Date: ".Carbon::parse($restockDate)->format('M j, Y').')',
             'entity_type' => 'stock_record',
             'entity_id' => 'bulk_update',
             'metadata' => json_encode([
                 'total_items_updated' => $successCount,
+                'new_entries' => count($stockCreateRows),
+                'updated_entries' => count($stockUpdateRows),
+                'restock_date' => $restockDate,
                 'timestamp' => now(),
             ]),
         ]);
-
     }
 
     private function createActivityLog($product, $stockItem, $costMargin, $costPrice, $totalUnitsAdded)

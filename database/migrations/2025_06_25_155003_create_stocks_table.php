@@ -29,6 +29,8 @@ return new class extends Migration
             $table->decimal('cost_margin', 8, 2)->default(0); // selling_price - cost_price
             
             $table->text('notes')->nullable();
+
+            $table->timestamp('restock_date')->nullable();
             
             $table->timestamps();
         });

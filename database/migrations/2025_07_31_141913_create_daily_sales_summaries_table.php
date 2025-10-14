@@ -25,14 +25,16 @@ return new class extends Migration
             $table->float('total_credit_units')->default(0.00);
             $table->float('total_damaged')->default(0.00);
 
-            //most sold
+            // most sold
             $table->float('total_profit')->default(0.00);
-            
+
             $table->foreignId('product_id')
                 ->constrained('products')
                 ->onDelete('cascade');
-            
-            
+
+            $table->date('sales_date')->nullable()->after('id');
+            $table->index('sales_date');
+
             $table->timestamps();
         });
     }

@@ -158,7 +158,7 @@
     @if ($showTakeInventoryModal)
         <div class="fixed inset-0 bg-black/50 bg-opacity-50 flex items-center justify-center z-50">
             <div class="bg-white rounded-lg p-6 w-full max-w-4xl mx-4 max-h-[90vh] overflow-y-auto">
-                <div class="flex justify-between items-center mb-6">
+                <div class="flex justify-between w-full items-center mb-6">
                     <h3 class="text-lg font-semibold text-gray-900">
                         @if ($isEditing)
                             Edit Inventory -
@@ -168,15 +168,33 @@
                                 <span class="text-sm font-normal text-amber-600">(Stock counts only)</span>
                             @endif
                         @else
-                            Take Inventory - {{ \Carbon\Carbon::parse($selectedDate)->format('M j, Y') }}
+                            Take Inventory
                         @endif
                     </h3>
-                    <button wire:click="closeTakeInventoryModal" class="text-gray-400 hover:text-gray-600">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M6 18L18 6M6 6l12 12"></path>
-                        </svg>
-                    </button>
+                    <div class="flex items-center justify-between gap-10">
+                    @if (!$isEditing)
+                        {{-- Sales Date Selector (only show when creating new record) --}}
+                        <div class="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                            <input type="date" wire:model.live="salesDate" max="{{ now()->format('Y-m-d') }}"
+                                class="" />
+                        </div>
+                    @else
+                            {{-- Show the sales date (read-only when editing) --}}
+                            <div class="mt-4 bg-gray-50 border border-gray-200 rounded-lg p-3">
+                                <span class="text-sm text-gray-600">Recording sales for: </span>
+                                <span class="text-sm font-semibold text-gray-900">
+                                    {{ \Carbon\Carbon::parse($salesDate)->format('l, M j, Y') }}
+                                </span>
+                            </div>
+                        @endif
+                        <button wire:click="closeTakeInventoryModal" class="text-gray-400 hover:text-gray-600">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </div>
+                        
                 </div>
 
                 {{-- Stepper --}}
@@ -357,7 +375,19 @@
                                         d="M3 10h18M7 15h1m4 0h1m-7 4h12a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v11a2 2 0 002 2z">
                                     </path>
                                 </svg> --}}
-                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-12 h-12 text-amber-600 mx-auto mb-2"><path d="M12 21a9 9 0 0 0 9-9H3a9 9 0 0 0 9 9Z"/><path d="M7 21h10"/><path d="M19.5 12 22 6"/><path d="M16.25 3c.27.1.8.53.75 1.36-.06.83-.93 1.2-1 2.02-.05.78.34 1.24.73 1.62"/><path d="M11.25 3c.27.1.8.53.74 1.36-.05.83-.93 1.2-.98 2.02-.06.78.33 1.24.72 1.62"/><path d="M6.25 3c.27.1.8.53.75 1.36-.06.83-.93 1.2-1 2.02-.05.78.34 1.24.74 1.62"/></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
+                                    viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                    stroke-linecap="round" stroke-linejoin="round"
+                                    class="w-12 h-12 text-amber-600 mx-auto mb-2">
+                                    <path d="M12 21a9 9 0 0 0 9-9H3a9 9 0 0 0 9 9Z" />
+                                    <path d="M7 21h10" />
+                                    <path d="M19.5 12 22 6" />
+                                    <path
+                                        d="M16.25 3c.27.1.8.53.75 1.36-.06.83-.93 1.2-1 2.02-.05.78.34 1.24.73 1.62" />
+                                    <path
+                                        d="M11.25 3c.27.1.8.53.74 1.36-.05.83-.93 1.2-.98 2.02-.06.78.33 1.24.72 1.62" />
+                                    <path d="M6.25 3c.27.1.8.53.75 1.36-.06.83-.93 1.2-1 2.02-.05.78.34 1.24.74 1.62" />
+                                </svg>
                                 <h3 class="text-lg font-semibold text-gray-900">Food Sales</h3>
                                 <p class="text-sm text-gray-600">Enter the total Food amount collected today</p>
                             </div>
@@ -710,7 +740,18 @@
                                     <line x1="12" y1="2" x2="12" y2="22"
                                         stroke-linecap="round" />
                                 </svg> --}}
-                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6 text-teal-600 "><path d="M12 21a9 9 0 0 0 9-9H3a9 9 0 0 0 9 9Z"/><path d="M7 21h10"/><path d="M19.5 12 22 6"/><path d="M16.25 3c.27.1.8.53.75 1.36-.06.83-.93 1.2-1 2.02-.05.78.34 1.24.73 1.62"/><path d="M11.25 3c.27.1.8.53.74 1.36-.05.83-.93 1.2-.98 2.02-.06.78.33 1.24.72 1.62"/><path d="M6.25 3c.27.1.8.53.75 1.36-.06.83-.93 1.2-1 2.02-.05.78.34 1.24.74 1.62"/></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
+                                    viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                    stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6 text-teal-600 ">
+                                    <path d="M12 21a9 9 0 0 0 9-9H3a9 9 0 0 0 9 9Z" />
+                                    <path d="M7 21h10" />
+                                    <path d="M19.5 12 22 6" />
+                                    <path
+                                        d="M16.25 3c.27.1.8.53.75 1.36-.06.83-.93 1.2-1 2.02-.05.78.34 1.24.73 1.62" />
+                                    <path
+                                        d="M11.25 3c.27.1.8.53.74 1.36-.05.83-.93 1.2-.98 2.02-.06.78.33 1.24.72 1.62" />
+                                    <path d="M6.25 3c.27.1.8.53.75 1.36-.06.83-.93 1.2-1 2.02-.05.78.34 1.24.74 1.62" />
+                                </svg>
                             </div>
                         </div>
                         <div class="mt-4 flex items-center gap-3 text-xs text-teal-700">
@@ -809,18 +850,18 @@
                                     <th
                                         class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                         Closing (u)</th>
-                                    <th
+                                    {{-- <th
                                         class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Opening (bx)</th>
-                                    <th
+                                        Opening (bx)</th> --}}
+                                    {{-- <th
                                         class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Closing (bx)</th>
+                                        Closing (bx)</th> --}}
                                     <th
                                         class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                         Units Sold</th>
-                                    <th
+                                    {{-- <th
                                         class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Boxes Sold</th>
+                                        Boxes Sold</th> --}}
                                     <th
                                         class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                         Damaged</th>
@@ -852,14 +893,14 @@
                                             {{ number_format($sale['opening_stock']) }}</td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                             {{ number_format($sale['closing_stock']) }}</td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            {{ number_format($sale['opening_boxes']) }}</td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            {{ number_format($sale['closing_boxes']) }}</td>
+                                        {{-- <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                            {{ number_format($sale['opening_boxes']) }}</td> --}}
+                                        {{-- <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                            {{ number_format($sale['closing_boxes']) }}</td> --}}
                                         <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
                                             {{ number_format($sale['units_sold']) }}</td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
-                                            {{ number_format($sale['boxes_sold']) }}</td>
+                                        {{-- <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
+                                            {{ number_format($sale['boxes_sold']) }}</td> --}}
                                         <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
                                             {{ number_format($sale['damaged_units']) }}</td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">

@@ -22,6 +22,8 @@ class Inventory extends Component
 
     public $currentStep = 1;
 
+    public $salesDate;
+
     public $isEditing = false;
 
     public $editingRecordId = null;
@@ -46,6 +48,7 @@ class Inventory extends Component
     public function mount()
     {
         $this->selectedDate = now()->format('Y-m-d');
+        $this->salesDate = now()->format('Y-m-d');
     }
 
     protected $rules = [
@@ -78,6 +81,15 @@ class Inventory extends Component
         $this->validateOnly('momoAmount');
     }
 
+    public function updatedSalesDate($value)
+    {
+        // Ensure sales date is not in the future
+        if ($value && strtotime($value) > time()) {
+            $this->salesDate = now()->format('Y-m-d');
+            session()->flash('error', 'Sales date cannot be in the future');
+        }
+    }
+
     public function updatedHubtelAmount($value)
     {
         $this->hubtelAmount = $value;
@@ -107,6 +119,7 @@ class Inventory extends Component
             return;
         }
 
+        $this->salesDate = $this->editingOriginalRecord['date'];
         // Pre-fill form with existing data
         $this->cashAmount = $this->editingOriginalRecord['total_cash'];
         $this->momoAmount = $this->editingOriginalRecord['total_momo'];
@@ -184,10 +197,11 @@ class Inventory extends Component
             // Delete existing daily sales for this date
             // DailySales::whereDate('created_at', $summary->created_at->format('Y-m-d'))->delete();
 
-            $targetDay = $summary->created_at->startOfDay();
-            $nextDay = $summary->created_at->endOfDay();
+            // $targetDay = $summary->created_at->startOfDay();
+            // $nextDay = $summary->created_at->endOfDay();
 
-            DailySales::whereBetween('created_at', [$targetDay, $nextDay])->delete();
+            $salesDate = $summary->sales_date ?: $summary->created_at->format('Y-m-d');
+            DailySales::where('sales_date', $salesDate)->delete();
 
             $totalRevenue = 0;
             $totalItemsSold = 0;
@@ -253,26 +267,11 @@ class Inventory extends Component
                 }
 
                 // Create updated daily sales record
-                // DailySales::create([
-                //     'product_id' => $productId,
-                //     'stock_id' => $stock->id,
-                //     'opening_stock' => $openingStock,
-                //     'closing_stock' => $totalClosingUnits,
-                //     'opening_boxes' => $openingBoxes,
-                //     'closing_boxes' => $closingBoxes,
-                //     'damaged_units' => $damagedUnits,
-                //     'credit_units' => $creditUnits,
-                //     'credit_amount' => $creditAmount,
-                //     'loss_amount' => $lossAmount,
-                //     'total_amount' => $cashRevenue,
-                //     'unit_profit' => $unitProfit,
-                //     'created_at' => $summary->created_at, // Keep original date
-                //     'updated_at' => now(),
-                // ]);
 
                 $salesRows[] = [
                     'product_id' => $productId,
                     'stock_id' => $stock->id,
+                    'sales_date' => $salesDate,
                     'opening_stock' => $openingStock,
                     'closing_stock' => $closingUnits,
                     'opening_boxes' => $openingBoxes,
@@ -372,6 +371,7 @@ class Inventory extends Component
         // $this->cashAmount = '';
         // $this->momoAmount = '';
         // $this->hubtelAmount = '';
+        $this->salesDate = now()->format('Y-m-d');
         $this->productStocks = [];
     }
 
@@ -523,7 +523,15 @@ class Inventory extends Component
             'product_stocks' => $this->productStocks,
         ]);
 
+        $existingRecord = DailySalesSummary::where('sales_date', $this->salesDate ?: now()->format('Y-m-d'))->first();
+
+        if ($existingRecord) {
+            session()->flash('error', 'A sales record already exists for '.\Carbon\Carbon::parse($this->salesDate)->format('M j, Y').'. Please edit the existing record instead.');
+
+            return;
+        }
         DB::transaction(function () {
+            $recordDate = $this->salesDate ?: now()->format('Y-m-d');
             $totalRevenue = 0;
             $totalItemsSold = 0;
             $totalProfit = 0;
@@ -612,25 +620,12 @@ class Inventory extends Component
                 Log::info('calculated sales');
 
                 // Create individual daily sales record
-                // DailySales::create([
-                //     'product_id' => $productId,
-                //     'stock_id' => $stock->id,
-                //     'opening_stock' => $openingStock,
-                //     'closing_stock' => $closingUnits,
-                //     'opening_boxes' => $openingBoxes,
-                //     'closing_boxes' => $closingBoxes,
-                //     'damaged_units' => $damagedUnits,
-                //     'credit_units' => $creditUnits,
-                //     'credit_amount' => $creditAmount,
-                //     'loss_amount' => $lossAmount,
-                //     'total_amount' => $cashRevenue,
-                //     'unit_profit' => $unitProfit,
-                // ]);
 
                 // inside foreach (instead of DailySales::create([...]))
                 $salesRows[] = [
                     'product_id' => $productId,
                     'stock_id' => $stock->id,
+                    'sales_date' => $recordDate,
                     'opening_stock' => $openingStock,
                     'closing_stock' => $closingUnits,
                     'opening_boxes' => $openingBoxes,
@@ -681,6 +676,7 @@ class Inventory extends Component
                     'total_money' => $this->cashAmount + $this->momoAmount + $this->hubtelAmount,
                     'items_sold' => $totalItemsSold,
                     'total_profit' => $totalProfit,
+                    'sales_date' => $recordDate,
                     'total_cash' => (float) $this->cashAmount,
                     'total_momo' => (float) $this->momoAmount,
                     'total_hubtel' => (float) $this->hubtelAmount,
@@ -748,7 +744,7 @@ class Inventory extends Component
             'items_sold as total_products',
             'id as first_id'
         )
-            ->orderBy('created_at', 'desc')
+            ->orderBy('sales_date', 'desc')
             ->get();
 
         // Log::info('Fetched '. $dailySalesRecords->count() .' daily sales records');
@@ -764,18 +760,17 @@ class Inventory extends Component
         }
 
         // Get all individual sales for the same date
-        // $dailySales = DailySales::with(['stock'])
-        //     ->whereDate('created_at', $summary->created_at->format('Y-m-d'))
-        //     ->get();
+        $targetDate = $summary->sales_date ?: $summary->created_at->format('Y-m-d');
+
         $dailySales = DailySales::with(['stock', 'product.category'])
-        ->whereDate('created_at', $summary->created_at->format('Y-m-d'))
-        ->get();
+            ->whereDate('sales_date', $targetDate)
+            ->get();
 
         Log::debug('Found '.$dailySales->count()." daily sales for summary ID: $recordId");
 
         return [
             'id' => $recordId,
-            'date' => $summary->created_at->format('Y-m-d'),
+            'date' => $targetDate,
             'total_cash' => $summary->total_cash,
             'total_momo' => $summary->total_momo,
             'total_hubtel' => $summary->total_hubtel,
