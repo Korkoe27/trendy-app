@@ -18,4 +18,8 @@ class Role extends Model
     public function modules(){
         return $this->belongsToMany(Module::class,'permissions');
     }
+
+    public function users(){
+        return $this->hasMany(User::class, 'role_id');
+    }
 }

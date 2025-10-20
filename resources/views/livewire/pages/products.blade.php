@@ -13,23 +13,26 @@
                 <h2 class="text-xl font-semibold text-gray-900">Product Management</h2>
                 <p class="text-base text-gray-600 mt-1">Manage your pub's product inventory</p>
             </div>
-            <div class="flex gap-2">
-                <livewire:components.create-product />
-                <button wire:click="exportTemplate"
-                    class="bg-green-600 text-white px-4 py-2 rounded-xl hover:bg-green-700">
-                    Download Template
-                </button>
+            @haspermission('create','products')
+                <div class="flex gap-2">
+                    
+                    <livewire:components.create-product />
+                    <button wire:click="exportTemplate"
+                        class="bg-green-600 text-white px-4 py-2 rounded-xl hover:bg-green-700">
+                        Download Template
+                    </button>
 
-                <button wire:click="$set('showImportModal', true)"
-                    class="bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700">
-                    Import Products
-                </button>
+                    <button wire:click="$set('showImportModal', true)"
+                        class="bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700">
+                        Import Products
+                    </button>
 
-                <button wire:click="exportProducts"
-                    class="bg-gray-600 text-white px-4 py-2 rounded-xl hover:bg-gray-700">
-                    Export Products
-                </button>
-            </div>
+                    <button wire:click="exportProducts"
+                        class="bg-gray-600 text-white px-4 py-2 rounded-xl hover:bg-gray-700">
+                        Export Products
+                    </button>
+                </div>
+            @endhaspermission
         </div>
 
         {{-- Search / Filter --}}
@@ -144,6 +147,8 @@
                                         </svg>
                                     </button>
 
+                                    
+                                    @haspermission('modify','products')
                                     <button wire:click="editProduct({{ $product->id }})"
                                         class="text-green-600 hover:text-green-900" title="Edit">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -151,7 +156,10 @@
                                                 d="M11 4h2m-6.586 9.414l8.586-8.586a2 2 0 112.828 2.828l-8.586 8.586H7v-2.828zM5 19h14" />
                                         </svg>
                                     </button>
+                                    @endhaspermission
 
+                                    
+                                    @haspermission('delete','products')
                                     <button wire:click="deleteProduct({{ $product->id }})"
                                         wire:confirm="Are you sure you want to delete this product?"
                                         class="text-red-600 hover:text-red-900" title="Delete">
@@ -161,6 +169,7 @@
                                             </path>
                                         </svg>
                                     </button>
+                                    @endhaspermission
                                 </div>
                             </td>
                         </tr>

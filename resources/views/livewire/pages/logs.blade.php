@@ -19,6 +19,8 @@
                 </select>
                 
                 {{-- Export Button --}}
+                
+            @haspermission('create','logs')
                 <button
                     wire:click="exportLogs"
                     class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 focus:ring-2 focus:ring-green-500 focus:ring-offset-2 text-sm font-medium flex items-center space-x-2"
@@ -28,6 +30,7 @@
                     </svg>
                     <span>Export</span>
                 </button>
+            @endhaspermission
             </div>
         </div>
 

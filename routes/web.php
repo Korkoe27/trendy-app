@@ -2,13 +2,7 @@
 
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\UserAuthController;
-use App\Livewire\Pages\Analytics;
-use App\Livewire\Pages\Dashboard;
-use App\Livewire\Pages\Inventory;
-use App\Livewire\Pages\Logs;
-use App\Livewire\Pages\Products;
-use App\Livewire\Pages\Settings;
-use App\Livewire\Pages\Stocks;
+use App\Livewire\Pages\{Analytics,Dashboard,Inventory,Logs,Products,Settings,Stocks, Users};
 use Illuminate\Support\Facades\Route;
 
 // Route::get('/', function () {
@@ -19,21 +13,23 @@ use Illuminate\Support\Facades\Route;
 
 // });
 
-Route::middleware(['auth'])->group(function () {
+Route::middleware('auth')->group(function () {
 
     Route::get('/', Dashboard::class)->name('dashboard');
 
-    Route::get('products', Products::class)->name('products');
+    Route::get('products', Products::class)->name('products')->middleware('permission:products,view');
 
-    Route::get('stocks', Stocks::class)->name('stocks');
+    Route::get('stocks', Stocks::class)->name('stocks')->middleware('permission:stocks,view');
 
-    Route::get('inventory', Inventory::class)->name('inventory');
+    Route::get('inventory', Inventory::class)->name('inventory')->middleware('permission:inventory,view');
 
-    Route::get('settings', Settings::class)->name('settings');
+    Route::get('settings', Settings::class)->name('settings')->middleware('permission:settings,view');
 
-    Route::get('logs', Logs::class)->name('logs');
+    Route::get('logs', Logs::class)->name('logs')->middleware('permission:logs,view');
+    
+    Route::get('users', Users::class)->name('users')->middleware('permission:users,view');
 
-    Route::get('analytics', Analytics::class)->name('analytics');
+    Route::get('analytics', Analytics::class)->name('analytics')->middleware('permission:analytics,view');
 
 });
 

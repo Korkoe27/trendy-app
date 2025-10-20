@@ -14,6 +14,8 @@
                 <h2 class="text-xl font-semibold text-gray-900">Stock Management</h2>
                 <p class="text-base text-gray-600 mt-1">Track available stock levels</p>
             </div>
+            
+            @haspermission('create','stocks')
             <div class="flex space-x-3">
                 <button wire:click="showAddNewStockModal"
                     class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-800 transition-colors flex items-center space-x-2">
@@ -23,6 +25,7 @@
                     <span>Add New Stock</span>
                 </button>
             </div>
+            @endhaspermission
         </div>
 
         <!-- Search and Filter -->
@@ -138,6 +141,9 @@
                                                 d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                                         </svg>
                                     </button>
+
+                                    
+                                    @haspermission('modify','stocks')
                                     <button wire:click="editStock({{ $stock->id }})"
                                         class="text-green-600 hover:text-green-800" title="Edit Stock">
                                         {{-- <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -149,6 +155,11 @@
                                                 d="M11 4h2m-6.586 9.414l8.586-8.586a2 2 0 112.828 2.828l-8.586 8.586H7v-2.828zM5 19h14" />
                                         </svg>
                                     </button>
+                                    @endhaspermission
+
+
+                                    
+                                    @haspermission('delete','stocks')
                                     <button wire:click="deleteStockEntry({{ $stock->product_id }})"
                                         wire:confirm="Are you sure you want to delete this stock entry?"
                                         class="text-red-600 hover:text-red-900" title="Delete Stock">
@@ -158,6 +169,8 @@
                                                 d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                         </svg>
                                     </button>
+                                    @endhaspermission
+                                    
                                 </div>
 
                             </td>

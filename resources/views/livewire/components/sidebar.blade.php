@@ -57,6 +57,8 @@
             </a>
 
             <!-- Products Link -->
+            
+            @haspermission('view','stocks')
             <a href="{{ route('products') }}" 
                wire:navigate
                wire:click="setActiveItem('products')"
@@ -69,7 +71,10 @@
                 </svg>
                 Products
             </a>
+            @endhaspermission
 
+
+            @haspermission('view','stocks')
             <!-- Stocks Link -->
             <a href="{{ route('stocks') }}" 
                wire:navigate
@@ -80,7 +85,9 @@
                 </svg>
                 Stocks
             </a>
+            @endhaspermission
 
+            @haspermission('view','logs')
             <!-- Logs Link -->
             <a href="{{ route('logs') }}" 
                wire:navigate
@@ -89,7 +96,23 @@
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 shrink-0"><path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"/></svg>
                 Logs
             </a>
+            @endhaspermission
 
+            @haspermission('view','users')
+            <a href="{{ route('users') }}"
+            wire:navigate
+            wire:click="setActiveItem('users')"
+            class="flex items-center gap-3 px-4 py-2.5 text-sm font-medium rounded-lg transition-colors duration-200 {{ request()->routeIs('users') ? 'bg-black text-white' : 'bg-white text-gray-700 hover:bg-gray-100 hover:text-gray-900' }}"
+            >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5 shrink-0">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />
+            </svg>
+
+            Users
+            </a>
+            @endhaspermission
+
+            @haspermission('view','analytics')
             <!-- Analytics Link -->
             <a href="{{ route('analytics') }}" 
                wire:navigate
@@ -98,17 +121,22 @@
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 lucide lucide-chart-bar-icon lucide-chart-bar"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M7 16h8"/><path d="M7 11h12"/><path d="M7 6h3"/></svg>
                 Analytics
             </a>
+            @endhaspermission
+
+            @haspermission('view','settings')
             <!-- Settings Link -->
             <a href="{{ route('settings') }}" 
-               wire:navigate
-               wire:click="setActiveItem('settings')"
-               class="flex items-center gap-3 px-4 py-2.5 text-sm font-medium rounded-lg transition-colors duration-200 {{ request()->routeIs('settings') ? 'bg-black text-white' : 'bg-white text-gray-700 hover:bg-gray-100 hover:text-gray-900' }}">
+                wire:navigate
+                wire:click="setActiveItem('settings')"
+                class="flex items-center gap-3 px-4 py-2.5 text-sm font-medium rounded-lg transition-colors duration-200 {{ request()->routeIs('settings') ? 'bg-black text-white' : 'bg-white text-gray-700 hover:bg-gray-100 hover:text-gray-900' }}">
                 <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
                 </svg>
                 Settings
             </a>
+
+            @endhaspermission
         </nav>
 
         <!-- Footer -->
