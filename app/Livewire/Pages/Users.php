@@ -129,17 +129,57 @@ class Users extends Component
         $this->showUserModal = true;
     }
 
+
+    public function resetUserPassword($userId)
+{
+    DB::beginTransaction();
+    try {
+        $user = User::findOrFail($userId);
+
+        // Generate a temporary password (you can customize this)
+        $tempPassword = 'Temp' . rand(1000, 9999) . '!';
+        
+        $user->update([
+            'password' => Hash::make($tempPassword),
+            'must_change_password' => true,
+            'password_changed_at' => null,
+        ]);
+
+        ActivityLogs::create([
+            'user_id' => Auth::id(),
+            'action_type' => 'password_reset',
+            'description' => 'Reset password for user: ' . $user->name,
+            'entity_type' => 'user',
+            'entity_id' => $user->id,
+            'metadata' => json_encode([
+                'reset_by' => Auth::user()->name,
+                'temporary_password' => $tempPassword, // Store temporarily for admin to see
+            ])
+        ]);
+
+        DB::commit();
+        
+        // Flash the temporary password for the admin to communicate to the user
+        session()->flash('message', "Password reset successfully. Temporary password: {$tempPassword}");
+        session()->flash('temp_password', $tempPassword);
+        
+    } catch (\Exception $e) {
+        DB::rollBack();
+        session()->flash('error', 'An error occurred: ' . $e->getMessage());
+    }
+}
+
     public function saveUser()
     {
         $this->validate($this->userRules(), [
-            'name.required' => 'The name field is required.',
-            'username.required' => 'The username field is required.',
-            'username.unique' => 'This username is already taken.',
-            'email.unique' => 'This email is already taken.',
-            'role_id.required' => 'Please select a role.',
-            'password.required' => 'The password field is required.',
-            'password.min' => 'Password must be at least 8 characters.',
-            'password.confirmed' => 'Password confirmation does not match.',
+        'name.required' => 'The name field is required.',
+        'username.required' => 'The username field is required.',
+        'username.unique' => 'This username is already taken.',
+        'email.unique' => 'This email is already taken.',
+        'role_id.required' => 'Please select a role.',
+        'password.required' => 'The password field is required.',
+        'password.min' => 'Password must be at least 8 characters.',
+        'password.confirmed' => 'Password confirmation does not match.',
         ]);
 
         DB::beginTransaction();
@@ -155,9 +195,11 @@ class Users extends Component
             if ($this->isEditMode) {
                 $user = User::findOrFail($this->userId);
                 
-                if ($this->password) {
-                    $userData['password'] = Hash::make($this->password);
-                }
+            if ($this->password) {
+                $userData['password'] = Hash::make($this->password);
+                $userData['must_change_password'] = true; // Force password change when admin resets
+                $userData['password_changed_at'] = null;
+            }
                 
                 $user->update($userData);
                 
@@ -173,6 +215,7 @@ class Users extends Component
                 session()->flash('message', 'User updated successfully.');
             } else {
                 $userData['password'] = Hash::make($this->password);
+                $userData['must_change_password'] = true;
                 $user = User::create($userData);
                 
                 ActivityLogs::create([
@@ -183,7 +226,8 @@ class Users extends Component
                     'entity_id' => $user->id,
                     'metadata' => json_encode([
                         'username' => $user->username,
-                        'role' => $user->role->name
+                        'role' => $user->role->name,
+                        'initial_password' => $this->password,
                     ])
                 ]);
 
@@ -566,11 +610,11 @@ class Users extends Component
             if ($this->searchTerm) {
                 $query->where(function($q) {
                     $q->where('name', 'like', '%' . $this->searchTerm . '%')
-                      ->orWhere('username', 'like', '%' . $this->searchTerm . '%')
-                      ->orWhere('email', 'like', '%' . $this->searchTerm . '%')
-                      ->orWhereHas('role', function($roleQuery) {
-                          $roleQuery->where('name', 'like', '%' . $this->searchTerm . '%');
-                      });
+                    ->orWhere('username', 'like', '%' . $this->searchTerm . '%')
+                    ->orWhere('email', 'like', '%' . $this->searchTerm . '%')
+                    ->orWhereHas('role', function($roleQuery) {
+                        $roleQuery->where('name', 'like', '%' . $this->searchTerm . '%');
+                    });
                 });
             }
 
@@ -591,7 +635,7 @@ class Users extends Component
             if ($this->searchTerm) {
                 $query->where(function($q) {
                     $q->where('name', 'like', '%' . $this->searchTerm . '%')
-                      ->orWhere('description', 'like', '%' . $this->searchTerm . '%');
+                    ->orWhere('description', 'like', '%' . $this->searchTerm . '%');
                 });
             }
 

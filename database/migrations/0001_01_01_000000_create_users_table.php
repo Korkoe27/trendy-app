@@ -15,19 +15,18 @@ return new class extends Migration
             $table->id();
             $table->string('name');
             $table->string('username')->unique();
-            
             $table->string('email')->unique()->nullable();
 
-
-            
             $table->foreignId('role_id')
-            ->constrained('roles')
-            ->onDelete('cascade');
-            
-            
+                ->constrained('roles')
+                ->onDelete('cascade');
+
+            $table->string('password');
+            $table->boolean('must_change_password')->default(true);
+            $table->timestamp('password_changed_at')->nullable();
+
             $table->boolean('is_active')->default(true);
             $table->timestamp('email_verified_at')->nullable();
-            $table->string('password');
             $table->rememberToken();
             $table->timestamps();
         });

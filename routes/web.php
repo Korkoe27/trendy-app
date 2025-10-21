@@ -13,7 +13,14 @@ use Illuminate\Support\Facades\Route;
 
 // });
 
-Route::middleware('auth')->group(function () {
+Route::middleware(['auth'])->group(function () {
+    Route::get('/change-password', [UserAuthController::class, 'showChangePassword'])
+        ->name('password.change');
+    Route::post('/change-password', [UserAuthController::class, 'changePassword'])
+        ->name('password.update');
+});
+
+Route::middleware(['auth', 'must.change.password'])->group(function () {
 
     Route::get('/', Dashboard::class)->name('dashboard');
 
