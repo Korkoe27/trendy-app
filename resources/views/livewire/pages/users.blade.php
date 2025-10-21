@@ -34,7 +34,7 @@
                     </div>
                 @endhaspermission
             @else
-                @haspermission('create', 'roles')
+                @haspermission('create', 'users')
                     <div class="flex space-x-3">
                         <button wire:click="showAddRoleModal"
                             class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-800 transition-colors flex items-center space-x-2">
@@ -175,8 +175,6 @@
                                                         d="M11 4h2m-6.586 9.414l8.586-8.586a2 2 0 112.828 2.828l-8.586 8.586H7v-2.828zM5 19h14" />
                                                 </svg>
                                             </button>
-                                        @endhaspermission
-                                        @haspermission('modify', 'users')
                                             <button wire:click="resetUserPassword({{ $user->id }})"
                                                 class="text-orange-600 hover:text-orange-800" title="Reset Password">
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor"
