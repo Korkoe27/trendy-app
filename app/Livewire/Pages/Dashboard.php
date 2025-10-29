@@ -59,6 +59,7 @@ class Dashboard extends Component
         })->with(['stocks', 'category'])->get();
     }
 
+
     public function getRecentSalesProperty()
     {
         return DailySales::whereDate('created_at', $this->displayDate)

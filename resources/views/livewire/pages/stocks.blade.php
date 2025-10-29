@@ -14,17 +14,17 @@
                 <h2 class="text-xl font-semibold text-gray-900">Stock Management</h2>
                 <p class="text-base text-gray-600 mt-1">Track available stock levels</p>
             </div>
-            
-            @haspermission('create','stocks')
-            <div class="flex space-x-3">
-                <button wire:click="showAddNewStockModal"
-                    class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-800 transition-colors flex items-center space-x-2">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-                    </svg>
-                    <span>Add New Stock</span>
-                </button>
-            </div>
+
+            @haspermission('create', 'stocks')
+                <div class="flex space-x-3">
+                    <button wire:click="showAddNewStockModal"
+                        class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-800 transition-colors flex items-center space-x-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                        </svg>
+                        <span>Add New Stock</span>
+                    </button>
+                </div>
             @endhaspermission
         </div>
 
@@ -142,35 +142,35 @@
                                         </svg>
                                     </button>
 
-                                    
-                                    @haspermission('modify','stocks')
-                                    <button wire:click="editStock({{ $stock->id }})"
-                                        class="text-green-600 hover:text-green-800" title="Edit Stock">
-                                        {{-- <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+
+                                    @haspermission('modify', 'stocks')
+                                        <button wire:click="editStock({{ $stock->id }})"
+                                            class="text-green-600 hover:text-green-800" title="Edit Stock">
+                                            {{-- <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                                 d="M11 5h2m2 0h3m-3 0v3m0-3v3m-6 8h6m2 0h3m-3 0v3m0-3v3" />
                                         </svg> --}}
-                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M11 4h2m-6.586 9.414l8.586-8.586a2 2 0 112.828 2.828l-8.586 8.586H7v-2.828zM5 19h14" />
-                                        </svg>
-                                    </button>
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M11 4h2m-6.586 9.414l8.586-8.586a2 2 0 112.828 2.828l-8.586 8.586H7v-2.828zM5 19h14" />
+                                            </svg>
+                                        </button>
                                     @endhaspermission
 
 
-                                    
-                                    @haspermission('delete','stocks')
-                                    <button wire:click="deleteStockEntry({{ $stock->product_id }})"
-                                        wire:confirm="Are you sure you want to delete this stock entry?"
-                                        class="text-red-600 hover:text-red-900" title="Delete Stock">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor"
-                                            viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                        </svg>
-                                    </button>
+
+                                    @haspermission('delete', 'stocks')
+                                        <button wire:click="deleteStockEntry({{ $stock->product_id }})"
+                                            wire:confirm="Are you sure you want to delete this stock entry?"
+                                            class="text-red-600 hover:text-red-900" title="Delete Stock">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor"
+                                                viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                            </svg>
+                                        </button>
                                     @endhaspermission
-                                    
+
                                 </div>
 
                             </td>
@@ -245,7 +245,7 @@
                                             Units</th>
                                         <th
                                             class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Total Units</th>
+                                            Free Units</th>
                                         <th
                                             class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Total Cost*</th>
@@ -268,16 +268,13 @@
                                         <tr class="hover:bg-gray-50">
                                             <td class="px-4 py-3">
                                                 <select wire:model.live="newStockItems.{{ $index }}.product_id"
-                                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                                                    class="w-full px-3 py-2 border border-gray-300 capitalize rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                                                     required>
                                                     <option value="">Select Product</option>
                                                     @foreach ($products as $product)
                                                         <option value="{{ $product->id }}"
                                                             class="uppercase font-semibold">
                                                             {{ $product->name }} - {{ $product->category->name }}
-                                                            @if ($product->sku)
-                                                                ({{ $product->sku }})
-                                                            @endif
                                                         </option>
                                                     @endforeach
                                                 </select>
@@ -308,19 +305,10 @@
                                                 @enderror
                                             </td>
                                             <td class="px-4 py-3">
-                                                <div class="flex items-center justify-center">
-                                                    @if (isset($item['calculated_total_units']) && $item['calculated_total_units'] > 0)
-                                                        <div
-                                                            class="bg-blue-100 text-blue-800 px-3 py-2 rounded-lg font-semibold text-sm min-w-[60px] text-center">
-                                                            {{ number_format($item['calculated_total_units'], 0) }}
-                                                        </div>
-                                                    @else
-                                                        <div
-                                                            class="bg-gray-100 text-gray-500 px-3 py-2 rounded-lg text-sm min-w-[60px] text-center">
-                                                            0
-                                                        </div>
-                                                    @endif
-                                                </div>
+                                                <input type="number" placeholder="0"
+                                                    wire:model.live="newStockItems.{{ $index }}.free_units"
+                                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                                                    min="0" />
                                             </td>
                                             <td class="px-4 py-3">
                                                 <input type="number" step="0.01" placeholder="0.00"
@@ -487,132 +475,144 @@
             </div>
         </div>
     @endif
-@if ($editStockModal)
-    <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-        <div class="bg-white rounded-lg p-6 w-full max-w-2xl mx-4">
-            <div class="flex justify-between items-center mb-6">
-                <h3 class="text-xl font-semibold text-gray-900">Edit Stock Entry</h3>
-                <button wire:click="closeEditStockModal" class="text-gray-400 hover:text-gray-600">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                </button>
+    @if ($editStockModal)
+        <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div class="bg-white rounded-lg p-6 w-full max-w-2xl mx-4">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-xl font-semibold text-gray-900">Edit Stock Entry</h3>
+                    <button wire:click="closeEditStockModal" class="text-gray-400 hover:text-gray-600">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+
+                @if ($selectedStock)
+                    <form wire:submit.prevent="updateStock">
+                        <div class="space-y-4">
+                            <!-- Product (read-only) -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Product</label>
+                                <input type="text" value="{{ $selectedStock->product->name }}"
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg uppercase bg-gray-100 text-gray-600 cursor-not-allowed"
+                                    readonly />
+                            </div>
+
+                            <!-- Supplier -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Supplier *</label>
+                                <input type="text" wire:model.live="editStockItem.supplier"
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg uppercase focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    placeholder="Supplier name" required />
+                                @error('editStockItem.supplier')
+                                    <div class="text-red-500 text-xs mt-1">{{ $message }}</div>
+                                @enderror
+                            </div>
+
+                            <!-- Total Units -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Total Units *</label>
+                                <input type="number" step="1" wire:model.live="editStockItem.input_units"
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    placeholder="0" min="0" required />
+                                @error('editStockItem.input_units')
+                                    <div class="text-red-500 text-xs mt-1">{{ $message }}</div>
+                                @enderror
+                            </div>
+                            <!-- Free Units -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Free Units</label>
+                                <input type="number" step="1" wire:model.live="editStockItem.free_units"
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    placeholder="Free or discounted units" min="0" />
+                                @error('editStockItem.free_units')
+                                    <div class="text-red-500 text-xs mt-1">{{ $message }}</div>
+                                @enderror
+                            </div>
+
+                            <!-- Total Cost -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Total Cost (₵) *</label>
+                                <input type="number" step="0.01" wire:model.live="editStockItem.total_cost"
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    placeholder="0.00" min="0" required />
+                                @error('editStockItem.total_cost')
+                                    <div class="text-red-500 text-xs mt-1">{{ $message }}</div>
+                                @enderror
+                            </div>
+
+                            <!-- Cost Price (Calculated) -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Cost Price (₵)</label>
+                                <div
+                                    class="w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-700">
+                                    @if (isset($editStockItem['calculated_cost_price']) && $editStockItem['calculated_cost_price'])
+                                        ₵{{ number_format($editStockItem['calculated_cost_price'], 2) }}
+                                    @else
+                                        ₵0.00
+                                    @endif
+                                </div>
+                            </div>
+
+                            <!-- Profit Margin (Calculated) -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Profit Margin (₵)</label>
+                                <div class="w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-50">
+                                    @if (isset($editStockItem['calculated_profit_margin']) && $editStockItem['calculated_profit_margin'] !== '')
+                                        <span
+                                            class="text-{{ $editStockItem['calculated_profit_margin'] >= 0 ? 'green' : 'red' }}-600 font-semibold">
+                                            ₵{{ number_format($editStockItem['calculated_profit_margin'], 2) }}
+                                        </span>
+                                    @else
+                                        <span class="text-gray-400">₵0.00</span>
+                                    @endif
+                                </div>
+                            </div>
+
+                            <!-- Restock Date -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Restock Date *</label>
+                                <input type="date" wire:model.live="editRestockDate"
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    max="{{ date('Y-m-d') }}" required />
+                                @error('editRestockDate')
+                                    <div class="text-red-500 text-xs mt-1">{{ $message }}</div>
+                                @enderror
+                            </div>
+
+                            <!-- Notes -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                                <textarea wire:model="editNotes" rows="3"
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    placeholder="Add any notes about this stock entry..."></textarea>
+                                @error('editNotes')
+                                    <div class="text-red-500 text-xs mt-1">{{ $message }}</div>
+                                @enderror
+                            </div>
+                        </div>
+
+                        <!-- Modal Actions -->
+                        <div class="flex justify-end space-x-4 pt-6 border-t border-gray-200 mt-6">
+                            <button type="button" wire:click="closeEditStockModal"
+                                class="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">
+                                Cancel
+                            </button>
+                            <button type="submit"
+                                class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M5 13l4 4L19 7" />
+                                </svg>
+                                <span>Save Changes</span>
+                            </button>
+                        </div>
+                    </form>
+                @endif
             </div>
-
-            @if ($selectedStock)
-                <form wire:submit.prevent="updateStock">
-                    <div class="space-y-4">
-                        <!-- Product (read-only) -->
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Product</label>
-                            <input type="text" value="{{ $selectedStock->product->name }}"
-                                class="w-full px-4 py-2 border border-gray-300 rounded-lg uppercase bg-gray-100 text-gray-600 cursor-not-allowed"
-                                readonly />
-                        </div>
-
-                        <!-- Supplier -->
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Supplier *</label>
-                            <input type="text" wire:model.live="editStockItem.supplier"
-                                class="w-full px-4 py-2 border border-gray-300 rounded-lg uppercase focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                placeholder="Supplier name" required />
-                            @error('editStockItem.supplier')
-                                <div class="text-red-500 text-xs mt-1">{{ $message }}</div>
-                            @enderror
-                        </div>
-
-                        <!-- Total Units -->
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Total Units *</label>
-                            <input type="number" step="1" wire:model.live="editStockItem.input_units"
-                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                placeholder="0" min="0" required />
-                            @error('editStockItem.input_units')
-                                <div class="text-red-500 text-xs mt-1">{{ $message }}</div>
-                            @enderror
-                        </div>
-
-                        <!-- Total Cost -->
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Total Cost (₵) *</label>
-                            <input type="number" step="0.01" wire:model.live="editStockItem.total_cost"
-                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                placeholder="0.00" min="0" required />
-                            @error('editStockItem.total_cost')
-                                <div class="text-red-500 text-xs mt-1">{{ $message }}</div>
-                            @enderror
-                        </div>
-
-                        <!-- Cost Price (Calculated) -->
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Cost Price (₵)</label>
-                            <div class="w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-700">
-                                @if (isset($editStockItem['calculated_cost_price']) && $editStockItem['calculated_cost_price'])
-                                    ₵{{ number_format($editStockItem['calculated_cost_price'], 2) }}
-                                @else
-                                    ₵0.00
-                                @endif
-                            </div>
-                        </div>
-
-                        <!-- Profit Margin (Calculated) -->
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Profit Margin (₵)</label>
-                            <div class="w-full px-4 py-2 border border-gray-200 rounded-lg bg-gray-50">
-                                @if (isset($editStockItem['calculated_profit_margin']) && $editStockItem['calculated_profit_margin'] !== '')
-                                    <span class="text-{{ $editStockItem['calculated_profit_margin'] >= 0 ? 'green' : 'red' }}-600 font-semibold">
-                                        ₵{{ number_format($editStockItem['calculated_profit_margin'], 2) }}
-                                    </span>
-                                @else
-                                    <span class="text-gray-400">₵0.00</span>
-                                @endif
-                            </div>
-                        </div>
-
-                        <!-- Restock Date -->
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Restock Date *</label>
-                            <input type="date" wire:model.live="editRestockDate"
-                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                max="{{ date('Y-m-d') }}" required />
-                            @error('editRestockDate')
-                                <div class="text-red-500 text-xs mt-1">{{ $message }}</div>
-                            @enderror
-                        </div>
-
-                        <!-- Notes -->
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-                            <textarea wire:model="editNotes" rows="3"
-                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                placeholder="Add any notes about this stock entry..."></textarea>
-                            @error('editNotes')
-                                <div class="text-red-500 text-xs mt-1">{{ $message }}</div>
-                            @enderror
-                        </div>
-                    </div>
-
-                    <!-- Modal Actions -->
-                    <div class="flex justify-end space-x-4 pt-6 border-t border-gray-200 mt-6">
-                        <button type="button" wire:click="closeEditStockModal"
-                            class="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">
-                            Cancel
-                        </button>
-                        <button type="submit"
-                            class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M5 13l4 4L19 7" />
-                            </svg>
-                            <span>Save Changes</span>
-                        </button>
-                    </div>
-                </form>
-            @endif
         </div>
-    </div>
-@endif
+    @endif
 
 
 </div>

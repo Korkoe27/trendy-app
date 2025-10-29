@@ -417,12 +417,14 @@
                                 <div class="space-y-4">
                                     @foreach ($products as $product)
                                         @php
-                                            $currentStock = $product->stocks;
+                                            $currentStock = $product->stocks->first();
                                             $currentTotalUnits = $currentStock ? $currentStock->total_units : 0;
                                             $currentBoxes =
                                                 $product->units_per_box > 0
                                                     ? floor($currentTotalUnits / $product->units_per_box)
                                                     : 0;
+
+                                                    Log::debug('product name: '.$product->name);
                                             $remainingUnits =
                                                 $currentTotalUnits - $currentBoxes * ($product->units_per_box ?? 1);
                                         @endphp

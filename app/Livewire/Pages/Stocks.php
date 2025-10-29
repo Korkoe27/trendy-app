@@ -61,6 +61,7 @@ class Stocks extends Component
         'newStockItems.*.input_units' => 'nullable|numeric|min:0',
         'newStockItems.*.input_boxes' => 'nullable|numeric|min:0',
         'newStockItems.*.total_cost' => 'required|numeric|min:0',
+        'newStockItems.*.free_units' => 'numeric|min:0',
         'newStockItems.*.supplier' => 'required|string|max:255',
         'restockDate' => 'required|date|before_or_equal:today',
         'notes' => 'nullable|string|max:1000',
@@ -71,6 +72,7 @@ class Stocks extends Component
         'newStockItems.*.product_id.exists' => 'Selected product does not exist',
         'newStockItems.*.input_boxes.numeric' => 'Boxes must be a valid number',
         'newStockItems.*.input_units.numeric' => 'Units must be a valid number',
+        'newStockItems.*.free_units.numeric' => 'Units must be a valid number',
         'newStockItems.*.total_cost.required' => 'Total cost is required',
         'newStockItems.*.total_cost.numeric' => 'Total cost must be a valid number',
         'newStockItems.*.supplier.required' => 'Supplier is required',
@@ -123,6 +125,7 @@ class Stocks extends Component
             'product_id' => $this->selectedStock->product_id,
             'input_units' => $this->selectedStock->total_units,
             'calculated_total_units' => $this->selectedStock->total_units,
+            'free_units' => $this->selectedStock->free_units,
             'total_cost' => $this->selectedStock->total_cost,
             'supplier' => $this->selectedStock->supplier,
             'calculated_cost_price' => $this->selectedStock->cost_price,
@@ -171,6 +174,7 @@ class Stocks extends Component
                 'input_boxes' => '',
                 'input_units' => '',
                 'calculated_total_units' => 0,
+                'free_units' => 0,
                 'total_cost' => '',
                 'supplier' => '',
                 'calculated_cost_price' => 0,
@@ -188,6 +192,7 @@ class Stocks extends Component
             'input_boxes' => '',
             'input_units' => '',
             'calculated_total_units' => 0,
+            'free_units' => 0,
             'total_cost' => '',
             'supplier' => '',
             'calculated_cost_price' => 0,
@@ -331,6 +336,7 @@ class Stocks extends Component
             'editStockItem.input_units' => 'required|numeric|min:0',
             'editStockItem.total_cost' => 'required|numeric|min:0',
             'editRestockDate' => 'required|date|before_or_equal:today',
+
             'editNotes' => 'nullable|string|max:1000',
         ]);
 
@@ -346,6 +352,9 @@ class Stocks extends Component
 
         // Create activity log
         $productName = $this->selectedStock->product->name;
+        // $product = $this->selectedStock->product->id;
+
+
         ActivityLogs::create([
             'user_id' => Auth::id(),
             'action_type' => 'stock_update',
@@ -412,7 +421,9 @@ class Stocks extends Component
                 continue;
             }
 
-            $totalUnitsToAdd = (int) $item['calculated_total_units'];
+            $freeUnits = (int) ($item['free_units'] ?? 0);
+
+            $totalUnitsToAdd = (int) $item['calculated_total_units'] + $freeUnits;
             $totalCost = (float) $item['total_cost'];
             $supplier = $item['supplier'];
             $costPrice = (float) $item['calculated_cost_price'];
@@ -428,6 +439,7 @@ class Stocks extends Component
                     'supplier' => $supplier,
                     'total_cost' => $totalCost,
                     'cost_price' => $costPrice,
+                    'free_units'=>$freeUnits,
                     'cost_margin' => $costMargin,
                     'notes' => $this->notes,
                     'restock_date' => $restockDate,
@@ -442,6 +454,7 @@ class Stocks extends Component
                     'total_cost' => $totalCost,
                     'cost_price' => $costPrice,
                     'cost_margin' => $costMargin,
+                    'free_units'=>$freeUnits,
                     'notes' => $this->notes,
                     'restock_date' => $restockDate,
                     'created_at' => now(),
@@ -465,6 +478,7 @@ class Stocks extends Component
                     ->where('id', $updateData['id'])
                     ->update([
                         'total_units' => $updateData['total_units'],
+                        'free_units' => $updateData['free_units'],
                         'supplier' => $updateData['supplier'],
                         'total_cost' => $updateData['total_cost'],
                         'cost_price' => $updateData['cost_price'],

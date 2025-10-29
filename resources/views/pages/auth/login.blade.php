@@ -24,7 +24,7 @@
   
         <!-- Login Form -->
         <div class="bg-white p-6 sm:p-8 shadow-lg rounded-lg border border-gray-200">
-          <form method="POST" action="{{ url('signin') }}" class="space-y-6">
+          <form method="POST" action="{{ url('signin') }}" class="space-y-6 py-4">
             @csrf
   
             <!-- Username Field -->
@@ -75,13 +75,13 @@
             </div>
   
             <!-- Remember Me & Forgot Password -->
-            <div class="flex items-center justify-between">
+            {{-- <div class="flex items-center justify-between">
               <label for="remember" class="flex items-center space-x-2 text-sm text-gray-700">
                 <input id="remember" name="remember" type="checkbox" class="h-4 w-4 text-black border-gray-300 rounded focus:ring-black" />
                 <span>Remember me</span>
               </label>
               <a href="#" class="text-sm font-medium text-black hover:text-gray-800">Forgot password?</a>
-            </div>
+            </div> --}}
   
             <!-- Submit Button -->
             <button type="submit" class="group w-full flex justify-center py-3 px-4 text-sm font-medium text-white bg-black hover:bg-gray-800 rounded-lg focus:ring-2 focus:ring-black transform transition duration-200 hover:scale-105 active:scale-95">
@@ -92,16 +92,16 @@
             </button>
   
             <!-- Divider -->
-            <div class="relative flex items-center py-2">
+            {{-- <div class="relative flex items-center py-2">
               <div class="flex-grow border-t border-gray-300"></div>
               <span class="px-2 text-sm text-gray-500 bg-white">Don't have an account?</span>
               <div class="flex-grow border-t border-gray-300"></div>
-            </div>
+            </div> --}}
   
             <!-- Sign Up -->
-            <div class="text-center">
+            {{-- <div class="text-center">
               <a href="#" class="text-sm font-medium text-black hover:text-gray-800">Create a new account</a>
-            </div>
+            </div> --}}
           </form>
         </div>
   

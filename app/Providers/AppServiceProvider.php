@@ -3,7 +3,9 @@
 namespace App\Providers;
 
 use App\Models\Permission;
-use Illuminate\Support\Facades\{Blade,Auth};
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -21,6 +23,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        if (config('app.env') === 'production' && ! app()->runningInConsole()) {
+            URL::forceScheme('https');
+        }
         // Custom Blade directive for permission checking
         Blade::if('haspermission', function ($action, $module) {
             $user = Auth::user();
