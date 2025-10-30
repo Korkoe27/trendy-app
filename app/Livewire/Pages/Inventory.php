@@ -386,26 +386,28 @@ class Inventory extends Component
 
     public function loadProductStocks()
     {
-        // $products = Product::with(['stocks', 'category'])
-        //     ->where('is_active', true)
-        //     ->whereHas('stocks', function ($query) {
-        //         $query->where('total_units', '>', 0);
-        //     })
-        //     ->get();
-
-        $products = Stock::with('product')
-            ->where('total_units', '>', 0)
+        $products = Product::with(['stocks', 'category'])
+            ->where('is_active', true)
+            ->whereHas('stocks', function ($query) {
+                $query->where('total_units', '>', 0);
+            })
             ->get();
+
+        // $products = Stock::with('product')
+        //     ->where('total_units', '>', 0)
+        //     ->get();
 
         Log::info('Products with available stock loaded for inventory', ['count' => $products->count()]);
 
         foreach ($products as $product) {
-            $this->productStocks[$product->product->id] = [
+            $this->productStocks[$product->stocks->id] = [
                 'closing_boxes' => '',
                 'closing_units' => '',
                 'damaged_units' => '',
                 'credit_units' => '',
-                'product' => $product,
+                'product' => $product->stocks,
+                'stock' => $product,
+
             ];
         }
     }
@@ -440,71 +442,109 @@ class Inventory extends Component
         $product = $stock['product'];
         $boxes = (int) ($stock['closing_boxes'] ?? 0);
         $units = (int) ($stock['closing_units'] ?? 0);
-        $unitsPerBox = $product->units_per_box ?? 1;
+        // $unitsPerBox = $product->units_per_box ?? 1;
+
+        $unitsPerBox = optional($stock['product'])->units_per_box ?? 1; // Product field
 
         Log::debug("Product ID: $productId, Boxes: $boxes, Units: $units, Units per Box: $unitsPerBox");
 
-        $totalClosingUnits = ($boxes * $unitsPerBox) + $units;
+        // $totalClosingUnits = ($boxes * $unitsPerBox) + $units;
 
-        return $totalClosingUnits;
+        return ($boxes * $unitsPerBox) + $units;
     }
+
+    // public function calculateExpectedRevenue($productId)
+    // {
+    //     $stock = $this->productStocks[$productId] ?? null;
+    //     if (! $stock) {
+    //         return 0;
+    //     }
+
+    //     Log::info('Stock details', $stock);
+
+    //     $product = $stock['product'];
+    //     Log::debug('product Details'.$product);
+    //     // $currentStock = Stock::select('total_units')->where('product_id', $productId)->first();
+
+    //     $currentStock = $product->total_units;
+
+    //     if (! $currentStock) {
+    //         return 0;
+    //     }
+
+    //     if (! isset($this->stocksCache[$productId])) {
+    //         $this->stocksCache[$productId] = Stock::where('product_id', $productId)->first();
+    //     }
+    //     $currentStock = $this->stocksCache[$productId];
+
+    //     Log::debug('Current Stock: '.$currentStock);
+
+    //     // Calculate units sold
+    //     // $openingStock = $currentStock->total_units;
+
+    //     $openingStock = optional($this->stocksCache[$productId])->total_units ?? 0;
+
+    //     // Log::info("Calculating expected revenue for product ID: $productId", [
+    //     //     'opening_stock' => $openingStock,
+    //     //     'current_stock' => $currentStock,
+    //     // ]);
+
+    //     $closingStock = $this->calculateTotalUnits($productId);
+    //     $damagedUnits = (float) ($stock['damaged_units'] ?? 0);
+    //     $creditUnits = (float) ($stock['credit_units'] ?? 0);
+    //     $unitsSold = max(0, $openingStock - $closingStock - $damagedUnits - $creditUnits);
+
+    //     Log::debug("Units sold calculation for product ID: $productId", [
+    //         'closing_stock' => $closingStock,
+    //         'damaged_units' => $damagedUnits,
+    //         'credit_units' => $creditUnits,
+    //         'units_sold' => $unitsSold,
+    //     ]);
+
+    //     // Calculate revenue for this product
+    //     $sellingPrice = $product->selling_price ?? 0;
+    //     $productRevenue = $unitsSold * $sellingPrice;
+
+    //     $creditRevenue = $creditUnits * $sellingPrice;
+
+    //     return $productRevenue + $creditRevenue;
+    // }
 
     public function calculateExpectedRevenue($productId)
-    {
-        $stock = $this->productStocks[$productId] ?? null;
-        if (! $stock) {
-            return 0;
-        }
+{
+    $entry = $this->productStocks[$productId] ?? null;
+    if (!$entry) return 0;
 
-        Log::info('Stock details', $stock);
 
-        $product = $stock['product'];
-        Log::debug('product Details'.$product);
-        // $currentStock = Stock::select('total_units')->where('product_id', $productId)->first();
-
-        $currentStock = $product->total_units;
-
-        if (! $currentStock) {
-            return 0;
-        }
-
-        if (! isset($this->stocksCache[$productId])) {
-            $this->stocksCache[$productId] = Stock::where('product_id', $productId)->first();
-        }
-        $currentStock = $this->stocksCache[$productId];
-
-        Log::debug('Current Stock: '.$currentStock);
-
-        // Calculate units sold
-        // $openingStock = $currentStock->total_units;
-
-        $openingStock = optional($this->stocksCache[$productId])->total_units ?? 0;
-
-        // Log::info("Calculating expected revenue for product ID: $productId", [
-        //     'opening_stock' => $openingStock,
-        //     'current_stock' => $currentStock,
-        // ]);
-
-        $closingStock = $this->calculateTotalUnits($productId);
-        $damagedUnits = (float) ($stock['damaged_units'] ?? 0);
-        $creditUnits = (float) ($stock['credit_units'] ?? 0);
-        $unitsSold = max(0, $openingStock - $closingStock - $damagedUnits - $creditUnits);
-
-        Log::debug("Units sold calculation for product ID: $productId", [
-            'closing_stock' => $closingStock,
-            'damaged_units' => $damagedUnits,
-            'credit_units' => $creditUnits,
-            'units_sold' => $unitsSold,
-        ]);
-
-        // Calculate revenue for this product
-        $sellingPrice = $product->selling_price ?? 0;
-        $productRevenue = $unitsSold * $sellingPrice;
-
-        $creditRevenue = $creditUnits * $sellingPrice;
-
-        return $productRevenue + $creditRevenue;
+    Log::debug("Entry: ", $entry);
+    // Ensure we have the latest Stock for opening units (and cache it)
+    if (!isset($this->stocksCache[$productId])) {
+        $this->stocksCache[$productId] = Stock::where('product_id', $productId)->first();
     }
+    $stockModel   = $this->stocksCache[$productId]; // Stock
+    $productModel = $entry['product']; 
+    
+    Log::debug("Product: ".$productModel);// Product
+
+    $openingStock = optional($stockModel)->total_units ?? 0;        // from Stock
+    $closingStock = $this->calculateTotalUnits($productId);         // from form
+    $damagedUnits = (float) ($entry['damaged_units'] ?? 0);
+    $creditUnits  = (float) ($entry['credit_units']  ?? 0);
+
+    $unitsSold = max(0, $openingStock - $closingStock - $damagedUnits - $creditUnits);
+
+
+    Log::debug("Units Sold: ".$unitsSold);
+    $sellingPrice = $productModel->selling_price ?? 0;              // from Product
+    
+    
+    Log::debug("Expected Revenue: ".($unitsSold * $sellingPrice) + ($creditUnits * $sellingPrice));
+
+    // cash + credit value
+    return ($unitsSold * $sellingPrice) + ($creditUnits * $sellingPrice);
+}
+
+
 
     public function submitInventory()
     {

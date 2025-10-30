@@ -445,14 +445,14 @@
                                             </div>
 
                                             <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                                                <div>
+                                                {{-- <div>
                                                     <label class="block text-xs font-medium text-gray-700 mb-1">Closing
                                                         Boxes</label>
                                                     <input type="number" min="0"
                                                         wire:model="productStocks.{{ $product->id }}.closing_boxes"
                                                         placeholder="0"
                                                         class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
-                                                </div>
+                                                </div> --}}
                                                 <div>
                                                     <label class="block text-xs font-medium text-gray-700 mb-1">Closing
                                                         Units</label>

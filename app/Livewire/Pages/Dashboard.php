@@ -51,19 +51,24 @@ class Dashboard extends Component
         return Product::where('is_active', true)->count();
     }
 
-    public function getLowStockProductsProperty()
-    {
-        return Product::whereHas('stocks', function ($query) {
+public function getLowStockProductsProperty()
+{
+    return Product::whereHas('stocks', function ($query) {
             $query->whereRaw('stocks.total_units < products.stock_limit')
-                ->orWhere('stocks.total_units', '=', 0);
-        })->with(['stocks', 'category'])->get();
-    }
+                  ->orWhere('stocks.total_units', '=', 0)
+                  ->orWhereNull('stocks.total_units');
+        })
+        ->orWhereDoesntHave('stocks') // ✅ Include products with no stock records
+        ->with(['stocks', 'category'])
+        ->get();
+}
+
 
 
     public function getRecentSalesProperty()
     {
         return DailySales::whereDate('created_at', $this->displayDate)
-            ->with(['products.category'])
+            ->with(['product.category'])
             ->orderBy('updated_at', 'desc')
             ->take(5)
             ->get()
@@ -81,20 +86,24 @@ class Dashboard extends Component
             });
     }
 
-    public function getLowStockItemsProperty()
-    {
-        return $this->lowStockProducts->map(function ($product) {
-            $stock = $product->stocks->first();
-            return [
-                'name' => $product->name,
-                'current' => (int) $stock->total_units,
-                'minimum' => $product->stock_limit,
-                'category' => $product->category->name ?? 'N/A',
-                'percentage' => $product->stock_limit > 0 ? 
-                    min(100, ($stock->total_units / $product->stock_limit) * 100) : 0
-            ];
-        });
-    }
+public function getLowStockItemsProperty()
+{
+    return $this->lowStockProducts->map(function ($product) {
+        $stock = $product->stocks?->first();
+        $current = (int) ($stock?->total_units ?? 0);
+
+        return [
+            'name' => $product->name,
+            'current' => $current,
+            'minimum' => $product->stock_limit,
+            'category' => $product->category->name ?? 'N/A',
+            'percentage' => $product->stock_limit > 0 
+                ? min(100, ($current / $product->stock_limit) * 100) 
+                : 0
+        ];
+    });
+}
+
 
     public function goToInventory()
     {
