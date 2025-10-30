@@ -122,20 +122,20 @@
             {{-- Recent Sales --}}
             <div class="lg:col-span-2 bg-white rounded-lg border border-gray-200 shadow-sm">
                 <div class="px-4 md:px-6 py-4 border-b border-gray-200">
-                    <h3 class="text-lg font-semibold text-gray-900">Recent Sales</h3>
+                    <h3 class="text-lg font-semibold text-gray-900">Best Selling Products:  {{ $this->displayDate->translatedFormat('l, d F Y') }}</h3>
                 </div>
                 <div class="p-4 md:p-6">
-                    @if(count($this->recentSales) > 0)
+                    @if(count($this->bestSellingProducts) > 0)
                         <div class="space-y-4">
-                            @foreach($this->recentSales as $sale)
+                            @foreach($this->bestSellingProducts as $sale)
                                 <div class="flex items-center justify-between py-3 border-b border-gray-100 last:border-b-0">
                                     <div class="flex-1 min-w-0">
-                                        <p class="text-sm font-medium text-gray-900 truncate">{{ $sale['product'] }}</p>
-                                        <p class="text-xs text-gray-500">{{ $sale['category'] }} • Qty: {{ $sale['quantity'] }}</p>
+                                        <p class="text-sm font-medium text-gray-900 uppercase truncate">{{ $sale['product'] }}</p>
+                                        <p class="text-xs text-gray-500 uppercase">{{ $sale['category'] }} • Qty: {{ $sale['units_sold'] }}</p>
                                     </div>
                                     <div class="text-right ml-4">
                                         <p class="text-sm font-semibold text-gray-900">GH₵ {{ $sale['revenue'] }}</p>
-                                        <p class="text-xs text-gray-500">{{ $sale['time'] }}</p>
+                                        {{-- <p class="text-xs text-gray-500">{{ $sale['time'] }}</p> --}}
                                     </div>
                                 </div>
                             @endforeach

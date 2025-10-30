@@ -55,8 +55,8 @@ public function getLowStockProductsProperty()
 {
     return Product::whereHas('stocks', function ($query) {
             $query->whereRaw('stocks.total_units < products.stock_limit')
-                  ->orWhere('stocks.total_units', '=', 0)
-                  ->orWhereNull('stocks.total_units');
+                ->orWhere('stocks.total_units', '=', 0)
+                ->orWhereNull('stocks.total_units');
         })
         ->orWhereDoesntHave('stocks') // ✅ Include products with no stock records
         ->with(['stocks', 'category'])
@@ -82,6 +82,34 @@ public function getLowStockProductsProperty()
                     'quantity' => $unitsSold,
                     'revenue' => number_format($revenue, 2),
                     'time' => $sale->updated_at->diffForHumans(),
+                ];
+            });
+    }
+
+    public function getBestSellingProductsProperty()
+{
+    return $this->bestSellingProducts();
+}
+
+    public function bestSellingProducts()
+    {
+        return DailySales::whereDate('created_at', $this->displayDate)
+            ->with(['product'])
+            ->select('product_id', DB::raw('SUM(opening_stock - closing_stock) as total_units_sold'))
+            ->groupBy('product_id')
+            ->orderByDesc('total_units_sold')
+            ->take(5)
+            ->get()
+            ->map(function ($sale) {
+                return [
+                    'product' => $sale->product->name ?? 'N/A',
+                    'category' => $sale->product->category->name ?? 'N/A',
+                    'units_sold' => $sale->total_units_sold,
+                    'revenue' => number_format(
+                        ($sale->total_units_sold * ($sale->product->selling_price ?? 0)),
+                        2
+                    ),
+                    // 'time' => Carbon::parse($sale->created_at)->diffForHumans()
                 ];
             });
     }
