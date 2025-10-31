@@ -11,8 +11,18 @@
     --font-sans: 'Urbanist', sans-serif;
 }
 
-*{
+* {
     font-family: 'Urbanist',monospace , sans-serif;
     /* font-family: 'Urbanist', sans-serif; */
 }
 
+
+.scrollbar-hidden::-webkit-scrollbar{
+    display: none;
+}
+
+
+.scrollbar-hidden{
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}

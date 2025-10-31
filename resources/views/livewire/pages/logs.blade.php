@@ -78,7 +78,7 @@
         </div>
 
         {{-- Quick Filters --}}
-        <div class="flex flex-wrap gap-2 mt-4">
+        {{-- <div class="flex flex-wrap gap-2 mt-4">
             <button
                 wire:click="setQuickFilter('today')"
                 class="px-3 py-1 text-xs font-medium rounded-full {{ $dateRange === 'today' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-600 hover:bg-gray-200' }}"
@@ -103,7 +103,7 @@
             >
                 Stock Changes
             </button>
-        </div>
+        </div> --}}
     </div>
 
     {{-- Activity Logs Table --}}
@@ -257,7 +257,7 @@
     </div>
 
     {{-- Summary Cards --}}
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+    {{-- <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
         <div class="bg-white rounded-lg border border-gray-200 p-4 md:p-6 hover:shadow-md transition-shadow duration-200">
             <div class="flex items-center justify-between">
                 <div>
@@ -317,7 +317,7 @@
                 </div>
             </div>
         </div>
-    </div>
+    </div> --}}
 
     {{-- Details Modal --}}
     @if($showDetailsModal && $selectedLog)
@@ -330,7 +330,7 @@
                         class="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100 transition-colors duration-150"
                     >
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/> 
                         </svg>
                     </button>
                 </div>
