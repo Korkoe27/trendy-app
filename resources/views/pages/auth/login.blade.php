@@ -75,13 +75,13 @@
             </div>
   
             <!-- Remember Me & Forgot Password -->
-            {{-- <div class="flex items-center justify-between">
+            <div class="flex items-center justify-between">
               <label for="remember" class="flex items-center space-x-2 text-sm text-gray-700">
                 <input id="remember" name="remember" type="checkbox" class="h-4 w-4 text-black border-gray-300 rounded focus:ring-black" />
                 <span>Remember me</span>
               </label>
-              <a href="#" class="text-sm font-medium text-black hover:text-gray-800">Forgot password?</a>
-            </div> --}}
+              {{-- <a href="#" class="text-sm font-medium text-black hover:text-gray-800">Forgot password?</a> --}}
+            </div>
   
             <!-- Submit Button -->
             <button type="submit" class="group w-full flex justify-center py-3 px-4 text-sm font-medium text-white bg-black hover:bg-gray-800 rounded-lg focus:ring-2 focus:ring-black transform transition duration-200 hover:scale-105 active:scale-95">

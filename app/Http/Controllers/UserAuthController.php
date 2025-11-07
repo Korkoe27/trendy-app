@@ -70,8 +70,10 @@ class UserAuthController extends Controller
             'password' => 'required|string',
         ]);
 
+        $remember = $request->filled('remember');
+
         // Attempt authentication
-        if (! Auth::attempt($credentials)) {
+        if (! Auth::attempt($credentials,$remember)) {
             throw ValidationException::withMessages([
                 'username' => 'Sorry these credentials do not match our records.',
             ]);

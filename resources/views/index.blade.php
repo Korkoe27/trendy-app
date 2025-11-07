@@ -11,7 +11,7 @@
         $greeting = "Good Evening";
     }
 @endphp 
-    <section class="w-full h-full flex-col gap-4 flex rounded-2xl">
+    <section class="w-full h-full flex-col  gap-4 flex rounded-2xl">
         <header class="w-full flex  md:items-center justify-between py-4 px-2 md:p-4 rounded-2xl">
 
                 <h1 class="hidden md:flex items-center gap-1 md:gap-3">
@@ -23,7 +23,7 @@
                 <livewire:components.clock/>
         </header>
 
-        <div class="bg-white md:items-start md:justify-between flex w-full gap-2 md:gap-4 flex-col md:flex-row md:p-4 h-full rounded-2xl shadow-lg
+        <div class="bg-white  md:items-start md:justify-between flex w-full gap-2 md:gap-4 flex-col md:flex-row md:p-4 h-full rounded-2xl shadow-lg
         ">
 
             <div class="flex items-center border gap-10 p-8 rounded-2xl justify-between">

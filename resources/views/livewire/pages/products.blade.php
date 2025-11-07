@@ -27,7 +27,7 @@
                         Import Products
                     </button>
 
-                    <button wire:click="exportProducts"
+                    <button wire:click="$set('showExportModal', true)"
                         class="bg-gray-600 text-white px-4 py-2 rounded-xl hover:bg-gray-700">
                         Export Products
                     </button>
@@ -498,5 +498,92 @@
                 </div>
             </div>
         @endif
+
+        <!-- Export Filter Modal -->
+@if ($showExportModal)
+    <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-6 w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-semibold">Export Products - Filters</h3>
+                <button wire:click="$set('showExportModal', false)" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <div class="space-y-4">
+                <!-- Category Filter -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Category</label>
+                    <select wire:model="exportFilters.category_id" 
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        <option value="all">All Categories</option>
+                        @foreach ($categories as $category)
+                            <option value="{{ $category->id }}">{{ $category->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <!-- Price Range -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Price Range (GH₵)</label>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <input type="number" wire:model="exportFilters.price_min" 
+                                placeholder="Min price" step="0.01" min="0"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <input type="number" wire:model="exportFilters.price_max" 
+                                placeholder="Max price" step="0.01" min="0"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Stock Status -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Stock Status</label>
+                    <select wire:model="exportFilters.stock_status" 
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        <option value="all">All Stock Levels</option>
+                        <option value="good">Good Stock</option>
+                        <option value="low">Low Stock</option>
+                        <option value="out">Out of Stock</option>
+                    </select>
+                </div>
+
+                <!-- Active Status -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Product Status</label>
+                    <select wire:model="exportFilters.is_active" 
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        <option value="all">All Products</option>
+                        <option value="active">Active Only</option>
+                        <option value="inactive">Inactive Only</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="flex justify-between mt-6 gap-2">
+                <button wire:click="resetExportFilters" 
+                    class="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50">
+                    Reset Filters
+                </button>
+                <div class="flex gap-2">
+                    <button wire:click="$set('showExportModal', false)" 
+                        class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+                        Cancel
+                    </button>
+                    <button wire:click="exportProducts" 
+                        class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700">
+                        Export
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+@endif
     </div>
 </div>

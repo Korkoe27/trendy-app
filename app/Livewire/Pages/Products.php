@@ -27,6 +27,8 @@ class Products extends Component
 
     public bool $showImportModal = false;
 
+    public $showExportModal = false;
+
     public $productId;
 
     public $name = '';
@@ -61,6 +63,14 @@ class Products extends Component
         'is_active' => 'boolean',
     ];
 
+    public $exportFilters = [
+        'category_id' => 'all',
+        'price_min' => '',
+        'price_max' => '',
+        'stock_status' => 'all',
+        'is_active' => 'all',
+    ];
+
     public function updatingSearchTerm()
     {
         $this->resetPage();
@@ -92,6 +102,43 @@ class Products extends Component
 
     public function exportProducts()
     {
+        $query = Product::with('category');
+
+        // Apply filters
+        if ($this->exportFilters['category_id'] !== 'all') {
+            $query->where('category_id', $this->exportFilters['category_id']);
+        }
+
+        if (! empty($this->exportFilters['price_min'])) {
+            $query->where('selling_price', '>=', $this->exportFilters['price_min']);
+        }
+
+        if (! empty($this->exportFilters['price_max'])) {
+            $query->where('selling_price', '<=', $this->exportFilters['price_max']);
+        }
+
+        if ($this->exportFilters['is_active'] !== 'all') {
+            $query->where('is_active', $this->exportFilters['is_active'] === 'active');
+        }
+
+        $products = $query->get();
+
+        // dd($products);
+
+        // Filter by stock status if needed
+        if ($this->exportFilters['stock_status'] !== 'all') {
+            $products = $products->filter(function ($product) {
+                $stockStatus = $this->getStockStatus($product->id, $product->stock_limit);
+
+                return match ($this->exportFilters['stock_status']) {
+                    'low' => $stockStatus['text'] === 'Low Stock',
+                    'out' => $stockStatus['text'] === 'No Stock',
+                    'good' => $stockStatus['text'] === 'Good Stock',
+                    default => true
+                };
+            });
+        }
+
         $filePath = storage_path('app/products_export_'.now()->format('Y-m-d_His').'.csv');
 
         $header = [
@@ -108,8 +155,6 @@ class Products extends Component
         $file = fopen($filePath, 'w');
         fputcsv($file, $header);
 
-        // Export existing products (optional - remove if you only want template)
-        $products = Product::with('category')->get();
         foreach ($products as $product) {
             fputcsv($file, [
                 $product->name,
@@ -119,14 +164,66 @@ class Products extends Component
                 $product->barcode ?? '',
                 $product->selling_price,
                 $product->units_per_box ?? '',
-                $product->is_active ? '1' : '0',
+                $product->is_active ? 'True' : 'False',
             ]);
         }
 
         fclose($file);
 
+        $this->showExportModal = false;
+        $this->reset('exportFilters');
+
         return response()->download($filePath)->deleteFileAfterSend(true);
     }
+
+    public function resetExportFilters()
+    {
+        $this->exportFilters = [
+            'category_id' => 'all',
+            'price_min' => '',
+            'price_max' => '',
+            'stock_status' => 'all',
+            'is_active' => 'all',
+        ];
+    }
+
+    // public function exportProducts()
+    // {
+    //     $filePath = storage_path('app/products_export_'.now()->format('Y-m-d_His').'.csv');
+
+    //     $header = [
+    //         'name',
+    //         'category_id',
+    //         'sku',
+    //         'stock_limit',
+    //         'barcode',
+    //         'selling_price',
+    //         'units_per_box',
+    //         'is_active',
+    //     ];
+
+    //     $file = fopen($filePath, 'w');
+    //     fputcsv($file, $header);
+
+    //     // Export existing products (optional - remove if you only want template)
+    //     $products = Product::with('category')->get();
+    //     foreach ($products as $product) {
+    //         fputcsv($file, [
+    //             $product->name,
+    //             $product->category->name,
+    //             $product->sku ?? '',
+    //             $product->stock_limit ?? '',
+    //             $product->barcode ?? '',
+    //             $product->selling_price,
+    //             $product->units_per_box ?? '',
+    //             $product->is_active ? '1' : '0',
+    //         ]);
+    //     }
+
+    //     fclose($file);
+
+    //     return response()->download($filePath)->deleteFileAfterSend(true);
+    // }
 
     public function exportTemplate()
     {
@@ -200,61 +297,60 @@ class Products extends Component
                 $rowNumber++;
 
                 // try {
-                    // Skip empty rows
-                    if (empty(array_filter($row))) {
-                        continue;
-                    }
+                // Skip empty rows
+                if (empty(array_filter($row))) {
+                    continue;
+                }
 
-                    // Prepare data
-                    $name = strtolower(trim($row[0]));
-                    $categoryName = strtolower(trim($row[1]));
-                    $sku = ! empty($row[2]) ? strtolower(trim($row[2])) : null;
-                    $stockLimit = ! empty($row[4]) ? (int) $row[3] : null;
-                    $barcode = ! empty($row[3]) ? trim($row[4]) : null;
-                    $sellingPrice = ! empty($row[5]) ? (float) $row[5] : 0.00;
-                    $unitsPerBox = ! empty($row[6]) ? (int) $row[6] : 0;
-                    $isActive = isset($row[7]) && in_array(strtolower(trim($row[7])), ['1', 'true', 'yes', 'y']);
+                // Prepare data
+                $name = strtolower(trim($row[0]));
+                $categoryName = strtolower(trim($row[1]));
+                $sku = ! empty($row[2]) ? strtolower(trim($row[2])) : null;
+                $stockLimit = ! empty($row[4]) ? (int) $row[3] : null;
+                $barcode = ! empty($row[3]) ? trim($row[4]) : null;
+                $sellingPrice = ! empty($row[5]) ? (float) $row[5] : 0.00;
+                $unitsPerBox = ! empty($row[6]) ? (int) $row[6] : 0;
+                $isActive = isset($row[7]) && in_array(strtolower(trim($row[7])), ['1', 'true', 'yes', 'y']);
 
+                // Validate required fields
+                if (empty($name) || empty($categoryName)) {
+                    $errors[] = "Row {$rowNumber}: Name and Category are required";
+                    $errorCount++;
 
-                    // Validate required fields
-                    if (empty($name) || empty($categoryName)) {
-                        $errors[] = "Row {$rowNumber}: Name and Category are required";
-                        $errorCount++;
+                    continue;
+                }
 
-                        continue;
-                    }
+                // Check if category exists
+                // if (! Categories::find($productData['category_id'])) {
+                //     $errors[] = "Row {$rowNumber}: Category ID {$productData['category_id']} does not exist";
+                //     $errorCount++;
 
-                    // Check if category exists
-                    // if (! Categories::find($productData['category_id'])) {
-                    //     $errors[] = "Row {$rowNumber}: Category ID {$productData['category_id']} does not exist";
-                    //     $errorCount++;
+                //     continue;
+                // }
 
-                    //     continue;
-                    // }
+                $category = Categories::firstOrCreate(
+                    ['name' => $categoryName],
+                    ['pricing_model' => 'per_unit']
 
-                    $category = Categories::firstOrCreate(
-                        ['name'=>$categoryName],
-                        ['pricing_model'=>'per_unit']
+                );
 
-                    );
-
-                    // Create product
-            try {
-                Product::create([
-                    'name' => $name,
-                    'category_id' => $category->id,
-                    'sku' => $sku,
-                    'barcode' => $barcode,
-                    'stock_limit' => $stockLimit,
-                    'selling_price' => $sellingPrice,
-                    'units_per_box' => $unitsPerBox,
-                    'is_active' => $isActive,
-                ]);
-                $successCount++;
-            } catch (\Exception $e) {
-                $errorCount++;
-                $errors[] = "Row {$rowNumber}: " . $e->getMessage();
-            }
+                // Create product
+                try {
+                    Product::create([
+                        'name' => $name,
+                        'category_id' => $category->id,
+                        'sku' => $sku,
+                        'barcode' => $barcode,
+                        'stock_limit' => $stockLimit,
+                        'selling_price' => $sellingPrice,
+                        'units_per_box' => $unitsPerBox,
+                        'is_active' => $isActive,
+                    ]);
+                    $successCount++;
+                } catch (\Exception $e) {
+                    $errorCount++;
+                    $errors[] = "Row {$rowNumber}: ".$e->getMessage();
+                }
             }
 
             fclose($file);
