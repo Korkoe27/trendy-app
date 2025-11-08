@@ -15,17 +15,25 @@
                 <p class="text-base text-gray-600 mt-1">Track available stock levels</p>
             </div>
 
-            @haspermission('create', 'stocks')
-                <div class="flex space-x-3">
-                    <button wire:click="showAddNewStockModal"
-                        class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-800 transition-colors flex items-center space-x-2">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-                        </svg>
-                        <span>Add New Stock</span>
-                    </button>
-                </div>
-            @endhaspermission
+@haspermission('create', 'stocks')
+    <div class="flex space-x-3">
+        <button wire:click="showAddNewStockModal"
+            class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-800 transition-colors flex items-center space-x-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+            </svg>
+            <span>Add New Stock</span>
+        </button>
+        
+        <button wire:click="$set('showExportModal', true)"
+            class="bg-gray-600 text-white px-6 py-2 rounded-lg hover:bg-gray-700 transition-colors flex items-center space-x-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+            </svg>
+            <span>Export Stocks</span>
+        </button>
+    </div>
+@endhaspermission
         </div>
 
         <!-- Search and Filter -->
@@ -613,6 +621,162 @@
             </div>
         </div>
     @endif
+        <!-- Export Filter Modal -->
+@if ($showExportModal)
+    <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-6 w-full max-w-4xl mx-4 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-xl font-semibold">Export Stocks - Advanced Filters</h3>
+                <button wire:click="$set('showExportModal', false)" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
 
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Category Filter -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Category</label>
+                    <select wire:model="exportFilters.category_id" 
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        <option value="all">All Categories</option>
+                        @foreach ($categories as $category)
+                            <option value="{{ $category->id }}">{{ $category->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <!-- Supplier Filter -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Supplier</label>
+                    <input type="text" wire:model="exportFilters.supplier" 
+                        placeholder="Search by supplier name"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                </div>
+
+                <!-- Stock Units Range -->
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Stock Units Range</label>
+                    <div class="grid grid-cols-2 gap-3">
+                        <input type="number" wire:model="exportFilters.stock_min" 
+                            placeholder="Min units" min="0"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        <input type="number" wire:model="exportFilters.stock_max" 
+                            placeholder="Max units" min="0"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    </div>
+                </div>
+
+                <!-- Cost Price Range -->
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Cost Price Range (GH₵)</label>
+                    <div class="grid grid-cols-2 gap-3">
+                        <input type="number" wire:model="exportFilters.cost_price_min" 
+                            placeholder="Min cost price" step="0.01" min="0"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        <input type="number" wire:model="exportFilters.cost_price_max" 
+                            placeholder="Max cost price" step="0.01" min="0"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    </div>
+                </div>
+
+                <!-- Total Cost Range -->
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Total Stock Cost Range (GH₵)</label>
+                    <div class="grid grid-cols-2 gap-3">
+                        <input type="number" wire:model="exportFilters.total_cost_min" 
+                            placeholder="Min total cost" step="0.01" min="0"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        <input type="number" wire:model="exportFilters.total_cost_max" 
+                            placeholder="Max total cost" step="0.01" min="0"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    </div>
+                </div>
+
+                <!-- Profit Margin Range -->
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Profit Margin Range (GH₵)</label>
+                    <div class="grid grid-cols-2 gap-3">
+                        <input type="number" wire:model="exportFilters.margin_min" 
+                            placeholder="Min margin" step="0.01"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        <input type="number" wire:model="exportFilters.margin_max" 
+                            placeholder="Max margin" step="0.01"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    </div>
+                </div>
+
+                <!-- Restock Date Range -->
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Restock Date Range</label>
+                    <div class="grid grid-cols-2 gap-3">
+                        <input type="date" wire:model="exportFilters.restock_date_from" 
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        <input type="date" wire:model="exportFilters.restock_date_to" 
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    </div>
+                </div>
+
+                <!-- Has Notes Filter -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Notes</label>
+                    <select wire:model="exportFilters.has_notes" 
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        <option value="all">All Entries</option>
+                        <option value="yes">With Notes Only</option>
+                        <option value="no">Without Notes</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Active Filters Summary -->
+            @php
+                $activeFilters = collect($exportFilters)->filter(function($value, $key) {
+                    return $value !== 'all' && $value !== '' && $value !== null;
+                })->count();
+            @endphp
+            
+            @if($activeFilters > 0)
+                <div class="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-2">
+                            <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path>
+                            </svg>
+                            <span class="text-sm font-medium text-blue-900">
+                                {{ $activeFilters }} filter(s) active
+                            </span>
+                        </div>
+                        <button wire:click="resetExportFilters" 
+                            class="text-sm text-blue-600 hover:text-blue-800 font-medium">
+                            Clear all filters
+                        </button>
+                    </div>
+                </div>
+            @endif
+
+            <div class="flex justify-between mt-6 gap-3">
+                <button wire:click="resetExportFilters" 
+                    class="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50">
+                    Reset Filters
+                </button>
+                <div class="flex gap-3">
+                    <button wire:click="$set('showExportModal', false)" 
+                        class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+                        Cancel
+                    </button>
+                    <button wire:click="exportStocks" 
+                        class="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 flex items-center space-x-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                        </svg>
+                        <span>Export</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+@endif
 
 </div>

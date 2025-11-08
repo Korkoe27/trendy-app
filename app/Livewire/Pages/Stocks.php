@@ -29,6 +29,8 @@ class Stocks extends Component
 
     public $editTotalUnits;
 
+    public $showExportModal = false;
+
     public $editStockItem = [];
 
     public $editTotalCost;
@@ -80,6 +82,23 @@ class Stocks extends Component
         'restockDate.date' => 'Restock date must be a valid date',
         'restockDate.before_or_equal' => 'Restock date cannot be in the future',
     ];
+
+
+// Add these properties to your Stocks class
+public $exportFilters = [
+    'category_id' => 'all',
+    'supplier' => '',
+    'stock_min' => '',
+    'stock_max' => '',
+    'cost_price_min' => '',
+    'cost_price_max' => '',
+    'total_cost_min' => '',
+    'total_cost_max' => '',
+    'margin_min' => '',
+    'margin_max' => '',
+    'restock_date_from' => '',
+    'restock_date_to' => '',
+];
 
     public function mount()
     {
@@ -199,6 +218,148 @@ class Stocks extends Component
             'calculated_profit_margin' => 0,
         ];
     }
+
+
+public function exportStocks()
+{
+    $query = Stock::with(['product.category']);
+    
+    // Apply filters
+    if ($this->exportFilters['category_id'] !== 'all') {
+        $query->whereHas('product', function($q) {
+            $q->where('category_id', $this->exportFilters['category_id']);
+        });
+    }
+    
+    if (!empty($this->exportFilters['supplier'])) {
+        $query->where('supplier', 'like', '%' . $this->exportFilters['supplier'] . '%');
+    }
+    
+    if (!empty($this->exportFilters['stock_min'])) {
+        $query->where('total_units', '>=', $this->exportFilters['stock_min']);
+    }
+    
+    if (!empty($this->exportFilters['stock_max'])) {
+        $query->where('total_units', '<=', $this->exportFilters['stock_max']);
+    }
+    
+    if (!empty($this->exportFilters['cost_price_min'])) {
+        $query->where('cost_price', '>=', $this->exportFilters['cost_price_min']);
+    }
+    
+    if (!empty($this->exportFilters['cost_price_max'])) {
+        $query->where('cost_price', '<=', $this->exportFilters['cost_price_max']);
+    }
+    
+    if (!empty($this->exportFilters['total_cost_min'])) {
+        $query->where('total_cost', '>=', $this->exportFilters['total_cost_min']);
+    }
+    
+    if (!empty($this->exportFilters['total_cost_max'])) {
+        $query->where('total_cost', '<=', $this->exportFilters['total_cost_max']);
+    }
+    
+    if (!empty($this->exportFilters['margin_min'])) {
+        $query->where('cost_margin', '>=', $this->exportFilters['margin_min']);
+    }
+    
+    if (!empty($this->exportFilters['margin_max'])) {
+        $query->where('cost_margin', '<=', $this->exportFilters['margin_max']);
+    }
+    
+    if (!empty($this->exportFilters['restock_date_from'])) {
+        $query->whereDate('restock_date', '>=', $this->exportFilters['restock_date_from']);
+    }
+    
+    if (!empty($this->exportFilters['restock_date_to'])) {
+        $query->whereDate('restock_date', '<=', $this->exportFilters['restock_date_to']);
+    }
+    
+    if ($this->exportFilters['has_notes'] !== 'all') {
+        if ($this->exportFilters['has_notes'] === 'yes') {
+            $query->whereNotNull('notes')->where('notes', '!=', '');
+        } else {
+            $query->where(function($q) {
+                $q->whereNull('notes')->orWhere('notes', '');
+            });
+        }
+    }
+
+    $stocks = $query->get();
+
+    $filePath = storage_path('app/stocks_export_' . now()->format('Y-m-d_His') . '.csv');
+
+    $header = [
+        'product_name',
+        'category',
+        'sku',
+        'barcode',
+        'supplier',
+        'total_units',
+        'free_units',
+        'boxes_equivalent',
+        'total_cost',
+        'cost_price',
+        'selling_price',
+        'profit_margin',
+        'restock_date',
+        'notes',
+    ];
+
+    $file = fopen($filePath, 'w');
+    fputcsv($file, $header);
+
+    foreach ($stocks as $stock) {
+        $boxesEquivalent = $stock->product->units_per_box > 0 
+            ? round($stock->total_units / $stock->product->units_per_box, 2) 
+            : 0;
+            
+        fputcsv($file, [
+            $stock->product->name,
+            $stock->product->category->name,
+            $stock->product->sku ?? '',
+            $stock->product->barcode ?? '',
+            $stock->supplier ?? '',
+            $stock->total_units,
+            $stock->free_units,
+            $boxesEquivalent,
+            $stock->total_cost,
+            $stock->cost_price,
+            $stock->product->selling_price,
+            $stock->cost_margin,
+            $stock->restock_date ? Carbon::parse($stock->restock_date)->format('Y-m-d') : '',
+            $stock->notes ?? '',
+        ]);
+    }
+
+    fclose($file);
+    
+    $this->showExportModal = false;
+    $this->reset('exportFilters');
+
+    
+
+    return response()->download($filePath)->deleteFileAfterSend(true);
+}
+
+public function resetExportFilters()
+{
+    $this->exportFilters = [
+        'category_id' => 'all',
+        'supplier' => '',
+        'stock_min' => '',
+        'stock_max' => '',
+        'cost_price_min' => '',
+        'cost_price_max' => '',
+        'total_cost_min' => '',
+        'total_cost_max' => '',
+        'margin_min' => '',
+        'margin_max' => '',
+        'restock_date_from' => '',
+        'restock_date_to' => '',
+        'has_notes' => 'all',
+    ];
+}
 
     public function removeStockItem($index)
     {
