@@ -416,6 +416,16 @@
                                                 <span class="text-red-500 text-sm">{{ $message }}</span>
                                             @enderror
                                         </div>
+                                        <div>
+                                            <label for="selling_price"
+                                                class="block text-sm font-medium text-gray-700">Units Per Box</label>
+                                            <input type="number" min="0" step="0.01"
+                                                wire:model="units_per_box" id="units_per_box"
+                                                class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 capitalize px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                                            @error('units_per_box')
+                                                <span class="text-red-500 text-sm">{{ $message }}</span>
+                                            @enderror
+                                        </div>
 
                                         <!-- Stock Limit -->
                                         <div>

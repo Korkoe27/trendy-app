@@ -38,6 +38,7 @@ class Products extends Component
     public $barcode = '';
 
     public $selling_price = '';
+    public $units_per_box = '';
 
     public $stock_limit = '';
 
@@ -463,9 +464,11 @@ class Products extends Component
         $this->productId = $productId;
         $product = Product::find($productId);
 
+
         if ($product) {
             $this->name = $product->name;
             $this->category_id = $product->category_id;
+            $this->units_per_box = $product->units_per_box;
             $this->barcode = $product->barcode;
             $this->selling_price = $product->selling_price;
             $this->stock_limit = $product->stock_limit;
@@ -485,6 +488,7 @@ class Products extends Component
                 'name' => $this->name,
                 'category_id' => $this->category_id,
                 'barcode' => $this->barcode,
+                'units_per_box' => $this->units_per_box,
                 'selling_price' => $this->selling_price,
                 'stock_limit' => $this->stock_limit,
                 'is_active' => $this->is_active,
@@ -499,6 +503,7 @@ class Products extends Component
             'name' => $this->name,
             'category_id' => $this->category_id,
             'barcode' => $this->barcode,
+            'units_per_box' => $this->units_per_box,
             'selling_price' => $this->selling_price,
             'stock_limit' => $this->stock_limit,
             'is_active' => $this->is_active,
@@ -518,7 +523,7 @@ class Products extends Component
     public function closeEditModal()
     {
         $this->editModal = false;
-        $this->reset(['name', 'category_id', 'barcode', 'selling_price', 'stock_limit', 'is_active']);
+        $this->reset(['name', 'units_per_box', 'category_id', 'barcode', 'selling_price', 'stock_limit', 'is_active']);
         $this->resetValidation();
     }
 
