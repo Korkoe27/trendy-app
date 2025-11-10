@@ -556,12 +556,12 @@ class Inventory extends Component
             'foodTotal' => 'required|numeric|min:0',
         ]);
 
-        Log::info('Submitting inventory', [
-            'cash_amount' => $this->cashAmount,
-            'momo_amount' => $this->momoAmount,
-            'hubtel_amount' => $this->hubtelAmount,
-            'product_stocks' => $this->productStocks,
-        ]);
+        // Log::info('Submitting inventory', [
+        //     'cash_amount' => $this->cashAmount,
+        //     'momo_amount' => $this->momoAmount,
+        //     'hubtel_amount' => $this->hubtelAmount,
+        //     'product_stocks' => $this->productStocks,
+        // ]);
 
         $existingRecord = DailySalesSummary::where('sales_date', $this->salesDate ?: now()->format('Y-m-d'))->first();
 
@@ -599,7 +599,7 @@ class Inventory extends Component
             $stockUpdates = [];
 
             foreach ($this->productStocks as $productId => $stockData) {
-                if (! filled($stockData['closing_boxes']) && ! filled($stockData['closing_units'])) {
+                if (! filled($stockData['closing_units'])) {
                     continue;
                 }
 

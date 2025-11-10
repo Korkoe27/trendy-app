@@ -312,7 +312,8 @@
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Cash Amount (GH₵)</label>
-                                <input type="number" min="0" step="0.01" wire:model.lazy="cashAmount"
+                                <input type="text" pattern="[0-9]*"
+                                                        oninput="this.value = this.value.replace(/[^0-9]/g, '');" step="0.01" wire:model.lazy="cashAmount"
                                     placeholder="0.00"
                                     class="w-full px-4 py-3 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-center" />
                                 @error('cashAmount')
@@ -336,7 +337,8 @@
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Mobile Money Amount
                                     (GH₵)</label>
-                                <input type="number" min="0" step="0.01" wire:model.defer="momoAmount"
+                                <input type="text" pattern="[0-9]*"
+                                                        oninput="this.value = this.value.replace(/[^0-9]/g, '');" step="0.01" wire:model.defer="momoAmount"
                                     placeholder="0.00"
                                     class="w-full px-4 py-3 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-center" />
                                 @error('momoAmount')
@@ -358,7 +360,8 @@
                             </div>
                             <div>
                                 <label class="block text-xs font-medium text-gray-700 mb-2">Hubtel Amount (GH₵)</label>
-                                <input type="number" step="0.01" min="0" wire:model.defer="hubtelAmount"
+                                <input type="text" step="0.01" pattern="[0-9]*"
+                                                        oninput="this.value = this.value.replace(/[^0-9]/g, '');" wire:model.defer="hubtelAmount"
                                     placeholder="0.00"
                                     class="w-full px-4 py-3 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-center" />
                                 @error('hubtelAmount')
@@ -393,7 +396,8 @@
                             </div>
                             <div>
                                 <label class="block text-xs font-medium text-gray-700 mb-2">Food Total (GH₵)</label>
-                                <input type="number" step="0.01" min="0" wire:model.defer="foodTotal"
+                                <input type="text" step="0.01" pattern="[0-9]*"
+                                                        oninput="this.value = this.value.replace(/[^0-9]/g, '');" wire:model.defer="foodTotal"
                                     placeholder="0.00"
                                     class="w-full px-4 py-3 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-center" />
                                 @error('foodTotal')
@@ -431,16 +435,15 @@
                                         <div class="border border-gray-200 rounded-lg p-4">
                                             <div class="flex items-center justify-between mb-3">
                                                 <div>
-                                                    <h4 class="font-medium text-gray-900">{{ $product->name }}</h4>
+                                                    <h4 class="font-medium uppercase text-gray-900">{{ $product->name }}</h4>
                                                     {{-- <p class="text-sm text-gray-500">
                                                         {{ $product->category->name ?? 'N/A' }}</p> --}}
                                                 </div>
                                                 <div class="text-right text-sm text-gray-600">
-                                                    <div>Current: {{ $currentTotalUnits }} units</div>
-                                                    <div>Boxes: {{ $currentBoxes }} ({{ $remainingUnits }} loose
-                                                        units)</div>
-                                                    <div class="text-xs text-gray-500">
-                                                        {{ $product->units_per_box ?? 1 }} units/box</div>
+                                                    <div>Current: {{ $product->stocks->total_units }} units</div>
+                                                    <div>Boxes: {{ round($product->stocks->total_units / $product->units_per_box,1) }} </div>
+                                                    {{-- <div class="text-xs text-gray-500">
+                                                        {{ $product->units_per_box ?? 1 }} units/box</div> --}}
                                                 </div>
                                             </div>
 
@@ -456,7 +459,8 @@
                                                 <div>
                                                     <label class="block text-xs font-medium text-gray-700 mb-1">Closing
                                                         Units</label>
-                                                    <input type="number" min="0"
+                                                    <input type="text" pattern="[0-9]*"
+                                                        oninput="this.value = this.value.replace(/[^0-9]/g, '');"
                                                         wire:model="productStocks.{{ $product->id }}.closing_units"
                                                         placeholder="0"
                                                         class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
@@ -464,7 +468,8 @@
                                                 <div>
                                                     <label class="block text-xs font-medium text-gray-700 mb-1">Damaged
                                                         Units</label>
-                                                    <input type="number" min="0"
+                                                    <input type="text" pattern="[0-9]*"
+                                                        oninput="this.value = this.value.replace(/[^0-9]/g, '');"
                                                         wire:model="productStocks.{{ $product->id }}.damaged_units"
                                                         placeholder="0"
                                                         class="w-full px-3 py-2 text-sm border border-red-300 rounded-md focus:ring-2 focus:ring-red-500 focus:border-transparent" />
@@ -472,7 +477,8 @@
                                                 <div>
                                                     <label class="block text-xs font-medium text-gray-700 mb-1">Credit
                                                         Units</label>
-                                                    <input type="number" min="0"
+                                                    <input type="text" pattern="[0-9]*"
+                                                        oninput="this.value = this.value.replace(/[^0-9]/g, '');"
                                                         wire:model="productStocks.{{ $product->id }}.credit_units"
                                                         placeholder="0"
                                                         class="w-full px-3 py-2 text-sm border border-yellow-300 rounded-md focus:ring-2 focus:ring-yellow-500 focus:border-transparent" />
