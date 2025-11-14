@@ -116,20 +116,7 @@ public function getLowStockProductsProperty()
 
 public function getLowStockItemsProperty()
 {
-    return $this->lowStockProducts->map(function ($product) {
-        $stock = $product->stocks?->first();
-        $current = (int) ($stock?->total_units ?? 0);
-
-        return [
-            'name' => $product->name,
-            'current' => $current,
-            'minimum' => $product->stock_limit,
-            'category' => $product->category->name ?? 'N/A',
-            'percentage' => $product->stock_limit > 0 
-                ? min(100, ($current / $product->stock_limit) * 100) 
-                : 0
-        ];
-    });
+    return $this->lowStockProducts;
 }
 
 
@@ -140,6 +127,8 @@ public function getLowStockItemsProperty()
 
     public function render()
     {
-        return view('livewire.pages.dashboard');
+        return view('livewire.pages.dashboard',[
+            'lowStockItems' => $this->lowStockItems,
+        ]);
     }
 }

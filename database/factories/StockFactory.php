@@ -2,7 +2,7 @@
 
 namespace Database\Factories;
 
-use App\Models\{Product,User};
+use App\Models\Product;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -17,22 +17,30 @@ class StockFactory extends Factory
      */
     public function definition(): array
     {
-        // // Generate random values for base fields
-        // $openingUnits = fake()->numberBetween(1, 1000);
-        // $addedUnits = fake()->numberBetween(1, 1000);
-        // $closingUnits = fake()->numberBetween(1, min(800, $openingUnits + $addedUnits)); // Ensure closing_units is valid
+        // Select a random product
+        $product = Product::inRandomOrder()->first();
 
-        // // Calculate sales_units
-        // $salesUnits = $openingUnits + $addedUnits - $closingUnits;
+        // Ensure there is at least one product
+        if (!$product) {
+            $product = Product::factory()->create();
+        }
+
+        // Generate values
+        $total_units = fake()->numberBetween(20, 100);
+        $total_cost = fake()->randomFloat(2, 100, 1000);
+        $cost_price = $total_cost / $total_units;
+        $cost_margin = $product->selling_price - $cost_price;
 
         return [
-            'product_id' => Product::inRandomOrder()->first()->id,
-            'available_units' => fake()->randomFloat(2, 0, 1000), // decimal with 2 precision
-            'supplier' => fake()->company,
-            'cost_price' => fake()->randomFloat(2, 10, 500), // assuming price range
-            'cost_margin' => fake()->randomFloat(2, 0, 100), // assuming margin range
-            'notes' => fake()->optional()->paragraph,
-            'available_boxes' => fake()->randomFloat(2, 0, 100), // decimal with 2 precision
+            'product_id' => $product->id,
+            'total_units' => $total_units,
+            'free_units' => fake()->optional()->numberBetween(0, 100),
+            'supplier' => fake()->company(),
+            'total_cost' => $total_cost,
+            'cost_price' => round($cost_price, 2),
+            'cost_margin' => round($cost_margin, 2),
+            'notes' => fake()->optional()->paragraph(),
+            'restock_date' => fake()->optional()->dateTimeBetween('-1 month', now()),
         ];
     }
 }

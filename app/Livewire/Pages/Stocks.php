@@ -4,6 +4,7 @@ namespace App\Livewire\Pages;
 
 use App\Models\ActivityLogs;
 use App\Models\Categories;
+use App\Models\Expense;
 use App\Models\Product;
 use App\Models\Stock;
 use Carbon\Carbon;
@@ -626,11 +627,14 @@ public function resetExportFilters()
             $successCount++;
         }
 
-        // Batch insert new stocks
+
+        // DB::transaction(function(){
+    // Batch insert new stocks
         if (! empty($stockCreateRows)) {
             DB::table('stocks')->insert($stockCreateRows);
             Log::info('Created new stock entries', ['count' => count($stockCreateRows)]);
         }
+
 
         // Batch update existing stocks
         if (! empty($stockUpdateRows)) {
@@ -670,6 +674,22 @@ public function resetExportFilters()
                 'timestamp' => now(),
             ]),
         ]);
+        Expense::create([
+            'reference' => 'STK-'.strtoupper(uniqid()),
+            'amount' => array_sum(array_column($validItems, 'total_cost')),
+            'description' => "Stock replenishment for {$successCount} product(s) (Restock Date: ".Carbon::parse($restockDate)->format('M j, Y').')',
+            'incurred_at' => now(),
+            'payment_method' => 'inventory',
+            'paid_by' => Auth::id(),
+            'category' => 'inventory',
+            'notes' => $this->notes,
+            'status' => 'pending',
+            'supplier' => implode(', ', array_unique(array_column($validItems, 'supplier'))),
+        ]);
+    // });
+
+    
+
     }
 
     private function createActivityLog($product, $stockItem, $costMargin, $costPrice, $totalUnitsAdded)

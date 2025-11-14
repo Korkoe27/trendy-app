@@ -20,7 +20,7 @@ return new class extends Migration
             
             // $table->decimal('total_units', 8, 2)->default(0); // only store total units
 
-            $table->integer('free_units')->default(0); // free units in stock
+            $table->integer('free_units')->nullable(); // free units in stock
 
             $table->integer('total_units')->default(0); // total units in stock
             

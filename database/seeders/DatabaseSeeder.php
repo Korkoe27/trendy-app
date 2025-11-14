@@ -23,6 +23,7 @@ class DatabaseSeeder extends Seeder
                 ['name' => 'logs', 'description' => 'Activity Logs Management'],
                 ['name' => 'analytics', 'description' => 'Analytics Dashboard'],
                 ['name' => 'inventory', 'description' => 'Inventory Management'],
+                ['name' => 'expenses', 'description' => 'Expense data and Information'],
                 ['name' => 'settings', 'description' => 'Application Settings'],
             ];
 
@@ -122,6 +123,15 @@ class DatabaseSeeder extends Seeder
 
             Permission::create([
                 'role_id' => $manager->id,
+                'module_id' => $createdModules['expenses']->id,
+                'can_create' => true,
+                'can_view' => true,
+                'can_modify' => true,
+                'can_delete' => false,
+            ]);
+
+            Permission::create([
+                'role_id' => $manager->id,
                 'module_id' => $createdModules['settings']->id,
                 'can_create' => false,
                 'can_view' => false,
@@ -194,6 +204,15 @@ class DatabaseSeeder extends Seeder
                 'module_id' => $createdModules['inventory']->id,
                 'can_create' => true,
                 'can_view' => true,
+                'can_modify' => false,
+                'can_delete' => false,
+            ]);
+
+            Permission::create([
+                'role_id' => $stockManager->id,
+                'module_id' => $createdModules['expenses']->id,
+                'can_create' => true,
+                'can_view' => false,
                 'can_modify' => false,
                 'can_delete' => false,
             ]);
@@ -274,6 +293,15 @@ class DatabaseSeeder extends Seeder
                 'module_id' => $createdModules['inventory']->id,
                 'can_create' => true,
                 'can_view' => true,
+                'can_modify' => false,
+                'can_delete' => false,
+            ]);
+
+            Permission::create([
+                'role_id' => $salesPerson->id,
+                'module_id' => $createdModules['expenses']->id,
+                'can_create' => false,
+                'can_view' => false,
                 'can_modify' => false,
                 'can_delete' => false,
             ]);

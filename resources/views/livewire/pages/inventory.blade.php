@@ -712,6 +712,8 @@
                     </div>
 
 
+
+                    @haspermission('view','logs')
                     {{-- Profit --}}
                     <div class="rounded-xl border border-amber-400 bg-amber-50 p-5">
                         <div class="flex items-start justify-between">
@@ -735,6 +737,7 @@
                                 accounted for</span>
                         </div>
                     </div>
+                    @endhaspermission
                     <div class="rounded-xl border border-teal-400 bg-teal-50 p-5">
                         <div class="flex items-start justify-between">
                             <div>

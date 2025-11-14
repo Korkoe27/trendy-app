@@ -26,10 +26,10 @@ class ProductFactory extends Factory
             'name' => fake()->unique()->word(),
             'category_id' => Categories::inRandomOrder()->first()->id, // assumes a Category factory exists
             'sku' => fake()->unique()->bothify('SKU-####-???'),
-            'stock_limit' => fake()->numberBetween(1, 100),
+            'stock_limit' => '100',
             'barcode' => fake()->unique()->isbn10(),
             // 'cost_price' => $costPrice,
-            'selling_price' => fake()->randomFloat(2, 1, 50),
+            'selling_price' => fake()->randomFloat(2, 1, 200),
             // 'unit_profit' => $profit,
             'units_per_box' => fake()->numberBetween(1,100),
             'is_active' => fake()->boolean(90),

@@ -165,19 +165,19 @@
                     </h3>
                 </div>
                 <div class="p-4 md:p-6">
-                    @if(count($this->lowStockItems) > 0)
+                    @if($lowStockItems->count() > 0)
                         <div class="space-y-4 max-h-96 overflow-y-auto">
-                            @foreach($this->lowStockItems as $item)
+                            @foreach($lowStockItems as $item)
                                 <div class="border border-red-200 rounded-lg p-3 bg-red-50">
                                     <div class="flex justify-between items-start mb-2">
-                                        <h4 class="text-sm font-medium text-gray-900 truncate pr-2">{{ $item['name'] }}</h4>
-                                        <span class="text-xs bg-red-100 text-red-800 px-2 py-1 rounded whitespace-nowrap">
-                                            {{ $item['category'] }}
+                                        <h4 class="text-base font-medium uppercase text-gray-900 truncate pr-2">{{ $item->name }}</h4>
+                                        <span class="text-sm bg-red-100 text-red-800 px-2 py-1 rounded uppercase whitespace-nowrap">
+                                            {{ $item->category->name }}
                                         </span>
                                     </div>
                                     <div class="flex justify-between text-xs text-gray-600 mb-2">
-                                        <span>Current: {{ $item['current'] }}</span>
-                                        <span>Min: {{ $item['minimum'] }}</span>
+                                        <spa    n>Current: {{ $item->stocks?->total_units ?? 0 }}</spa>
+                                        <span>Min: {{ $item->stock_limit }}</span>
                                     </div>
                                     <div class="w-full bg-red-200 rounded-full h-2">
                                         <div 

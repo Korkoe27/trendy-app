@@ -2,7 +2,7 @@
 
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\UserAuthController;
-use App\Livewire\Pages\{Analytics,Dashboard,Inventory,Logs,Products,Settings,Stocks, Users};
+use App\Livewire\Pages\{Analytics,Dashboard,Inventory,Logs,Products,Settings, Spending, Stocks, Users};
 use Illuminate\Support\Facades\Route;
 
 // Route::get('/', function () {
@@ -28,11 +28,14 @@ Route::middleware(['auth', 'must.change.password'])->group(function () {
 
     Route::get('stocks', Stocks::class)->name('stocks')->middleware('permission:stocks,view');
 
-    Route::get('inventory', Inventory::class)->name('inventory')->middleware('permission:inventory,view');
+    Route::get('inventory', Inventory::class)->name('inventory')->middleware('permission:inventory,create');
 
     Route::get('settings', Settings::class)->name('settings')->middleware('permission:settings,view');
 
     Route::get('logs', Logs::class)->name('logs')->middleware('permission:logs,view');
+    
+
+    Route::get('expenses', Spending::class)->name('spending')->middleware('permission:expenses,view');
     
     Route::get('users', Users::class)->name('users')->middleware('permission:users,view');
 
