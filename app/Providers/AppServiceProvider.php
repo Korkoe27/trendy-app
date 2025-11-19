@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Models\Permission;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\{Log,DB};
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 
@@ -23,6 +24,16 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+
+        // Log::info('Database query logging is enabled.');
+        DB::whenQueryingForLongerThan(200,function ($connection, $query) {
+
+            Log::warning('Slow query detected: ',[
+                "sql"=>$query->sql, "binding"=>$query->bindings,"time_ms"=>$query->time,
+                "connection"=>$connection->getName(),
+                ]);
+                
+        });
         if (config('app.env') === 'production' && ! app()->runningInConsole()) {
             URL::forceScheme('https');
         }

@@ -27,7 +27,7 @@ class StockFactory extends Factory
 
         // Generate values
         $total_units = fake()->numberBetween(20, 100);
-        $total_cost = fake()->randomFloat(2, 100, 1000);
+        $total_cost = fake()->randomFloat(2, 300, 1000);
         $cost_price = $total_cost / $total_units;
         $cost_margin = $product->selling_price - $cost_price;
 

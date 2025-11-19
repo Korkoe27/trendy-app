@@ -13,6 +13,7 @@ return [
     |
     */
 
+    // App\Providers\AppServiceProvider::class,
     'name' => env('APP_NAME', 'Laravel'),
 
     /*

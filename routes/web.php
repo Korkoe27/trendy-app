@@ -3,7 +3,7 @@
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\UserAuthController;
 use App\Livewire\Pages\{Analytics,Dashboard,Inventory,Logs,Products,Settings, Spending, Stocks, Users};
-use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\{Log,Route};
 
 // Route::get('/', function () {
 //     return view('index');
@@ -22,6 +22,8 @@ Route::middleware(['auth'])->group(function () {
 
 Route::middleware(['auth', 'must.change.password'])->group(function () {
 
+
+    // Log::info("Accessing protected routes");
     Route::get('/', Dashboard::class)->name('dashboard');
 
     Route::get('products', Products::class)->name('products')->middleware('permission:products,view');

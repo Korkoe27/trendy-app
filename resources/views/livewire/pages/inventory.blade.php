@@ -419,83 +419,61 @@
 
                             <div class="max-h-96 overflow-y-auto">
                                 <div class="space-y-4">
-                                    @foreach ($products as $product)
-                                        @php
-                                            $currentStock = $product->stocks->first();
-                                            $currentTotalUnits = $currentStock ? $currentStock->total_units : 0;
-                                            $currentBoxes =
-                                                $product->units_per_box > 0
-                                                    ? floor($currentTotalUnits / $product->units_per_box)
-                                                    : 0;
+@foreach ($products as $product)
+    @php
+        // Since we've added stocks property in render(), access it directly
+        $currentStock = $product->stocks;
+        $currentTotalUnits = $currentStock->total_units ?? 0;
+        $currentBoxes = $product->units_per_box > 0
+            ? floor($currentTotalUnits / $product->units_per_box)
+            : 0;
+        $remainingUnits = $currentTotalUnits - ($currentBoxes * ($product->units_per_box ?? 1));
+    @endphp
+    <div class="border border-gray-200 rounded-lg p-4">
+        <div class="flex items-center justify-between mb-3">
+            <div>
+                <h4 class="font-medium uppercase text-gray-900">{{ $product->name }}</h4>
+            </div>
+            <div class="text-right text-sm text-gray-600">
+                <div>Current: {{ $currentTotalUnits }} units</div>
+                <div>Boxes: {{ round($currentTotalUnits / $product->units_per_box, 1) }}</div>
+            </div>
+        </div>
 
-                                                    Log::debug('product name: '.$product->name);
-                                            $remainingUnits =
-                                                $currentTotalUnits - $currentBoxes * ($product->units_per_box ?? 1);
-                                        @endphp
-                                        <div class="border border-gray-200 rounded-lg p-4">
-                                            <div class="flex items-center justify-between mb-3">
-                                                <div>
-                                                    <h4 class="font-medium uppercase text-gray-900">{{ $product->name }}</h4>
-                                                    {{-- <p class="text-sm text-gray-500">
-                                                        {{ $product->category->name ?? 'N/A' }}</p> --}}
-                                                </div>
-                                                <div class="text-right text-sm text-gray-600">
-                                                    <div>Current: {{ $product->stocks->total_units }} units</div>
-                                                    <div>Boxes: {{ round($product->stocks->total_units / $product->units_per_box,1) }} </div>
-                                                    {{-- <div class="text-xs text-gray-500">
-                                                        {{ $product->units_per_box ?? 1 }} units/box</div> --}}
-                                                </div>
-                                            </div>
-
-                                            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                                                {{-- <div>
-                                                    <label class="block text-xs font-medium text-gray-700 mb-1">Closing
-                                                        Boxes</label>
-                                                    <input type="number" min="0"
-                                                        wire:model="productStocks.{{ $product->id }}.closing_boxes"
-                                                        placeholder="0"
-                                                        class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
-                                                </div> --}}
-                                                <div>
-                                                    <label class="block text-xs font-medium text-gray-700 mb-1">Closing
-                                                        Units</label>
-                                                    <input type="text" pattern="[0-9]*"
-                                                        oninput="this.value = this.value.replace(/[^0-9]/g, '');"
-                                                        wire:model="productStocks.{{ $product->id }}.closing_units"
-                                                        placeholder="0"
-                                                        class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
-                                                </div>
-                                                <div>
-                                                    <label class="block text-xs font-medium text-gray-700 mb-1">Damaged
-                                                        Units</label>
-                                                    <input type="text" pattern="[0-9]*"
-                                                        oninput="this.value = this.value.replace(/[^0-9]/g, '');"
-                                                        wire:model="productStocks.{{ $product->id }}.damaged_units"
-                                                        placeholder="0"
-                                                        class="w-full px-3 py-2 text-sm border border-red-300 rounded-md focus:ring-2 focus:ring-red-500 focus:border-transparent" />
-                                                </div>
-                                                <div>
-                                                    <label class="block text-xs font-medium text-gray-700 mb-1">Credit
-                                                        Units</label>
-                                                    <input type="text" pattern="[0-9]*"
-                                                        oninput="this.value = this.value.replace(/[^0-9]/g, '');"
-                                                        wire:model="productStocks.{{ $product->id }}.credit_units"
-                                                        placeholder="0"
-                                                        class="w-full px-3 py-2 text-sm border border-yellow-300 rounded-md focus:ring-2 focus:ring-yellow-500 focus:border-transparent" />
-                                                </div>
-                                                <div>
-                                                    <label
-                                                        class="block text-xs font-medium text-gray-700 mb-1">Expected
-                                                        Revenue</label>
-                                                    <div
-                                                        class="w-full px-3 py-2 text-sm bg-green-50 border border-green-200 rounded-md text-green-700 font-medium">
-                                                        GH₵
-                                                        {{ number_format($this->calculateExpectedRevenue($product->id), 2) }}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    @endforeach
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+                <label class="block text-xs font-medium text-gray-700 mb-1">Closing Units</label>
+                <input type="text" pattern="[0-9]*"
+                    oninput="this.value = this.value.replace(/[^0-9]/g, '');"
+                    wire:model="productStocks.{{ $product->id }}.closing_units"
+                    placeholder="0"
+                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-700 mb-1">Damaged Units</label>
+                <input type="text" pattern="[0-9]*"
+                    oninput="this.value = this.value.replace(/[^0-9]/g, '');"
+                    wire:model="productStocks.{{ $product->id }}.damaged_units"
+                    placeholder="0"
+                    class="w-full px-3 py-2 text-sm border border-red-300 rounded-md focus:ring-2 focus:ring-red-500 focus:border-transparent" />
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-700 mb-1">Credit Units</label>
+                <input type="text" pattern="[0-9]*"
+                    oninput="this.value = this.value.replace(/[^0-9]/g, '');"
+                    wire:model="productStocks.{{ $product->id }}.credit_units"
+                    placeholder="0"
+                    class="w-full px-3 py-2 text-sm border border-yellow-300 rounded-md focus:ring-2 focus:ring-yellow-500 focus:border-transparent" />
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-700 mb-1">Expected Revenue</label>
+                <div class="w-full px-3 py-2 text-sm bg-green-50 border border-green-200 rounded-md text-green-700 font-medium">
+                    GH₵ {{ number_format($this->calculateExpectedRevenue($product->id), 2) }}
+                </div>
+            </div>
+        </div>
+    </div>
+@endforeach
                                 </div>
                             </div>
                         </div>
@@ -525,6 +503,7 @@
                                 class="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                                 Next
                             </button>
+                            <span wire:loading wire:target="nextStep" class="text-red-300">moving on...</span>
                         @else
                             @if ($isEditing)
                                 <button wire:click="updateInventory"

@@ -19,6 +19,8 @@ class User extends Authenticatable
      *
      * @var list<string>
      */
+
+    // protected $with = ['role.modules'];
     protected $fillable = [
         'name',
         'username',
