@@ -840,18 +840,9 @@
                                     <th
                                         class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                         Closing (u)</th>
-                                    {{-- <th
-                                        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Opening (bx)</th> --}}
-                                    {{-- <th
-                                        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Closing (bx)</th> --}}
                                     <th
                                         class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                         Units Sold</th>
-                                    {{-- <th
-                                        class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Boxes Sold</th> --}}
                                     <th
                                         class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                         Damaged</th>
@@ -873,34 +864,34 @@
                                 @forelse($selectedRecord['products'] ?? [] as $sale)
                                     <tr class="hover:bg-gray-50">
                                         <td class="px-6 py-4 whitespace-nowrap">
-                                            <div class="text-sm font-medium text-gray-900">{{ $sale['product_name'] }}
+                                            <div class="text-sm font-medium text-gray-900">{{ $sale->product_name }}
                                             </div>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap">
-                                            <div class="text-sm text-gray-700">{{ $sale['category'] }}</div>
+                                            <div class="text-sm text-gray-700">{{ $sale->category }}</div>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            {{ number_format($sale['opening_stock']) }}</td>
+                                            {{ number_format($sale->opening_stock) }}</td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            {{ number_format($sale['closing_stock']) }}</td>
+                                            {{ number_format($sale->closing_stock) }}</td>
                                         {{-- <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                             {{ number_format($sale['opening_boxes']) }}</td> --}}
                                         {{-- <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                             {{ number_format($sale['closing_boxes']) }}</td> --}}
                                         <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
-                                            {{ number_format($sale['units_sold']) }}</td>
+                                            {{ number_format($sale->units_sold) }}</td>
                                         {{-- <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
                                             {{ number_format($sale['boxes_sold']) }}</td> --}}
                                         <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
-                                            {{ number_format($sale['damaged_units']) }}</td>
+                                            {{ number_format($sale->damaged_units) }}</td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
-                                            {{ number_format($sale['credit_units']) }}</td>
+                                            {{ number_format($sale->credit_units) }}</td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">GH₵
-                                            {{ number_format($sale['loss_amount'] ?? 0, 2) }}</td>
+                                            {{ number_format($sale->loss_amount ?? 0, 2) }}</td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">GH₵
-                                            {{ number_format($sale['credit_amount'] ?? 0, 2) }}</td>
+                                            {{ number_format($sale->credit_amount ?? 0, 2) }}</td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">GH₵
-                                            {{ number_format($sale['revenue'], 2) }}</td>
+                                            {{ number_format($sale->revenue, 2) }}</td>
                                     </tr>
                                 @empty
                                     <tr>

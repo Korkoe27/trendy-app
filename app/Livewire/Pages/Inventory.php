@@ -368,7 +368,7 @@ class Inventory extends Component
                 $updateData['total_cash'] = (float) $this->cashAmount;
                 $updateData['total_momo'] = (float) $this->momoAmount;
                 $updateData['total_hubtel'] = (float) $this->hubtelAmount;
-                $updateData['total_money'] = $this->cashAmount + $this->momoAmount + $this->hubtelAmount;
+                $updateData['total_money'] = $this->cashAmount + $this->momoAmount + $this->hubtelAmount + $this->foodTotal;
             }
 
             if ($mostSoldProductId) {
@@ -410,9 +410,6 @@ class Inventory extends Component
     public function resetForm()
     {
         $this->currentStep = 1;
-        // $this->cashAmount = '';
-        // $this->momoAmount = '';
-        // $this->hubtelAmount = '';
         $this->salesDate = now()->format('Y-m-d');
         $this->productStocks = [];
     }
@@ -426,29 +423,6 @@ class Inventory extends Component
         $this->productStocks = [];
     }
 
-    // public function loadProductStocks()
-    // {
-    //     $products = Product::with(['stocks', 'category'])
-    //         ->where('is_active', true)
-    //         ->whereHas('stocks', function ($query) {
-    //             $query->where('total_units', '>', 0);
-    //         })
-    //         ->get();
-
-    //     Log::info('Products with available stock loaded for inventory', ['count' => $products->count()]);
-
-    //     foreach ($products as $product) {
-    //         $this->productStocks[$product->stocks->id] = [
-    //             'closing_boxes' => '',
-    //             'closing_units' => '',
-    //             'damaged_units' => '',
-    //             'credit_units' => '',
-    //             'product' => $product->stocks,
-    //             'stock' => $product,
-
-    //         ];
-    //     }
-    // }
 
     public function loadProductStocks()
     {
@@ -475,7 +449,7 @@ class Inventory extends Component
         if ($this->currentStep < 5) {
             $this->currentStep++;
         }
-        // Log::info("next step");
+        Log::info("next step");
     }
 
     public function previousStep()
@@ -486,37 +460,6 @@ class Inventory extends Component
     }
 
 
-    public function validateStep(){
-        if($this->currentStep == 1){
-
-        }
-    }
-
-    // public function calculateTotalUnits($productId)
-    // {
-    //     $stock = $this->productStocks[$productId] ?? null;
-
-    //     Log::debug("Calculating total units for product ID: $productId", [
-    //         'stock' => $stock,
-    //     ]);
-
-    //     // If stock is not set or missing, return 0
-    //     if (! $stock) {
-    //         return 0;
-    //     }
-
-    //     $product = $stock['product'];
-    //     $boxes = (int) ($stock['closing_boxes'] ?? 0);
-    //     $units = (int) ($stock['closing_units'] ?? 0);
-    //     // $unitsPerBox = $product->units_per_box ?? 1;
-
-    //     $unitsPerBox = optional($stock['product'])->units_per_box ?? 1; // Product field
-
-    //     Log::debug("Product ID: $productId, Boxes: $boxes, Units: $units, Units per Box: $unitsPerBox");
-
-
-    //     return ($boxes * $unitsPerBox) + $units;
-    // }
 
         public function calculateTotalUnits($productId)
     {
@@ -535,101 +478,8 @@ class Inventory extends Component
         $units = (int)($stock['closing_units'] ?? 0);
         $unitsPerBox = $product->units_per_box ?? 1;
 
-        return ($boxes * $unitsPerBox) + $units;
+        return $boxes * $unitsPerBox + $units;
     }
-
-    // public function calculateExpectedRevenue($productId)
-    // {
-    //     $stock = $this->productStocks[$productId] ?? null;
-    //     if (! $stock) {
-    //         return 0;
-    //     }
-
-    //     Log::info('Stock details', $stock);
-
-    //     $product = $stock['product'];
-    //     Log::debug('product Details'.$product);
-    //     // $currentStock = Stock::select('total_units')->where('product_id', $productId)->first();
-
-    //     $currentStock = $product->total_units;
-
-    //     if (! $currentStock) {
-    //         return 0;
-    //     }
-
-    //     if (! isset($this->stocksCache[$productId])) {
-    //         $this->stocksCache[$productId] = Stock::where('product_id', $productId)->first();
-    //     }
-    //     $currentStock = $this->stocksCache[$productId];
-
-    //     Log::debug('Current Stock: '.$currentStock);
-
-    //     // Calculate units sold
-    //     // $openingStock = $currentStock->total_units;
-
-    //     $openingStock = optional($this->stocksCache[$productId])->total_units ?? 0;
-
-    //     // Log::info("Calculating expected revenue for product ID: $productId", [
-    //     //     'opening_stock' => $openingStock,
-    //     //     'current_stock' => $currentStock,
-    //     // ]);
-
-    //     $closingStock = $this->calculateTotalUnits($productId);
-    //     $damagedUnits = (float) ($stock['damaged_units'] ?? 0);
-    //     $creditUnits = (float) ($stock['credit_units'] ?? 0);
-    //     $unitsSold = max(0, $openingStock - $closingStock - $damagedUnits - $creditUnits);
-
-    //     Log::debug("Units sold calculation for product ID: $productId", [
-    //         'closing_stock' => $closingStock,
-    //         'damaged_units' => $damagedUnits,
-    //         'credit_units' => $creditUnits,
-    //         'units_sold' => $unitsSold,
-    //     ]);
-
-    //     // Calculate revenue for this product
-    //     $sellingPrice = $product->selling_price ?? 0;
-    //     $productRevenue = $unitsSold * $sellingPrice;
-
-    //     $creditRevenue = $creditUnits * $sellingPrice;
-
-    //     return $productRevenue + $creditRevenue;
-    // }
-
-//     public function calculateExpectedRevenue($productId)
-// {
-
-    
-//     $entry = $this->productStocks[$productId] ?? null;
-//     if (!$entry) return 0;
-
-
-//     Log::debug("Entry: ", $entry);
-//     // Ensure we have the latest Stock for opening units (and cache it)
-//     if (!isset($this->stocksCache[$productId])) {
-//         $this->stocksCache[$productId] = Stock::where('product_id', $productId)->first();
-//     }
-//     $stockModel   = $this->stocksCache[$productId]; // Stock
-//     $productModel = $entry['product']; 
-    
-//     Log::debug("Product: ".$productModel);// Product
-
-//     $openingStock = optional($stockModel)->total_units ?? 0;        // from Stock
-//     $closingStock = $this->calculateTotalUnits($productId);         // from form
-//     $damagedUnits = (float) ($entry['damaged_units'] ?? 0);
-//     $creditUnits  = (float) ($entry['credit_units']  ?? 0);
-
-//     $unitsSold = max(0, $openingStock - $closingStock - $damagedUnits - $creditUnits);
-
-
-//     Log::debug("Units Sold: ".$unitsSold);
-//     $sellingPrice = $productModel->selling_price ?? 0;              // from Product
-    
-    
-//     Log::debug("Expected Revenue: ".($unitsSold * $sellingPrice) + ($creditUnits * $sellingPrice));
-
-//     // cash + credit value
-//     return ($unitsSold * $sellingPrice) + ($creditUnits * $sellingPrice);
-// }
 
     public function calculateExpectedRevenue($productId)
     {
@@ -661,6 +511,7 @@ class Inventory extends Component
     public function submitInventory()
     {
 
+
         $this->validate([
             'cashAmount' => 'required|numeric|min:0',
             'momoAmount' => 'required|numeric|min:0',
@@ -668,19 +519,26 @@ class Inventory extends Component
             'foodTotal' => 'required|numeric|min:0',
         ]);
 
+        Log::debug('validated');
         $recordDate = $this->salesDate ?: now()->format('Y-m-d');
 
+        Log::debug("fetched record date: ".$recordDate);
+        
         // Check for existing record using DB facade
         $existingRecord = DB::table('daily_sales_summaries')
-            ->where('sales_date', $recordDate)
-            ->exists();
+        ->where('sales_date', $recordDate)
+        ->exists();
+        
+        Log::debug("existing record: ".$existingRecord);
 
         
         if ($existingRecord) {
             session()->flash('error', 'A sales record already exists for '.\Carbon\Carbon::parse($this->salesDate)->format('M j, Y').'. Please edit the existing record instead.');
-
+            // $this->closeTakeInventoryModal();
             return;
         }
+
+        Log::debug("checked for existing record");
         DB::transaction(function () {
             $recordDate = $this->salesDate ?: now()->format('Y-m-d');
             $totalRevenue = 0;
@@ -797,32 +655,20 @@ class Inventory extends Component
             ];
 
                 // after the loop
-                // if (! empty($salesRows)) {
-                //     DB::table('daily_sales')->insert($salesRows);
-                // }
+
 
                 Log::debug('checked new sales for product: '.$productId);
                 // Update stock with new closing values
-                // $stock->update([
-                //     'total_units' => $closingUnits,
-                // ]);
+
             }
+
+            Log::debug("prepared all sales rows");
 
             if (! empty($salesRows)) {
                 DB::table('daily_sales')->insert($salesRows);
                 Log::debug('Submitted new Sales', ['count' => count($salesRows)]);
             }
 
-            // if (! empty($stockUpdates)) {
-            //     foreach ($stockUpdates as $stockId => $totalUnits) {
-            //         DB::table('stocks')
-            //             ->where('id', $stockId)
-            //             ->update([
-            //                 'total_units' => $totalUnits,
-            //                 'updated_at' => now(),
-            //             ]);
-            //     }
-            // }
 
                     if (!empty($stockUpdates)) {
                 $ids = array_column($stockUpdates, 'id');
@@ -840,11 +686,13 @@ class Inventory extends Component
                     WHERE id IN ({$idsList})
                 ");
             }
+
+            Log::debug("updated all stocks");
             // Create daily sales summary only if we have sales data
             if ($mostSoldProductId && $totalRevenue > 0) {
                 DB::table('daily_sales_summaries')->insert([
                     'total_revenue' => $totalRevenue,
-                    'total_money' => $this->cashAmount + $this->momoAmount + $this->hubtelAmount,
+                    'total_money' => $this->cashAmount + $this->momoAmount + $this->hubtelAmount + $this->foodTotal,
                     'items_sold' => $totalItemsSold,
                     'total_profit' => $totalProfit,
                     'sales_date' => $recordDate,
@@ -876,6 +724,8 @@ class Inventory extends Component
                     'updated_at' => now(),
                 ]);
             }
+
+            Log::debug("created summary record");   
         });
 
         $this->closeTakeInventoryModal();
@@ -895,27 +745,7 @@ class Inventory extends Component
         $this->resetAllFormData();
     }
 
-    // public function getDailySalesRecords()
-    // {
 
-    //     Log::info('Fetching daily sales records');
-
-    //     return DailySalesSummary::select(
-    //         DB::raw('DATE(created_at) as date'),
-    //         'total_cash',
-    //         'total_momo',
-    //         'total_hubtel',
-    //         'total_revenue',
-    //         'food_total',
-    //         'total_money',
-    //         'items_sold as total_products',
-    //         'id as first_id'
-    //     )
-    //         ->orderBy('sales_date', 'desc')
-    //         ->get();
-
-    //     // Log::info('Fetched '. $dailySalesRecords->count() .' daily sales records');
-    // }
 
         public function getDailySalesRecords()
     {
@@ -935,66 +765,6 @@ class Inventory extends Component
             ->limit(100) // Add limit for performance
             ->get();
     }
-
-    // public function getDailySalesRecord($recordId)
-    // {
-    //     // Get the summary record
-    //     $summary = DailySalesSummary::find($recordId);
-    //     Log::debug("Fetching daily sales record for ID: $recordId");
-    //     if (! $summary) {
-    //         return null;
-    //     }
-
-    //     // Get all individual sales for the same date
-    //     $targetDate = $summary->sales_date ?: $summary->created_at->format('Y-m-d');
-
-    //     $dailySales = DailySales::with(['stock', 'product.category'])
-    //         ->whereDate('sales_date', $targetDate)
-    //         ->get();
-
-    //     Log::debug('Found '.$dailySales->count()." daily sales for summary ID: $recordId");
-
-    //     return [
-    //         'id' => $recordId,
-    //         'date' => $targetDate,
-    //         'total_cash' => $summary->total_cash,
-    //         'total_momo' => $summary->total_momo,
-    //         'total_hubtel' => $summary->total_hubtel,
-    //         'total_revenue' => $summary->total_revenue,
-    //         'total_money' => $summary->total_money,
-    //         'food_total' => $summary->food_total,
-    //         'total_profit' => $summary->total_profit,
-    //         'total_loss_amount' => $summary->total_loss_amount,
-    //         'total_credit_amount' => $summary->total_credit_amount,
-    //         'total_credit_units' => $summary->total_credit_units,
-    //         'total_damaged' => $summary->total_damaged,
-    //         'products' => $dailySales->map(function ($sale) {
-    //             $unitsSold = $sale->opening_stock - $sale->closing_stock - ($sale->damaged_units ?? 0) - ($sale->credit_units ?? 0);
-    //             $boxesSold = $sale->opening_boxes - $sale->closing_boxes;
-    //             // $product = Product::with('category')->find($sale->product_id);
-
-    //             $productName = $sale->product->name ?? 'Error';
-    //             $productCategory = $sale->product->category->name ?? 'Error';
-
-    //             return [
-    //                 // 'product_name' => $product->name ?? 'N/A',
-    //                 'product_name' => $productName,
-    //                 'category' => $productCategory,
-    //                 'opening_stock' => $sale->opening_stock,
-    //                 'closing_stock' => $sale->closing_stock,
-    //                 'opening_boxes' => $sale->opening_boxes,
-    //                 'closing_boxes' => $sale->closing_boxes,
-    //                 'damaged_units' => $sale->damaged_units ?? 0,
-    //                 'credit_units' => $sale->credit_units ?? 0,
-    //                 'credit_amount' => $sale->credit_amount ?? 0,
-    //                 'loss_amount' => $sale->loss_amount ?? 0,
-    //                 'units_sold' => $unitsSold,
-    //                 'boxes_sold' => $boxesSold,
-    //                 'revenue' => $sale->total_amount + ($sale->credit_amount ?? 0), // Include credit in total revenue display
-    //             ];
-    //         }),
-    //     ];
-    // }
 
         public function getDailySalesRecord($recordId)
     {
@@ -1049,27 +819,6 @@ class Inventory extends Component
         ];
     }
     
-    // public function render()
-    // {
-
-    //     // dd('rendering');
-    //     $dailySalesRecords = $this->getDailySalesRecords();
-    //     Log::info('Rendering inventory');
-
-    //     $products = Product::with(['stocks'])
-    //         ->where('is_active', true)
-    //         ->whereHas('stocks', function ($query) {
-    //             $query->where('total_units', '>', 0);
-    //         })
-    //         ->get();
-
-    //     Log::info('Fetched products');
-
-    //     return view('livewire.pages.inventory', [
-    //         'dailySalesRecords' => $dailySalesRecords,
-    //         'products' => $products,
-    //     ]);
-    // }
 
         public function render()
     {
