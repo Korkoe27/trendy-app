@@ -31,8 +31,13 @@ class Product extends Model
     }
 
     public function stocks(){
-        return $this->hasOne(Stock::class);
+        return $this->hasMany(Stock::class)->orderBy('created_at', 'desc');
     }
+
+    public function currentStock()
+{
+    return $this->hasOne(Stock::class)->latestOfMany('created_at');
+}
 
     public function dailySales()
     {

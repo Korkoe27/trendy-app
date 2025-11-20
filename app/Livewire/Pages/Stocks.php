@@ -36,8 +36,6 @@ class Stocks extends Component
 
     public $editTotalCost;
 
-    // public $editCostPrice;
-    // public $editCostMargin;
     public $editRestockDate;
 
     public $editNotes;
@@ -757,31 +755,40 @@ public function resetExportFilters()
         session()->flash('message', 'Stock entry deleted successfully');
     }
 
+
     public function render()
-    {
-        $categories = Categories::all();
+{
+    $categories = Categories::all();
 
-        $query = Stock::with(['product.category']);
 
+    // Using window function for PostgreSQL (more efficient)
+    $query = Stock::with(['product.category'])
+    ->whereRaw('id IN (
+        SELECT DISTINCT ON (product_id) id
+        FROM stocks
+        ORDER BY product_id, created_at DESC
+        )');
+        
         if ($this->searchTerm) {
-            $query->whereHas('product', function ($q) {
-                $q->where('name', 'like', '%'.$this->searchTerm.'%')
-                    ->orWhere('barcode', 'like', '%'.$this->searchTerm.'%')
-                    ->orWhere('sku', 'like', '%'.$this->searchTerm.'%');
-            });
-        }
-
-        if ($this->selectedCategory !== 'all') {
-            $query->whereHas('product.category', function ($q) {
-                $q->where('name', $this->selectedCategory);
-            });
-        }
-
-        $stocks = $query->paginate(10);
-
-        return view('livewire.pages.stocks', [
-            'stocks' => $stocks,
-            'categories' => $categories,
-        ]);
+        $query->whereHas('product', function ($q) {
+            $q->where('name', 'like', '%'.$this->searchTerm.'%')
+                ->orWhere('barcode', 'like', '%'.$this->searchTerm.'%')
+                ->orWhere('sku', 'like', '%'.$this->searchTerm.'%');
+        });
     }
+
+        // dd($query);
+    if ($this->selectedCategory !== 'all') {
+        $query->whereHas('product.category', function ($q) {
+            $q->where('name', $this->selectedCategory);
+        });
+    }
+
+    $stocks = $query->paginate(10);
+
+    return view('livewire.pages.stocks', [
+        'stocks' => $stocks,
+        'categories' => $categories,
+    ]);
+}
 }

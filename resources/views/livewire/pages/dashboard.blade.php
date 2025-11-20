@@ -176,7 +176,7 @@
                                         </span>
                                     </div>
                                     <div class="flex justify-between text-xs text-gray-600 mb-2">
-                                        <spa    n>Current: {{ $item->stocks?->total_units ?? 0 }}</spa>
+                                        <spa    n>Current: {{ $item->currentStock?->total_units ?? 0 }}</spa>
                                         <span>Min: {{ $item->stock_limit }}</span>
                                     </div>
                                     <div class="w-full bg-red-200 rounded-full h-2">

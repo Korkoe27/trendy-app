@@ -51,20 +51,6 @@ class Inventory extends Component
 
     private $stocksCache = [];
 
-    // public function mount()
-    // {
-    //     $this->selectedDate = now()->format('Y-m-d');
-    //     $this->salesDate = now()->format('Y-m-d');
-
-    //         $this->allProducts = Product::with('stocks')
-    //     ->where('is_active', true)
-    //     ->get()
-    //     ->keyBy('id');
-
-    // $this->allStocks = Stock::whereIn('product_id', $this->allProducts->keys())
-    //     ->get()
-    //     ->keyBy('product_id');
-    // }
 
         public function mount()
     {
@@ -80,12 +66,15 @@ class Inventory extends Component
 
         $productIds = $this->allProducts->pluck('id')->toArray();
 
-        $this->allStocks = DB::table('stocks')
-            ->select('id', 'product_id', 'total_units', 'cost_price')
-            ->whereIn('product_id', $productIds)
-            ->where('total_units', '>', 0)
-            ->get()
-            ->keyBy('product_id');
+
+            // Get LATEST stock for each product (most recent created_at)
+    $this->allStocks = DB::table('stocks as s1')
+        ->select('s1.id', 's1.product_id', 's1.total_units', 's1.cost_price')
+        ->whereIn('s1.product_id', $productIds)
+        ->where('s1.total_units', '>', 0)
+        ->whereRaw('s1.created_at = (SELECT MAX(s2.created_at) FROM stocks s2 WHERE s2.product_id = s1.product_id)')
+        ->get()
+        ->keyBy('product_id');
 
         // Create a fast lookup map
         foreach ($this->allStocks as $stock) {
@@ -575,9 +564,10 @@ class Inventory extends Component
                 // $product = Product::find($productId);
                 // $stock = Stock::where('product_id', $productId)->first();
                 $product = $this->allProducts[$productId] ?? null;
-            $stock = $this->allStocks[$productId] ?? null;
+            // $stock = $this->allStocks[$productId] ?? null;
+                $currentStock = $this->allStocks[$productId] ?? null;
 
-                if (! $stock || ! $product) {
+                if (! $currentStock || ! $product) {
                     continue;
                 }
 
@@ -590,7 +580,7 @@ class Inventory extends Component
                 // $totalClosingUnits = $this->calculateTotalUnits($productId);
 
                 // Get opening stock (current available units)
-                $openingStock = $stock->total_units;
+                $openingStock = $currentStock->total_units;
                 $openingBoxes = $product->units_per_box > 0 ?
                     floor($openingStock / $product->units_per_box) : 0;
 
@@ -608,10 +598,6 @@ class Inventory extends Component
                 $totalSoldUnits = $unitsSold + $creditUnits;
                 $unitProfit = $totalSoldUnits * (($product->selling_price ?? 0) - ($stock->cost_price ?? 0));
 
-                // Track totals for summary
-                // $totalRevenue += $productRevenue;
-                // $totalItemsSold += $unitsSold;
-                // $totalProfit += $unitProfit;
                 $totalRevenue += $productRevenue;
                 $totalItemsSold += $totalSoldUnits;
                 $totalProfit += $unitProfit;
@@ -630,10 +616,23 @@ class Inventory extends Component
 
                 // Create individual daily sales record
 
-                // inside foreach (instead of DailySales::create([...]))
+                    $newStockRows[] = [
+                        'product_id' => $productId,
+                        'total_units' => $closingUnits,
+                        'supplier' => $currentStock->supplier ?? null,
+                        'total_cost' => $currentStock->total_cost ?? 0,
+                        'cost_price' => $currentStock->cost_price ?? 0,
+                        'cost_margin' => $sellingPrice - ($currentStock->cost_price ?? 0),
+                        'free_units' => 0,
+                        'notes' => 'Stock updated via inventory - ' . $recordDate,
+                        'restock_date' => null,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ];
+
                 $salesRows[] = [
                     'product_id' => $productId,
-                    'stock_id' => $stock->id,
+                    'stock_id' => null,
                     'sales_date' => $recordDate,
                     'opening_stock' => $openingStock,
                     'closing_stock' => $closingUnits,
@@ -649,20 +648,38 @@ class Inventory extends Component
                     'updated_at' => now(),
                 ];
 
-                $stockUpdates[] = [
-                'id' => $stock->id,
-                'total_units' => $closingUnits
-            ];
+            //     $stockUpdates[] = [
+            //     'id' => $stock->id,
+            //     'total_units' => $closingUnits
+            // ];
 
                 // after the loop
 
 
                 Log::debug('checked new sales for product: '.$productId);
-                // Update stock with new closing values
 
             }
 
             Log::debug("prepared all sales rows");
+
+            if (!empty($newStockRows)) {
+                DB::table('stocks')->insert($newStockRows);
+                Log::info('Created new stock entries', ['count' => count($newStockRows)]);
+
+                // Get the newly created stock IDs
+                $newStockIds = DB::table('stocks')
+                    ->whereIn('product_id', array_column($newStockRows, 'product_id'))
+                    ->where('created_at', '>=', now()->subSeconds(5)) // Created in last 5 seconds
+                    ->orderBy('created_at', 'desc')
+                    ->get()
+                    ->keyBy('product_id');
+
+                // Update sales rows with correct stock_id
+                foreach ($salesRows as &$salesRow) {
+                    $newStock = $newStockIds[$salesRow['product_id']] ?? null;
+                    $salesRow['stock_id'] = $newStock ? $newStock->id : null;
+                }
+            }
 
             if (! empty($salesRows)) {
                 DB::table('daily_sales')->insert($salesRows);

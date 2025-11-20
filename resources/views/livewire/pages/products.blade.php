@@ -88,7 +88,7 @@
                     @forelse($products as $product)
                         @php
                             $stockStatus = $this->getStockStatus($product->id, $product->stock_limit);
-                            $margin = $product?->stocks?->cost_margin ?? 0;
+                            $margin = $product?->currentStock?->cost_margin ?? 0;
                         @endphp
 
                         <tr class="hover:bg-gray-50" wire:key="product-row-{{ $product->id }}">
@@ -115,7 +115,7 @@
                             {{-- Cost/Sell/Margin --}}
                             <td class="px-6 py-2 whitespace-nowrap">
                                 <div class="text-base text-gray-900">GH₵
-                                    {{ number_format($product->stocks->cost_price ?? 0, 2) }}</div>
+                                    {{ number_format($product->currentStock->cost_price ?? 0, 2) }}</div>
                             </td>
                             <td class="px-6 py-2 whitespace-nowrap">
                                 <div class="text-base text-gray-900">GH₵
