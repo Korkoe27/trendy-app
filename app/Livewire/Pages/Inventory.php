@@ -64,8 +64,6 @@ class Inventory extends Component
             $this->selectedDate = now()->format('Y-m-d');
             $this->salesDate = now()->format('Y-m-d');
         }
-        // $this->selectedDate = now()->format('Y-m-d');
-        // $this->salesDate = now()->format('Y-m-d');
 
         // OPTIMIZATION: Preload ALL data in 2 queries instead of N queries
         $this->allProducts = DB::table('products')
@@ -142,13 +140,14 @@ class Inventory extends Component
     }
 
     public function updatedOnTheHouse($value)
-{
-    if ($value < 0) {
-        $this->onTheHouse = 0;
-        return;
+    {
+        if ($value < 0) {
+            $this->onTheHouse = 0;
+
+            return;
+        }
+        $this->onTheHouse = $value;
     }
-    $this->onTheHouse = $value;
-}
 
     public function openTakeInventoryModal()
     {
@@ -182,45 +181,55 @@ class Inventory extends Component
 
         $this->showTakeInventoryModal = true;
         // $this->currentStep = auth()->user()->role === 'admin' ? 1 : 4; // Start at money step for admin, stock step for others
-        $this->currentStep = Auth::user() ? 1 : 5;
+        $this->currentStep = Auth::user() ? 1 : 6;
     }
 
     public function getOriginalOpeningStock($productId)
-{
-    return $this->productStocks[$productId]['original_opening_stock'] ?? 0;
-}
-
-    private function loadEditingProductStocks()
     {
-            $salesDate = $this->editingOriginalRecord['date'];
-    
-    // Get the daily_sales for this date to find original opening stocks
-    $dailySales = DB::table('daily_sales')
-        ->where('sales_date', $salesDate)
-        ->get()
-        ->keyBy('product_id');
+        return $this->productStocks[$productId]['original_opening_stock'] ?? 0;
+    }
+private function loadEditingProductStocks()
+    {
+        $salesDate = $this->editingOriginalRecord['date'];
 
-        $products = Stock::with('product')
-            ->where('total_units', '>', 0)
+        Log::debug('Loading editing product stocks for date: '.$salesDate);
+
+        // Get the daily_sales for this date
+        $dailySales = DB::table('daily_sales')
+            ->where('sales_date', $salesDate)
+            ->get()
+            ->keyBy('product_id');
+
+        // Get all active products
+        $products = Product::with('currentStock')
+            ->where('is_active', true)
             ->get();
 
         foreach ($products as $product) {
-            // Find existing data for this product
+            // Find existing data for this product in the record being edited
             $existingProduct = collect($this->editingOriginalRecord['products'])
                 ->firstWhere('product_name', $product->name);
 
-        $dailySale = $dailySales[$product->product_id] ?? null;
-        $openingStockBeforeInventory = $dailySale ? $dailySale->opening_stock : $product->total_units;
+            // dd($existingProduct);
 
+            $dailySale = $dailySales[$product->id] ?? null;
+
+            // Use the opening stock from the record being edited as the "current" stock
+            $openingStockForDisplay = $dailySale ? $dailySale->opening_stock : 0;
 
             if ($existingProduct) {
+                $closingStock = $existingProduct->closing_stock;
+                Log::debug('Product ' . $product->name . ' closingStock: ' . $closingStock);
+                $closingBoxes = floor($closingStock / ($product->units_per_box ?: 1));
+                $remainingUnits = $closingStock - ($closingBoxes * ($product->units_per_box ?: 1));
+
                 $this->productStocks[$product->id] = [
-                    'closing_boxes' => $existingProduct['closing_boxes'],
-                    'closing_units' => $existingProduct['closing_stock'] - ($existingProduct['closing_boxes'] * $product->units_per_box),
-                    'damaged_units' => $existingProduct['damaged_units'],
-                    'credit_units' => $existingProduct['credit_units'],
+                    'closing_boxes' => $closingBoxes,
+                    'closing_units' => $remainingUnits,
+                    'damaged_units' => $existingProduct->damaged_units,
+                    'credit_units' => $existingProduct->credit_units,
                     'product' => $product,
-                    'original_opening_stock' => $openingStockBeforeInventory,
+                    'original_opening_stock' => $openingStockForDisplay,
                 ];
             } else {
                 $this->productStocks[$product->id] = [
@@ -229,7 +238,7 @@ class Inventory extends Component
                     'damaged_units' => '',
                     'credit_units' => '',
                     'product' => $product,
-                    'original_opening_stock' => $openingStockBeforeInventory,
+                    'original_opening_stock' => $openingStockForDisplay,
                 ];
             }
         }
@@ -264,10 +273,6 @@ class Inventory extends Component
             }
 
             // Delete existing daily sales for this date
-            // DailySales::whereDate('created_at', $summary->created_at->format('Y-m-d'))->delete();
-
-            // $targetDay = $summary->created_at->startOfDay();
-            // $nextDay = $summary->created_at->endOfDay();
 
             $salesDate = $summary->sales_date ?: $summary->created_at->format('Y-m-d');
             DailySales::where('sales_date', $salesDate)->delete();
@@ -300,6 +305,8 @@ class Inventory extends Component
 
                 $closingBoxes = (float) ($stockData['closing_boxes'] ?? 0);
                 $closingUnits = (float) ($stockData['closing_units'] ?? 0);
+
+
                 $damagedUnits = (float) ($stockData['damaged_units'] ?? 0);
                 $creditUnits = (float) ($stockData['credit_units'] ?? 0);
 
@@ -308,7 +315,12 @@ class Inventory extends Component
                 // Use original opening stock for consistency
                 $originalProduct = collect($this->editingOriginalRecord['products'])
                     ->firstWhere('product_name', $product->name);
-                $openingStock = $originalProduct ? $originalProduct['opening_stock'] : $stock->total_units;
+                $openingStock = $originalProduct ? $originalProduct->opening_stock : $stock->total_units;
+
+                if($closingUnits > $openingStock){
+                    throw new \Exception('Closing stock for product '.$product->name.' cannot be greater than opening stock.');
+                }
+
                 $openingBoxes = $product->units_per_box > 0 ?
                     floor($openingStock / $product->units_per_box) : 0;
 
@@ -436,12 +448,12 @@ class Inventory extends Component
 
     public function resetForm()
     {
-            $this->currentStep = 1;
-    $currentHour = (int) now()->format('H');
-    $this->salesDate = ($currentHour >= 0 && $currentHour < 6) 
-        ? now()->subDay()->format('Y-m-d') 
-        : now()->format('Y-m-d');
-    $this->productStocks = [];
+        $this->currentStep = 1;
+        $currentHour = (int) now()->format('H');
+        $this->salesDate = ($currentHour >= 0 && $currentHour < 6)
+            ? now()->subDay()->format('Y-m-d')
+            : now()->format('Y-m-d');
+        $this->productStocks = [];
     }
 
     public function resetAllFormData()
@@ -524,7 +536,17 @@ class Inventory extends Component
             return 0;
         }
 
-        $openingStock = $stock->total_units;
+        if ($this->isEditing && isset($entry['original_opening_stock'])) {
+            $openingStock = $entry['original_opening_stock'];
+        } else {
+            $stock = $this->allStocks[$productId] ?? null;
+            if (! $stock) {
+                return 0;
+            }
+            $openingStock = $stock->total_units;
+        }
+
+        // $openingStock = $stock->total_units;
         $closingStock = $this->calculateTotalUnits($productId);
         $damagedUnits = (float) ($entry['damaged_units'] ?? 0);
         $creditUnits = (float) ($entry['credit_units'] ?? 0);
@@ -761,7 +783,7 @@ class Inventory extends Component
                     'total_momo' => (float) $this->momoAmount,
                     'total_hubtel' => (float) $this->hubtelAmount,
                     'food_total' => (float) $this->foodTotal,
-                    'on_the_house' => (float)$this->onTheHouse, 
+                    'on_the_house' => (float) $this->onTheHouse,
                     'total_damaged' => $totalDamaged,
                     'total_credit_units' => $totalCredit,
                     'total_credit_amount' => $totalCreditAmount,

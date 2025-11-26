@@ -324,34 +324,34 @@ class DatabaseSeeder extends Seeder
                 'password' => bcrypt('admin'),
             ]);
 
-            User::create([
-                'name' => 'Korkoe Dumashie',
-                'username' => 'korkoe',
-                'email' => 'korkoe@trendy.com',
-                'role_id' => $manager->id,
-                'password' => bcrypt('manager'),
-            ]);
+            // User::create([
+            //     'name' => 'Korkoe Dumashie',
+            //     'username' => 'korkoe',
+            //     'email' => 'korkoe@trendy.com',
+            //     'role_id' => $manager->id,
+            //     'password' => bcrypt('manager'),
+            // ]);
 
-            User::create([
-                'name' => 'Maxwell Wilberforce',
-                'username' => 'maxwill',
-                'email' => 'maxwell@trendy.com',
-                'role_id' => $stockManager->id,
-                'password' => bcrypt('stocks'),
-            ]);
+            // User::create([
+            //     'name' => 'Maxwell Wilberforce',
+            //     'username' => 'maxwill',
+            //     'email' => 'maxwell@trendy.com',
+            //     'role_id' => $stockManager->id,
+            //     'password' => bcrypt('stocks'),
+            // ]);
 
-            User::create([
-                'name' => 'Chris Banner',
-                'username' => 'chris',
-                'email' => 'chris@trendy.com',
-                'role_id' => $salesPerson->id,
-                'password' => bcrypt('sales'),
-            ]);
+            // User::create([
+            //     'name' => 'Chris Banner',
+            //     'username' => 'chris',
+            //     'email' => 'chris@trendy.com',
+            //     'role_id' => $salesPerson->id,
+            //     'password' => bcrypt('sales'),
+            // ]);
 
             // Finalize
             $this->call([
                 CategoriesSeeder::class,
-                // RoleSeeder::class,
+                RoleSeeder::class,
                 // UserSeeder::class,
 
                 // ProductSeeder::class

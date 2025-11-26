@@ -59,8 +59,8 @@
                             Mobile Money</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Hubtel</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total
-                            Revenue</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Drink
+                            Sales</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Items
                             Sold</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -172,13 +172,13 @@
                         @endif
                     </h3>
                     <div class="flex items-center justify-between gap-10">
-                    @if (!$isEditing)
-                        {{-- Sales Date Selector (only show when creating new record) --}}
-                        <div class="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
-                            <input type="date" wire:model.live="salesDate" max="{{ now()->format('Y-m-d') }}"
-                                class="" />
-                        </div>
-                    @else
+                        @if (!$isEditing)
+                            {{-- Sales Date Selector (only show when creating new record) --}}
+                            <div class="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                <input type="date" wire:model.live="salesDate" max="{{ now()->format('Y-m-d') }}"
+                                    class="" />
+                            </div>
+                        @else
                             {{-- Show the sales date (read-only when editing)
                             <div class="mt-4 bg-gray-50 border border-gray-200 rounded-lg p-3">
                                 <span class="text-sm text-gray-600">Recording sales for: </span>
@@ -186,11 +186,12 @@
                                     {{ \Carbon\Carbon::parse($salesDate)->format('l, M j, Y') }}
                                 </span>
                             </div> --}}
-                                <div class="mt-4 bg-amber-50 border border-amber-200 rounded-lg p-4">
+                            <div class="mt-4 bg-amber-50 border border-amber-200 rounded-lg p-4">
                                 <label class="text-xs text-amber-700 font-medium mb-1 block">Edit Sales Date:</label>
                                 <input type="date" wire:model.live="salesDate" max="{{ now()->format('Y-m-d') }}"
                                     class="border-amber-300 focus:ring-amber-500 focus:border-amber-500 rounded-md text-sm" />
-                                <p class="text-xs text-amber-600 mt-1">⚠️ Changing the date will update this record's date</p>
+                                <p class="text-xs text-amber-600 mt-1">⚠️ Changing the date will update this record's
+                                    date</p>
                             </div>
                         @endif
                         <button wire:click="closeTakeInventoryModal" class="text-gray-400 hover:text-gray-600">
@@ -200,7 +201,7 @@
                             </svg>
                         </button>
                     </div>
-                        
+
                 </div>
 
                 {{-- Stepper --}}
@@ -274,7 +275,8 @@
                                                 </path>
                                             </svg>
                                         @elseif($step['icon'] == 'gift')
-                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor"
+                                                viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                                     d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7">
                                                 </path>
@@ -326,8 +328,8 @@
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Cash Amount (GH₵)</label>
                                 <input type="text" pattern="[0-9]*"
-                                                        oninput="this.value = this.value.replace(/[^0-9]/g, '');" step="0.01" wire:model.lazy="cashAmount"
-                                    placeholder="0.00"
+                                    oninput="this.value = this.value.replace(/[^0-9]/g, '');" step="0.01"
+                                    wire:model.lazy="cashAmount" placeholder="0.00"
                                     class="w-full px-4 py-3 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-center" />
                                 @error('cashAmount')
                                     <span class="text-red-500 text-sm">{{ $message }}</span>
@@ -351,8 +353,8 @@
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Mobile Money Amount
                                     (GH₵)</label>
                                 <input type="text" pattern="[0-9]*"
-                                                        oninput="this.value = this.value.replace(/[^0-9]/g, '');" step="0.01" wire:model.defer="momoAmount"
-                                    placeholder="0.00"
+                                    oninput="this.value = this.value.replace(/[^0-9]/g, '');" step="0.01"
+                                    wire:model.defer="momoAmount" placeholder="0.00"
                                     class="w-full px-4 py-3 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-center" />
                                 @error('momoAmount')
                                     <span class="text-red-500 text-sm">{{ $message }}</span>
@@ -374,8 +376,8 @@
                             <div>
                                 <label class="block text-xs font-medium text-gray-700 mb-2">Hubtel Amount (GH₵)</label>
                                 <input type="text" step="0.01" pattern="[0-9]*"
-                                                        oninput="this.value = this.value.replace(/[^0-9]/g, '');" wire:model.defer="hubtelAmount"
-                                    placeholder="0.00"
+                                    oninput="this.value = this.value.replace(/[^0-9]/g, '');"
+                                    wire:model.defer="hubtelAmount" placeholder="0.00"
                                     class="w-full px-4 py-3 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-center" />
                                 @error('hubtelAmount')
                                     <span class="text-red-500 text-sm">{{ $message }}</span>
@@ -385,12 +387,6 @@
                     @elseif($currentStep == 4)
                         <div wire:key="foodSales-step" class="space-y-4">
                             <div class="text-center mb-6">
-                                {{-- <svg class="w-12 h-12 text-purple-600 mx-auto mb-2" fill="none"
-                                    stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M3 10h18M7 15h1m4 0h1m-7 4h12a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v11a2 2 0 002 2z">
-                                    </path>
-                                </svg> --}}
                                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
                                     viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                                     stroke-linecap="round" stroke-linejoin="round"
@@ -410,30 +406,33 @@
                             <div>
                                 <label class="block text-xs font-medium text-gray-700 mb-2">Food Total (GH₵)</label>
                                 <input type="text" step="0.01" pattern="[0-9]*"
-                                                        oninput="this.value = this.value.replace(/[^0-9]/g, '');" wire:model.defer="foodTotal"
-                                    placeholder="0.00"
+                                    oninput="this.value = this.value.replace(/[^0-9]/g, '');"
+                                    wire:model.defer="foodTotal" placeholder="0.00"
                                     class="w-full px-4 py-3 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-center" />
                                 @error('foodTotal')
                                     <span class="text-red-500 text-sm">{{ $message }}</span>
                                 @enderror
                             </div>
                         </div>
-                        @elseif($currentStep == 5)
+                    @elseif($currentStep == 5)
                         <div wire:key="onthehouse-step" class="space-y-4">
                             <div class="text-center mb-6">
-                                <svg class="w-12 h-12 text-pink-600 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg class="w-12 h-12 text-pink-600 mx-auto mb-2" fill="none"
+                                    stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                         d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7">
                                     </path>
                                 </svg>
                                 <h3 class="text-lg font-semibold text-gray-900">On The House</h3>
-                                <p class="text-sm text-gray-600">Enter the total value of complimentary items given out today (free drinks, services, etc.)</p>
+                                <p class="text-sm text-gray-600">Enter the total value of complimentary items given out
+                                    today (free drinks, services, etc.)</p>
                             </div>
                             <div>
-                                <label class="block text-xs font-medium text-gray-700 mb-2">On The House Amount (GH₵)</label>
+                                <label class="block text-xs font-medium text-gray-700 mb-2">On The House Amount
+                                    (GH₵)</label>
                                 <input type="text" step="0.01" pattern="[0-9]*"
-                                    oninput="this.value = this.value.replace(/[^0-9]/g, '');" wire:model.defer="onTheHouse"
-                                    placeholder="0.00"
+                                    oninput="this.value = this.value.replace(/[^0-9]/g, '');"
+                                    wire:model.defer="onTheHouse" placeholder="0.00"
                                     class="w-full px-4 py-3 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-center" />
                                 @error('onTheHouse')
                                     <span class="text-red-500 text-sm">{{ $message }}</span>
@@ -454,117 +453,109 @@
 
                             <div class="max-h-96 overflow-y-auto">
                                 <div class="space-y-4">
-                    @foreach ($products as $product)
-                        @php
-                            // Since we've added stocks property in render(), access it directly
-                            $currentStock = $product->stocks;
-                            $currentTotalUnits = $currentStock->total_units ?? 0;
-                            $currentBoxes = $product->units_per_box > 0
-                                ? floor($currentTotalUnits / $product->units_per_box)
-                                : 0;
-                            $remainingUnits = $currentTotalUnits - ($currentBoxes * ($product->units_per_box ?? 1));
-                        @endphp
-    <div class="border border-gray-200 rounded-lg p-4">
-        <div class="flex items-center justify-between mb-3">
-            <div>
-                <h4 class="font-medium uppercase text-gray-900">{{ $product->name }}</h4>
-            </div>
-            {{-- <div class="text-right text-sm text-gray-600">
-                <div>Current: {{ $currentTotalUnits }} units</div>
-                <div>Boxes: {{ round($currentTotalUnits / $product->units_per_box, 1) }}</div>
-            </div> --}}
-            <div class="text-right text-sm text-gray-600">
-    @if($isEditing && isset($productStocks[$product->id]['original_opening_stock']))
-        <div>Opening (before edit): {{ $productStocks[$product->id]['original_opening_stock'] }} units</div>
-        <div>Boxes: {{ round($productStocks[$product->id]['original_opening_stock'] / $product->units_per_box, 1) }}</div>
-    @else
-        <div>Current: {{ $currentTotalUnits }} units</div>
-        <div>Boxes: {{ round($currentTotalUnits / $product->units_per_box, 1) }}</div>
-    @endif
-</div>
-        </div>
-
-        {{-- <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div>
-                <label class="block text-xs font-medium text-gray-700 mb-1">Closing Units</label>
-                <input type="text" pattern="[0-9]*"
-                    oninput="this.value = this.value.replace(/[^0-9]/g, '');"
-                    wire:model="productStocks.{{ $product->id }}.closing_units"
-                    placeholder="0"
-                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
-            </div>
-            <div>
-                <label class="block text-xs font-medium text-gray-700 mb-1">Damaged Units</label>
-                <input type="text" pattern="[0-9]*"
-                    oninput="this.value = this.value.replace(/[^0-9]/g, '');"
-                    wire:model="productStocks.{{ $product->id }}.damaged_units"
-                    placeholder="0"
-                    class="w-full px-3 py-2 text-sm border border-red-300 rounded-md focus:ring-2 focus:ring-red-500 focus:border-transparent" />
-            </div>
-            <div>
-                <label class="block text-xs font-medium text-gray-700 mb-1">Credit Units</label>
-                <input type="text" pattern="[0-9]*"
-                    oninput="this.value = this.value.replace(/[^0-9]/g, '');"
-                    wire:model="productStocks.{{ $product->id }}.credit_units"
-                    placeholder="0"
-                    class="w-full px-3 py-2 text-sm border border-yellow-300 rounded-md focus:ring-2 focus:ring-yellow-500 focus:border-transparent" />
-            </div>
-            <div>
-                <label class="block text-xs font-medium text-gray-700 mb-1">Expected Revenue</label>
-                <div class="w-full px-3 py-2 text-sm bg-green-50 border border-green-200 rounded-md text-green-700 font-medium">
-                    GH₵ {{ number_format($this->calculateExpectedRevenue($product->id), 2) }}
-                </div>
-            </div>
-        </div> --}}
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-    <div>
-        <label class="block text-xs font-medium text-gray-700 mb-1">
-            Closing Units
-            @if($isEditing && isset($productStocks[$product->id]['closing_units']) && filled($productStocks[$product->id]['closing_units']))
-                <span class="text-xs text-blue-600 font-normal">(was: {{ $productStocks[$product->id]['closing_units'] }})</span>
-            @endif
-        </label>
-        <input type="text" pattern="[0-9]*"
-            oninput="this.value = this.value.replace(/[^0-9]/g, '');"
-            wire:model="productStocks.{{ $product->id }}.closing_units"
-            placeholder="0"
-            class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
-    </div>
-    <div>
-        <label class="block text-xs font-medium text-gray-700 mb-1">
-            Damaged Units
-            @if($isEditing && isset($productStocks[$product->id]['damaged_units']) && filled($productStocks[$product->id]['damaged_units']))
-                <span class="text-xs text-red-600 font-normal">(was: {{ $productStocks[$product->id]['damaged_units'] }})</span>
-            @endif
-        </label>
-        <input type="text" pattern="[0-9]*"
-            oninput="this.value = this.value.replace(/[^0-9]/g, '');"
-            wire:model="productStocks.{{ $product->id }}.damaged_units"
-            placeholder="0"
-            class="w-full px-3 py-2 text-sm border border-red-300 rounded-md focus:ring-2 focus:ring-red-500 focus:border-transparent" />
-    </div>
-    <div>
-        <label class="block text-xs font-medium text-gray-700 mb-1">
-            Credit Units
-            @if($isEditing && isset($productStocks[$product->id]['credit_units']) && filled($productStocks[$product->id]['credit_units']))
-                <span class="text-xs text-yellow-600 font-normal">(was: {{ $productStocks[$product->id]['credit_units'] }})</span>
-            @endif
-        </label>
-        <input type="text" pattern="[0-9]*"
-            oninput="this.value = this.value.replace(/[^0-9]/g, '');"
-            wire:model="productStocks.{{ $product->id }}.credit_units"
-            placeholder="0"
-            class="w-full px-3 py-2 text-sm border border-yellow-300 rounded-md focus:ring-2 focus:ring-yellow-500 focus:border-transparent" />
-    </div>
-    <div>
-        <label class="block text-xs font-medium text-gray-700 mb-1">Expected Revenue</label>
-        <div class="w-full px-3 py-2 text-sm bg-green-50 border border-green-200 rounded-md text-green-700 font-medium">
-            GH₵ {{ number_format($this->calculateExpectedRevenue($product->id), 2) }}
-        </div>
-    </div>
-</div>
-    </div>
-@endforeach
+                                    @foreach ($products as $product)
+                                        @php
+                                            // Since we've added stocks property in render(), access it directly
+                                            $currentStock = $product->stocks;
+                                            $currentTotalUnits = $currentStock->total_units ?? 0;
+                                            $currentBoxes =
+                                                $product->units_per_box > 0
+                                                    ? floor($currentTotalUnits / $product->units_per_box)
+                                                    : 0;
+                                            $remainingUnits =
+                                                $currentTotalUnits - $currentBoxes * ($product->units_per_box ?? 1);
+                                        @endphp
+                                        <div class="border border-gray-200 rounded-lg p-4">
+                                            <div class="flex items-center justify-between mb-3">
+                                                <div>
+                                                    <h4 class="font-medium uppercase text-gray-900">
+                                                        {{ $product->name }}</h4>
+                                                </div>
+                                                <div class="text-right text-sm text-gray-600">
+                                                    @if ($isEditing && isset($productStocks[$product->id]['original_opening_stock']))
+                                                        <div>Opening Stock:
+                                                            {{ $productStocks[$product->id]['original_opening_stock'] }}
+                                                            units</div>
+                                                        <div>Boxes:
+                                                            {{ $product->units_per_box > 0 ? round($productStocks[$product->id]['original_opening_stock'] / $product->units_per_box, 1) : 0 }}
+                                                        </div>
+                                                    @else
+                                                        <div>Current: {{ $currentTotalUnits }} units</div>
+                                                        <div>Boxes:
+                                                            {{ round($currentTotalUnits / $product->units_per_box, 1) }}
+                                                        </div>
+                                                    @endif
+                                                </div>
+                                            </div>
+                                            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                                <div>
+                                                    <label class="block text-xs font-medium text-gray-700 mb-1">
+                                                        Closing Units
+                                                        @if ($isEditing)
+                                                            @php
+                                                                $closingUnitsValue =
+                                                                    $productStocks[$product->id]['closing_units'] ??
+                                                                    null;
+                                                            @endphp
+                                                            @if ($closingUnitsValue !== null && $closingUnitsValue !== '')
+                                                                <span class="text-xs text-blue-600 font-normal">(was:
+                                                                    {{ number_format($closingUnitsValue, 0) }})</span>
+                                                            @endif
+                                                        @endif
+                                                    </label>
+                                                    <input type="text" pattern="[0-9]*"
+                                                        oninput="this.value = this.value.replace(/[^0-9]/g, '');"
+                                                        wire:model="productStocks.{{ $product->id }}.closing_units"
+                                                        placeholder="0"
+                                                        class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                                                </div>
+                                                <div>
+                                                    <label class="block text-xs font-medium text-gray-700 mb-1">
+                                                        Damaged Units
+                                                        @if (
+                                                            $isEditing &&
+                                                                isset($productStocks[$product->id]['damaged_units']) &&
+                                                                filled($productStocks[$product->id]['damaged_units']))
+                                                            <span class="text-xs text-red-600 font-normal">(was:
+                                                                {{ $productStocks[$product->id]['damaged_units'] }})</span>
+                                                        @endif
+                                                    </label>
+                                                    <input type="text" pattern="[0-9]*"
+                                                        oninput="this.value = this.value.replace(/[^0-9]/g, '');"
+                                                        wire:model="productStocks.{{ $product->id }}.damaged_units"
+                                                        placeholder="0"
+                                                        class="w-full px-3 py-2 text-sm border border-red-300 rounded-md focus:ring-2 focus:ring-red-500 focus:border-transparent" />
+                                                </div>
+                                                <div>
+                                                    <label class="block text-xs font-medium text-gray-700 mb-1">
+                                                        Credit Units
+                                                        @if (
+                                                            $isEditing &&
+                                                                isset($productStocks[$product->id]['credit_units']) &&
+                                                                filled($productStocks[$product->id]['credit_units']))
+                                                            <span class="text-xs text-yellow-600 font-normal">(was:
+                                                                {{ $productStocks[$product->id]['credit_units'] }})</span>
+                                                        @endif
+                                                    </label>
+                                                    <input type="text" pattern="[0-9]*"
+                                                        oninput="this.value = this.value.replace(/[^0-9]/g, '');"
+                                                        wire:model="productStocks.{{ $product->id }}.credit_units"
+                                                        placeholder="0"
+                                                        class="w-full px-3 py-2 text-sm border border-yellow-300 rounded-md focus:ring-2 focus:ring-yellow-500 focus:border-transparent" />
+                                                </div>
+                                                <div>
+                                                    <label
+                                                        class="block text-xs font-medium text-gray-700 mb-1">Expected
+                                                        Revenue</label>
+                                                    <div
+                                                        class="w-full px-3 py-2 text-sm bg-green-50 border border-green-200 rounded-md text-green-700 font-medium">
+                                                        GH₵
+                                                        {{ number_format($this->calculateExpectedRevenue($product->id), 2) }}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    @endforeach
                                 </div>
                             </div>
                         </div>
@@ -590,24 +581,15 @@
                         </button>
 
                         @if ($currentStep < 6 && (!$isEditing || Auth::user()))
-                            {{-- <button wire:click="nextStep"
-                                class="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                                Next
-                            </button>
-                            <span wire:loading wire:target="nextStep" class="text-red-300">moving on...</span> --}}
+
                             <button wire:click="nextStep"
-                            class="px-4 py-2 text-sm font-medium text-white bg-black border border-transparent rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
-                            wire:loading.attr="disabled"
-                            wire:target="nextStep">
-                            <span wire:loading.remove wire:target="nextStep">Next</span>
-                            <div wire:loading wire:target="nextStep" class="flex items-center space-x-2">
-                                {{-- <video autoplay loop muted playsinline class="w-6 h-6">
-                                    <source src="{{ asset('assets/loader.gif') }}" type="gif">
-                                </video> --}}
-                                {{-- <img src="{{ asset('assets/Loader.webm') }}" alt="" class=""> --}}
-                                <span>Loading...</span>
-                            </div>
-                        </button>
+                                class="px-4 py-2 text-sm font-medium text-white bg-black border border-transparent rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                                wire:loading.attr="disabled" wire:target="nextStep">
+                                <span wire:loading.remove wire:target="nextStep">Next</span>
+                                <div wire:loading wire:target="nextStep" class="flex items-center space-x-2">
+                                    <span>Loading...</span>
+                                </div>
+                            </button>
                         @else
                             @if ($isEditing)
                                 <button wire:click="updateInventory"
@@ -672,8 +654,6 @@
                     $foodTotal = number_format($selectedRecord['food_total'] ?? 0, 2);
                     $onTheHouse = number_format($selectedRecord['on_the_house'] ?? 0, 2);
 
-                    
-
                     $expected = number_format($selectedRecord['total_revenue'] ?? 0, 2);
                     $profit = number_format($selectedRecord['total_profit'] ?? 0, 2);
 
@@ -718,14 +698,15 @@
                             </div>
                         </div>
                     </div>
-                                            <div class="rounded-xl border border-pink-400 bg-pink-50 p-5">
+                    <div class="rounded-xl border border-pink-400 bg-pink-50 p-5">
                         <div class="flex items-start justify-between">
                             <div>
                                 <p class="text-xs font-medium text-pink-700 uppercase tracking-wider">On The House</p>
                                 <p class="mt-2 text-2xl font-bold text-pink-900">GH₵ {{ $onTheHouse }}</p>
                             </div>
                             <div class="shrink-0 rounded-lg bg-pink-100 p-2">
-                                <svg class="w-6 h-6 text-pink-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg class="w-6 h-6 text-pink-600" fill="none" stroke="currentColor"
+                                    viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                         d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7">
                                     </path>
@@ -733,7 +714,8 @@
                             </div>
                         </div>
                         <div class="mt-4 flex items-center gap-3 text-xs text-pink-700">
-                            <span class="rounded-full bg-pink-100 px-2 py-0.5 text-pink-600">Complimentary items given out</span>
+                            <span class="rounded-full bg-pink-100 px-2 py-0.5 text-pink-600">Complimentary items given
+                                out</span>
                         </div>
                     </div>
 
@@ -818,30 +800,30 @@
 
 
 
-                    @haspermission('view','logs')
-                    {{-- Profit --}}
-                    <div class="rounded-xl border border-amber-400 bg-amber-50 p-5">
-                        <div class="flex items-start justify-between">
-                            <div>
-                                <p class="text-xs font-medium text-amber-700 uppercase tracking-wider">Total Profit</p>
-                                <p class="mt-2 text-2xl font-bold text-amber-900">GH₵ {{ $profit }}</p>
+                    @haspermission('view', 'logs')
+                        {{-- Profit --}}
+                        <div class="rounded-xl border border-amber-400 bg-amber-50 p-5">
+                            <div class="flex items-start justify-between">
+                                <div>
+                                    <p class="text-xs font-medium text-amber-700 uppercase tracking-wider">Total Profit</p>
+                                    <p class="mt-2 text-2xl font-bold text-amber-900">GH₵ {{ $profit }}</p>
+                                </div>
+                                <div class="shrink-0 rounded-lg bg-amber-100 p-2">
+                                    <svg class="w-6 h-6 text-amber-700" viewBox="0 0 24 24" fill="none"
+                                        stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                        <path d="M17 6a8 8 0 1 0 0 12" stroke-linecap="round" stroke-linejoin="round" />
+                                        <line x1="12" y1="2" x2="12" y2="22"
+                                            stroke-linecap="round" />
+                                    </svg>
+                                </div>
                             </div>
-                            <div class="shrink-0 rounded-lg bg-amber-100 p-2">
-                                <svg class="w-6 h-6 text-amber-700" viewBox="0 0 24 24" fill="none"
-                                    stroke="currentColor" stroke-width="2" aria-hidden="true">
-                                    <path d="M17 6a8 8 0 1 0 0 12" stroke-linecap="round" stroke-linejoin="round" />
-                                    <line x1="12" y1="2" x2="12" y2="22"
-                                        stroke-linecap="round" />
-                                </svg>
-                            </div>
-                        </div>
-                        <div class="mt-4 flex items-center gap-3 text-xs text-amber-700">
-                            {{-- <span class="inline-flex items-center ">After
+                            <div class="mt-4 flex items-center gap-3 text-xs text-amber-700">
+                                {{-- <span class="inline-flex items-center ">After
                                 adjustments</span> --}}
-                            <span class="rounded-full bg-amber-100 px-2 py-0.5 text-amber-600">Damages & credits
-                                accounted for</span>
+                                <span class="rounded-full bg-amber-100 px-2 py-0.5 text-amber-600">Damages & credits
+                                    accounted for</span>
+                            </div>
                         </div>
-                    </div>
                     @endhaspermission
                     <div class="rounded-xl border border-teal-400 bg-teal-50 p-5">
                         <div class="flex items-start justify-between">
