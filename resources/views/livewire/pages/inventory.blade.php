@@ -489,25 +489,28 @@
                                             </div>
                                             <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                                                 <div>
-                                                    <label class="block text-xs font-medium text-gray-700 mb-1">
-                                                        Closing Units
-                                                        @if ($isEditing)
-                                                            @php
-                                                                $closingUnitsValue =
-                                                                    $productStocks[$product->id]['closing_units'] ??
-                                                                    null;
-                                                            @endphp
-                                                            @if ($closingUnitsValue !== null && $closingUnitsValue !== '')
-                                                                <span class="text-xs text-blue-600 font-normal">(was:
-                                                                    {{ number_format($closingUnitsValue, 0) }})</span>
-                                                            @endif
-                                                        @endif
-                                                    </label>
-                                                    <input type="text" pattern="[0-9]*"
-                                                        oninput="this.value = this.value.replace(/[^0-9]/g, '');"
-                                                        wire:model="productStocks.{{ $product->id }}.closing_units"
-                                                        placeholder="0"
-                                                        class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                                                        <label class="block text-xs font-medium text-gray-700 mb-1">
+        Closing Units
+        @if ($isEditing)
+            @php
+                // Get the original closing stock from the editing record
+                $originalProduct = collect($editingOriginalRecord['products'] ?? [])
+                    ->firstWhere('product_name', $product->name);
+
+                    // dd($originalProduct);
+                $originalClosingUnits = $originalProduct ? $originalProduct->closing_stock : null;
+            @endphp
+            @if ($originalClosingUnits !== null)
+                <span class="text-xs text-blue-600 font-normal">(was: {{ number_format($originalClosingUnits, 0) }})</span>
+            @endif
+        @endif
+    </label>
+    <input type="text" pattern="[0-9]*" required
+        oninput="this.value = this.value.replace(/[^0-9]/g, '');"
+        wire:model="{{ number_format($originalClosingUnits, 0) }}"
+        placeholder="0"
+        class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+
                                                 </div>
                                                 <div>
                                                     <label class="block text-xs font-medium text-gray-700 mb-1">
@@ -661,93 +664,13 @@
                     $creditAmt = number_format($selectedRecord['total_credit_amount'] ?? 0, 2);
                     $creditU = number_format($selectedRecord['total_credit_units'] ?? 0, 0);
                     $damagedU = number_format($selectedRecord['total_damaged'] ?? 0, 0);
-                @endphp
 
-                {{-- Group 1: Financial Overview --}}
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-6">
-                    {{-- Sum Total (Collected) --}}
-                    <div class="rounded-xl border border-green-200 bg-gradient-to-b from-green-50 to-white p-5">
-                        <div class="flex items-start justify-between">
-                            <div>
-                                <p class="text-xs font-medium text-green-700 uppercase tracking-wider">Sum Total
-                                    Collected</p>
-                                <p class="mt-2 text-2xl font-bold text-green-900">GH₵ {{ $money }}</p>
-                            </div>
-                            <div class="shrink-0 rounded-lg bg-green-100 p-2">
-                                <svg class="w-6 h-6 text-green-700" viewBox="0 0 24 24" fill="none"
-                                    stroke="currentColor" stroke-width="2" aria-hidden="true">
-                                    <path d="M17 6a8 8 0 1 0 0 12" stroke-linecap="round" stroke-linejoin="round" />
-                                    <line x1="12" y1="2" x2="12" y2="22"
-                                        stroke-linecap="round" />
-                                </svg>
-                            </div>
-                        </div>
+                                            $collected =
+                            ($selectedRecord['total_cash'] ?? 0) +
+                            ($selectedRecord['total_momo'] ?? 0) +
+                            ($selectedRecord['total_hubtel'] ?? 0);
 
-                        <div class="mt-4 grid grid-cols-3 gap-3 text-sm">
-                            <div class="rounded-lg bg-white border border-green-100 p-3">
-                                <p class="text-xs text-gray-500">MoMo</p>
-                                <p class="font-semibold text-gray-900">{{ $momo }}</p>
-                            </div>
-                            <div class="rounded-lg bg-white border border-green-100 p-3">
-                                <p class="text-xs text-gray-500">Cash</p>
-                                <p class="font-semibold text-gray-900">{{ $cash }}</p>
-                            </div>
-                            <div class="rounded-lg bg-white border border-green-100 p-3">
-                                <p class="text-xs text-gray-500">Hubtel</p>
-                                <p class="font-semibold text-gray-900">{{ $hubtel }}</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="rounded-xl border border-pink-400 bg-pink-50 p-5">
-                        <div class="flex items-start justify-between">
-                            <div>
-                                <p class="text-xs font-medium text-pink-700 uppercase tracking-wider">On The House</p>
-                                <p class="mt-2 text-2xl font-bold text-pink-900">GH₵ {{ $onTheHouse }}</p>
-                            </div>
-                            <div class="shrink-0 rounded-lg bg-pink-100 p-2">
-                                <svg class="w-6 h-6 text-pink-600" fill="none" stroke="currentColor"
-                                    viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7">
-                                    </path>
-                                </svg>
-                            </div>
-                        </div>
-                        <div class="mt-4 flex items-center gap-3 text-xs text-pink-700">
-                            <span class="rounded-full bg-pink-100 px-2 py-0.5 text-pink-600">Complimentary items given
-                                out</span>
-                        </div>
-                    </div>
-
-                    {{-- Expected Total --}}
-                    <div class="rounded-xl border border-gray-400 bg-gray-50 p-5">
-                        <div class="flex items-start justify-between">
-                            <div>
-                                <p class="text-xs font-medium text-gray-600 uppercase tracking-wider">Drink Sales
-                                </p>
-                                <p class="mt-2 text-2xl font-bold text-gray-900">GH₵ {{ $expected }}</p>
-                            </div>
-                            <div class="shrink-0 rounded-lg bg-gray-100 p-2">
-                                <svg class="w-6 h-6 text-gray-700" fill="none" stroke="currentColor"
-                                    viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M9 14l2-2 4 4m0 0l4-4m-4 4V7" />
-                                </svg>
-                            </div>
-                        </div>
-                        <div class="mt-4 rounded-lg border border-gray-100 bg-white p-3 text-sm">
-                            <p class="text-gray-600">
-                                Based on product sales and unit prices.
-                            </p>
-                        </div>
-                    </div>
-
-
-
-                    {{-- Difference --}}
-                    @php
-                        $collected = $selectedRecord['total_money'] ?? 0;
-                        $expectedVal = $selectedRecord['total_revenue'] ?? 0;
+                        $expectedVal = ($selectedRecord['total_revenue'] ?? 0) + ($selectedRecord['food_total'] ?? 0);
                         $difference = $collected - $expectedVal;
                         $diffFormatted = number_format($difference, 2);
 
@@ -768,7 +691,107 @@
                             $labelColor = 'text-purple-700';
                             $iconPath = 'M5 12h14'; // Minus/equal icon
                         }
-                    @endphp
+                @endphp
+
+                {{-- Group 1: Financial Overview --}}
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-6">
+                    {{-- Sum Total (Collected) --}}
+                    <div class="rounded-xl border border-green-200 bg-gradient-to-b from-green-50 to-white p-5">
+                        <div class="flex items-start justify-between">
+                            <div>
+                                <p class="text-xs font-medium text-green-700 uppercase tracking-wider">Sum Total
+                                    Collected</p>
+                                <p class="mt-2 text-2xl font-bold text-green-900"> {{ $money }}</p>
+                            </div>
+                            <div class="shrink-0 rounded-lg bg-green-100 p-2">
+                                <svg class="w-6 h-6 text-green-700" viewBox="0 0 24 24" fill="none"
+                                    stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                    <path d="M17 6a8 8 0 1 0 0 12" stroke-linecap="round" stroke-linejoin="round" />
+                                    <line x1="12" y1="2" x2="12" y2="22"
+                                        stroke-linecap="round" />
+                                </svg>
+                            </div>
+                        </div>
+
+                        <div class="mt-4 grid grid-cols-3 gap-3 text-sm">
+                            <div class="rounded-lg bg-white border border-green-100 p-3">
+                                <p class="text-xs text-gray-500">Drink</p>
+                                <p class="font-semibold text-gray-900">{{ $momo }}</p>
+                            </div>
+                            <div class="rounded-lg bg-white border border-green-100 p-3">
+                                <p class="text-xs text-gray-500">Cash</p>
+                                <p class="font-semibold text-gray-900">{{ $cash }}</p>
+                            </div>
+                            <div class="rounded-lg bg-white border border-green-100 p-3">
+                                <p class="text-xs text-gray-500">Hubtel</p>
+                                <p class="font-semibold text-gray-900">{{ $hubtel }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="rounded-xl border border-pink-400 bg-pink-50 p-5">
+                        <div class="flex items-start justify-between">
+                            <div>
+                                <p class="text-xs font-medium text-pink-700 uppercase tracking-wider">Expected Amount</p>
+                                <p class="mt-2 text-2xl font-bold text-pink-900">GH₵ {{ $expectedVal }}</p>
+                            </div>
+                            <div class="shrink-0 rounded-lg bg-pink-100 p-2">
+                                <svg class="w-6 h-6 text-pink-600" fill="none" stroke="currentColor"
+                                    viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7">
+                                    </path>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="mt-4 flex items-center w-full gap-3 text-xs text-pink-700">
+                            <span class="rounded-full bg-pink-100 px-2 py-0.5 text-pink-600">Addition of food and drink sales</span>
+                        </div>                        <div class="mt-4 grid grid-cols-1 sm:grid-cols-3 w-full gap-3">
+                            <div class="rounded-lg bg-white border border-rose-100 p-4">
+                                <p class="text-xs text-gray-500">Drinks</p>
+                                <p class="mt-1 text-lg font-semibold text-rose-700"> {{ $selectedRecord['total_revenue'] }}</p>
+                            </div>
+                            <div class="rounded-lg bg-white border border-rose-100 p-4">
+                                <p class="text-xs text-gray-500">Food</p>
+                                <p class="mt-1 text-lg font-semibold text-rose-700"> {{ $selectedRecord['food_total'] }}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- Expected Total --}}
+                    <div class="rounded-xl border border-gray-400 bg-gray-50 p-5">
+                        <div class="flex items-start justify-between">
+                            <div>
+                                <p class="text-xs font-medium text-gray-600 uppercase tracking-wider">Drink Sales
+                                </p>
+                                <p class="mt-2 text-2xl font-bold text-gray-900">GH₵ {{ $expected }}</p>
+                            </div>
+                            <div class="shrink-0 rounded-lg bg-gray-100 p-2">
+                                <svg class="w-6 h-6 text-gray-700" fill="none" stroke="currentColor"
+                                    viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M9 14l2-2 4 4m0 0l4-4m-4 4V7" />
+                                </svg>
+                            </div>
+                        </div>
+                            {{-- <div class="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div class="rounded-lg bg-white border border-rose-100 p-4">
+                                <p class="text-xs text-gray-500">Losses</p>
+                                <p class="mt-1 text-lg font-semibold text-rose-700">GH₵ {{ $lossAmt }}</p>
+                            </div>
+                            <div class="rounded-lg bg-white border border-rose-100 p-4">
+                                <p class="text-xs text-gray-500">Credited Amount</p>
+                                <p class="mt-1 text-lg font-semibold text-rose-700">GH₵ {{ $creditAmt }}</p>
+                            </div>
+                            <div class="rounded-lg bg-white border border-rose-100 p-4">
+                                <p class="text-xs text-gray-500">Credited Items</p>
+                                <p class="mt-1 text-lg font-semibold text-rose-700">{{ $creditU }} units</p>
+                            </div>
+                        </div> --}}
+                    </div>
+
+
+
+
                     <div class="rounded-xl border border-slate-400 bg-slate-50 p-5">
                         <div class="flex items-start justify-between">
                             <div>
@@ -832,12 +855,6 @@
                                 <p class="mt-2 text-2xl font-bold text-teal-900">GH₵ {{ $foodTotal }}</p>
                             </div>
                             <div class="shrink-0 rounded-lg bg-teal-100 p-2">
-                                {{-- <svg class="w-6 h-6 text-teal-700" viewBox="0 0 24 24" fill="none"
-                                    stroke="currentColor" stroke-width="2" aria-hidden="true">
-                                    <path d="M17 6a8 8 0 1 0 0 12" stroke-linecap="round" stroke-linejoin="round" />
-                                    <line x1="12" y1="2" x2="12" y2="22"
-                                        stroke-linecap="round" />
-                                </svg> --}}
                                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
                                     viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                                     stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6 text-teal-600 ">
@@ -882,8 +899,16 @@
                                 <span class="font-semibold text-gray-900">{{ $hubtel }}</span>
                             </div>
                             <div class="flex items-center justify-between p-3 bg-blue-50/50">
-                                <span class="text-sm text-blue-700">Total Collected</span>
-                                <span class="font-semibold text-blue-900">GH₵ {{ $money }}</span>
+                                <span class="text-sm text-blue-700">Total</span>
+                                <span class="font-semibold text-blue-900">GH₵ {{ $collected }}</span>
+                            </div>
+                            <div class="flex items-center justify-between p-3 bg-blue-50/50">
+                                <span class="text-sm text-red-700">Subtracting Costs Beared by the House</span>
+                                <span class="font-semibold text-red-700">GH₵ {{ $selectedRecord['on_the_house'] }}</span>
+                            </div>
+                            <div class="flex items-center justify-between p-3 bg-blue-50/50">
+                                <span class="text-sm text-green-800">Total Collected</span>
+                                <span class="font-semibold text-green-800">GH₵ {{ $collected - $selectedRecord['on_the_house'] }}</span>
                             </div>
                         </div>
                     </div>
