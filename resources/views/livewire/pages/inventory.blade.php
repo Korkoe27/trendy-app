@@ -116,6 +116,7 @@
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                     <div class="flex items-center space-x-3">
+                                        @haspermission('view','inventory')
                                         <button wire:click="openDetailsModal({{ $record->first_id }})"
                                             class="text-blue-600 cursor-pointer hover:text-blue-900 flex items-center space-x-1">
                                             <svg class="w-4 h-4" fill="none" stroke="currentColor"
@@ -128,7 +129,8 @@
                                             </svg>
                                             <span>View</span>
                                         </button>
-
+                                        @endhaspermission
+                                        @haspermission('modify','inventory')
                                         <button wire:click="openEditModal({{ $record->first_id }})"
                                             class="text-amber-600 cursor-pointer hover:text-amber-900 flex items-center space-x-1">
                                             <svg class="w-4 h-4" fill="none" stroke="currentColor"
@@ -139,6 +141,7 @@
                                             </svg>
                                             <span>Edit</span>
                                         </button>
+                                        @endhaspermission
                                     </div>
                                 </td>
                             </tr>
