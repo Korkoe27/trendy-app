@@ -457,6 +457,8 @@
                                         @php
                                             // Since we've added stocks property in render(), access it directly
                                             $currentStock = $product->stocks;
+
+                                            // Log::debug("Current Stock:..".$currentStock);
                                             $currentTotalUnits = $currentStock->total_units ?? 0;
                                             $currentBoxes =
                                                 $product->units_per_box > 0
@@ -497,8 +499,10 @@
                 $originalProduct = collect($editingOriginalRecord['products'] ?? [])
                     ->firstWhere('product_name', $product->name);
 
-                    // dd($originalProduct);
-                $originalClosingUnits = $originalProduct ? $originalProduct->closing_stock : null;
+                    $originalClosingUnits = $originalProduct ? $originalProduct->closing_stock : null;
+                    
+                    dd($originalProduct,$originalClosingUnits);
+                
             @endphp
             @if ($originalClosingUnits !== null)
                 <span class="text-xs text-blue-600 font-normal">(was: {{ number_format($originalClosingUnits, 0) }})</span>
@@ -507,7 +511,7 @@
     </label>
     <input type="text" pattern="[0-9]*" required
         oninput="this.value = this.value.replace(/[^0-9]/g, '');"
-        wire:model="{{ number_format($originalClosingUnits, 0) }}"
+        wire:model="productStocks.{{ $product->id }}.closing_units"
         placeholder="0"
         class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
 
@@ -671,7 +675,7 @@
                             ($selectedRecord['total_hubtel'] ?? 0);
 
                         $expectedVal = ($selectedRecord['total_revenue'] ?? 0) + ($selectedRecord['food_total'] ?? 0);
-                        $difference = $collected - $expectedVal;
+                        $difference = $collected - $expectedVal - $onTheHouse;
                         $diffFormatted = number_format($difference, 2);
 
                         // Decide color classes and icons
@@ -715,7 +719,7 @@
 
                         <div class="mt-4 grid grid-cols-3 gap-3 text-sm">
                             <div class="rounded-lg bg-white border border-green-100 p-3">
-                                <p class="text-xs text-gray-500">Drink</p>
+                                <p class="text-xs text-gray-500">Momo</p>
                                 <p class="font-semibold text-gray-900">{{ $momo }}</p>
                             </div>
                             <div class="rounded-lg bg-white border border-green-100 p-3">
@@ -791,7 +795,8 @@
 
 
 
-
+                    @if($difference > 0)
+                     @haspermission('view', 'logs')
                     <div class="rounded-xl border border-slate-400 bg-slate-50 p-5">
                         <div class="flex items-start justify-between">
                             <div>
@@ -820,6 +825,37 @@
                             </p>
                         </div>
                     </div>
+                    @endhaspermission
+                    @else
+                                            <div class="rounded-xl border border-slate-400 bg-slate-50 p-5">
+                        <div class="flex items-start justify-between">
+                            <div>
+                                <p class="text-xs font-medium {{ $labelColor }} uppercase tracking-wider">Difference
+                                </p>
+                                <p class="mt-2 text-2xl font-bold text-slate-900">
+                                    GH₵ {{ $diffFormatted }}
+                                </p>
+                            </div>
+                            <div class="shrink-0 rounded-lg {{ $iconBg }} p-2">
+                                <svg class="w-6 h-6 {{ $iconColor }}" fill="none" stroke="currentColor"
+                                    viewBox="0 0 24 24" stroke-width="2" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="{{ $iconPath }}" />
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="mt-4 rounded-lg border border-slate-100 bg-white p-3 text-sm">
+                            <p class="{{ $labelColor }}">
+                                @if ($difference > 0)
+                                    Surplus: Collected more than expected.
+                                @elseif($difference < 0)
+                                    Deficit: Collected less than expected.
+                                @else
+                                    Perfect match: Collected equals expected.
+                                @endif
+                            </p>
+                        </div>
+                    </div>
+                    @endif
 
 
 

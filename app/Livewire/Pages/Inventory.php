@@ -162,7 +162,7 @@ class Inventory extends Component
         $this->editingRecordId = $recordId;
         $this->editingOriginalRecord = $this->getDailySalesRecord($recordId);
 
-        dd($this->editingOriginalRecord);
+        // dd($this->editingOriginalRecord);
         if (! $this->editingOriginalRecord) {
             session()->flash('error', 'Record not found');
 
@@ -466,6 +466,8 @@ private function loadEditingProductStocks()
         ]);
     }
 
+    
+
     DB::transaction(function () {
         $summary = DailySalesSummary::find($this->editingRecordId);
 
@@ -692,6 +694,8 @@ private function loadEditingProductStocks()
         foreach ($this->allStocks as $stock) {
             $product = $this->allProducts[$stock->product_id] ?? null;
 
+
+            Log::debug('Loading stock for product ID '.$stock->product_id.': '.($product ? $product->name : 'not found'));
             if (! $product || $stock->total_units <= 0) {
                 continue;
             }
@@ -826,11 +830,13 @@ private function loadEditingProductStocks()
                 ->get()
                 ->keyBy('id');
 
+
+                Log::debug('Retrieved Products: '.$products);
+
             $stocks = Stock::whereIn('product_id', $productIds)
                 ->where('total_units', '>', 0)
                 ->get()->keyBy('product_id');
 
-            Log::info('Retrieved Products: '.$products);
             // Process each product's inventory
 
             $salesRows = [];
@@ -849,7 +855,7 @@ private function loadEditingProductStocks()
                 // $stock = $this->allStocks[$productId] ?? null;
                 $currentStock = $this->allStocks[$productId] ?? null;
 
-                // Log::debug('Current stock for product '.$productId.': '.($currentStock ? $currentStock->total_units : 'not found'));
+                Log::debug('Current stock for product '.$productId.': '.($currentStock ? $currentStock->total_units : 'not found'));
 
                 if (! $currentStock || ! $product) {
                     continue;
@@ -859,6 +865,10 @@ private function loadEditingProductStocks()
                 $closingUnits = (float) ($stockData['closing_units'] ?? 0);
                 $damagedUnits = (float) ($stockData['damaged_units'] ?? 0);
                 $creditUnits = (float) ($stockData['credit_units'] ?? 0);
+
+
+                Log::debug("Processing product ID: ".$productId);
+                Log::debug("Closing Units: ".$closingUnits);
                 // $totalLosses = $damagedUnits + $creditUnits;
 
                 // $totalClosingUnits = $this->calculateTotalUnits($productId);
@@ -878,6 +888,8 @@ private function loadEditingProductStocks()
                 // Calculate units sold and revenue
                 $unitsSold = max(0, $openingStock - $closingUnits - $damagedUnits - $creditUnits);
 
+
+                Log::debug("Units Sold: ".$unitsSold);
                 $sellingPrice = $product->selling_price ?? 0;
                 $cashRevenue = $unitsSold * $sellingPrice;
                 $creditAmount = $creditUnits * $sellingPrice;
@@ -888,15 +900,17 @@ private function loadEditingProductStocks()
                 // $unitProfit = $unitsSold * (($product->selling_price ?? 0) - ($stock->cost_price ?? 0));
 
                 //profit = margin * unitsSold
-                $totalSoldUnits = $unitsSold + $creditUnits;
+                // $totalSoldUnits = $unitsSold + $creditUnits;
                 // $unitProfit = $totalSoldUnits * (($product->selling_price ?? 0) - ($stock->cost_price ?? 0));
 
-                $unitProfit = $totalSoldUnits * $currentStock->cost_margin;
+                $unitProfit = $unitsSold * $currentStock->cost_margin;
+
+                Log::debug("Stock Cost Margin: ".$currentStock->cost_margin);
 
                 Log::debug("unitProfit: ".$unitProfit);
 
                 $totalRevenue += $productRevenue;
-                $totalItemsSold += $totalSoldUnits;
+                $totalItemsSold += $unitsSold;
                 $totalProfit += $unitProfit;
                 $totalDamaged += $damagedUnits;
                 $totalCredit += $creditUnits;
