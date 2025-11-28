@@ -675,7 +675,7 @@
                             ($selectedRecord['total_hubtel'] ?? 0);
 
                         $expectedVal = ($selectedRecord['total_revenue'] ?? 0) + ($selectedRecord['food_total'] ?? 0);
-                        $difference = $collected - $expectedVal - $onTheHouse;
+                        $difference = $collected - $expectedVal + $onTheHouse;
                         $diffFormatted = number_format($difference, 2);
 
                         // Decide color classes and icons
