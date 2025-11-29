@@ -76,7 +76,7 @@ class Inventory extends Component
 
         // Get LATEST stock for each product (most recent created_at)
         $this->allStocks = DB::table('stocks as s1')
-            ->select('s1.id', 's1.product_id', 's1.total_units', 's1.cost_price','s1.cost_margin')
+            ->select('s1.id', 's1.product_id', 's1.total_units', 's1.cost_price', 's1.cost_margin')
             ->whereIn('s1.product_id', $productIds)
             ->where('s1.total_units', '>', 0)
             ->whereRaw('s1.created_at = (SELECT MAX(s2.created_at) FROM stocks s2 WHERE s2.product_id = s1.product_id)')
@@ -189,63 +189,64 @@ class Inventory extends Component
     {
         return $this->productStocks[$productId]['original_opening_stock'] ?? 0;
     }
-private function loadEditingProductStocks()
-    {
-        $salesDate = $this->editingOriginalRecord['date'];
+    // private function loadEditingProductStocks()
+    //     {
+    //         $salesDate = $this->editingOriginalRecord['date'];
 
-        Log::debug('Loading editing product stocks for date: '.$salesDate);
+    //         Log::debug('Loading editing product stocks for date: '.$salesDate);
 
-        // Get the daily_sales for this date
-        $dailySales = DB::table('daily_sales')
-            ->where('sales_date', $salesDate)
-            ->get()
-            ->keyBy('product_id');
+    //         // Get the daily_sales for this date
+    //         $dailySales = DB::table('daily_sales')
+    //             ->where('sales_date', $salesDate)
+    //             ->get()
+    //             ->keyBy('product_id');
 
-        // Get all active products
-        $products = Product::with('currentStock')
-            ->where('is_active', true)
-            ->get();
+    //         // Get all active products
+    //         $products = Product::with('currentStock')
+    //             ->where('is_active', true)
+    //             ->get();
 
-        foreach ($products as $product) {
-            // Find existing data for this product in the record being edited
-            $existingProduct = collect($this->editingOriginalRecord['products'])
-                ->firstWhere('product_name', $product->name);
+    //         foreach ($products as $product) {
+    //             // Find existing data for this product in the record being edited
+    //             $existingProduct = collect($this->editingOriginalRecord['products'])
+    //                 ->firstWhere('product_name', $product->name);
 
-            // dd($existingProduct);
+    //             // dd($existingProduct);
 
-            $dailySale = $dailySales[$product->id] ?? null;
+    //             $dailySale = $dailySales[$product->id] ?? null;
 
-            // Use the opening stock from the record being edited as the "current" stock
-            $openingStockForDisplay = $dailySale ? $dailySale->opening_stock : 0;
+    //             // Use the opening stock from the record being edited as the "current" stock
+    //             $openingStockForDisplay = $dailySale ? $dailySale->opening_stock : 0;
 
-            if ($existingProduct) {
-                $closingStock = $existingProduct->closing_stock;
-                Log::debug('Product ' . $product->name . ' closingStock: ' . $closingStock);
-                $closingBoxes = floor($closingStock / ($product->units_per_box ?: 1));
-                $remainingUnits = $closingStock - ($closingBoxes * ($product->units_per_box ?: 1));
+    //             if ($existingProduct) {
+    //                 $closingStock = $existingProduct->closing_stock;
+    //                 Log::debug('Product ' . $product->name . ' closingStock: ' . $closingStock);
+    //                 $closingBoxes = floor($closingStock / ($product->units_per_box ?: 1));
+    //                 $remainingUnits = $closingStock - ($closingBoxes * ($product->units_per_box ?: 1));
 
-                $this->productStocks[$product->id] = [
-                    'closing_boxes' => $closingBoxes,
-                    'closing_units' => $remainingUnits,
-                    'damaged_units' => $existingProduct->damaged_units,
-                    'credit_units' => $existingProduct->credit_units,
-                    'product' => $product,
-                    'original_opening_stock' => $openingStockForDisplay,
-                ];
-            } else {
-                $this->productStocks[$product->id] = [
-                    'closing_boxes' => '',
-                    'closing_units' => '',
-                    'damaged_units' => '',
-                    'credit_units' => '',
-                    'product' => $product,
-                    'original_opening_stock' => $openingStockForDisplay,
-                ];
-            }
-        }
-    }
+    //                 Log::debug('Product ' . $product->name . ' remainingStock: ' . $remainingUnits);
+    //                 $this->productStocks[$product->id] = [
+    //                     'closing_boxes' => $closingBoxes,
+    //                     'closing_units' => $remainingUnits,
+    //                     'damaged_units' => $existingProduct->damaged_units,
+    //                     'credit_units' => $existingProduct->credit_units,
+    //                     'product' => $product,
+    //                     'original_opening_stock' => $openingStockForDisplay,
+    //                 ];
+    //                 Log::debug('Original opening stock for product ' . $product->name . ': ' . $openingStockForDisplay);
+    //             } else {
+    //                 $this->productStocks[$product->id] = [
+    //                     'closing_boxes' => '',
+    //                     'closing_units' => '',
+    //                     'damaged_units' => '',
+    //                     'credit_units' => '',
+    //                     'product' => $product,
+    //                     'original_opening_stock' => $openingStockForDisplay,
+    //                 ];
+    //             }
+    //         }
+    //     }
 
-    // public function updateInventory()
     // {
     //     if (! $this->isEditing || ! $this->editingRecordId) {
     //         session()->flash('error', 'Invalid edit operation');
@@ -306,7 +307,6 @@ private function loadEditingProductStocks()
 
     //             $closingBoxes = (float) ($stockData['closing_boxes'] ?? 0);
     //             $closingUnits = (float) ($stockData['closing_units'] ?? 0);
-
 
     //             $damagedUnits = (float) ($stockData['damaged_units'] ?? 0);
     //             $creditUnits = (float) ($stockData['credit_units'] ?? 0);
@@ -438,6 +438,56 @@ private function loadEditingProductStocks()
     //     session()->flash('success', 'Sales record updated successfully!');
     // }
 
+    private function loadEditingProductStocks()
+    {
+        $salesDate = $this->editingOriginalRecord['date'];
+
+        Log::debug('Loading editing product stocks for date: '.$salesDate);
+
+        // Get the daily_sales for this date
+        $dailySales = DB::table('daily_sales')
+            ->where('sales_date', $salesDate)
+            ->get()
+            ->keyBy('product_id');
+
+        // Get all active products
+        $products = Product::with('currentStock')
+            ->where('is_active', true)
+            ->get();
+
+        foreach ($products as $product) {
+            // Find existing data for this product in the record being edited
+            $existingProduct = collect($this->editingOriginalRecord['products'])
+                ->firstWhere('product_name', $product->name);
+
+            $dailySale = $dailySales[$product->id] ?? null;
+
+            // Use the opening stock from the record being edited as the "current" stock
+            $openingStockForDisplay = $dailySale ? $dailySale->opening_stock : 0;
+
+            if ($existingProduct) {
+                // Store the actual closing_units value directly, not calculated from boxes
+                $this->productStocks[$product->id] = [
+                    'closing_boxes' => '', // Not needed for the form
+                    'closing_units' => (string) $existingProduct->closing_stock, // Convert to string for input
+                    'damaged_units' => (string) ($existingProduct->damaged_units ?? ''),
+                    'credit_units' => (string) ($existingProduct->credit_units ?? ''),
+                    'product' => $product,
+                    'original_opening_stock' => $openingStockForDisplay,
+                ];
+            } else {
+                $this->productStocks[$product->id] = [
+                    'closing_boxes' => '',
+                    'closing_units' => '',
+                    'damaged_units' => '',
+                    'credit_units' => '',
+                    'product' => $product,
+                    'original_opening_stock' => $openingStockForDisplay,
+                ];
+            }
+        }
+    }
+
     public function closeTakeInventoryModal()
     {
         $this->showTakeInventoryModal = false;
@@ -447,130 +497,48 @@ private function loadEditingProductStocks()
         $this->resetForm();
     }
 
-
     public function updateInventory()
-{
-    if (! $this->isEditing || ! $this->editingRecordId) {
-        session()->flash('error', 'Invalid edit operation');
-        return;
-    }
+    {
+        if (! $this->isEditing || ! $this->editingRecordId) {
+            session()->flash('error', 'Invalid edit operation');
 
-    // Validate based on user role
-    if (Auth::user()) {
-        $this->validate([
-            'cashAmount' => 'required|numeric|min:0',
-            'momoAmount' => 'required|numeric|min:0',
-            'hubtelAmount' => 'required|numeric|min:0',
-            'foodTotal' => 'required|numeric|min:0',
-            'onTheHouse' => 'required|numeric|min:0',
-        ]);
-    }
-
-    
-
-    DB::transaction(function () {
-        $summary = DailySalesSummary::find($this->editingRecordId);
-
-        if (! $summary) {
-            throw new \Exception('Summary record not found');
+            return;
         }
 
-        $salesDate = $summary->sales_date ?: $summary->created_at->format('Y-m-d');
-        DailySales::where('sales_date', $salesDate)->delete();
-
-        $totalRevenue = 0;
-        $totalItemsSold = 0;
-        $totalProfit = 0;
-        $totalDamaged = 0;
-        $totalCredit = 0;
-        $totalCreditAmount = 0;
-        $totalLossAmount = 0;
-        $mostSoldProductId = null;
-        $maxUnitsSold = 0;
-
-        $salesRows = [];
-        $newStockRows = [];
-
-        foreach ($this->productStocks as $productId => $stockData) {
-            if (! filled($stockData['closing_units'])) {
-                continue;
-            }
-
-            $product = $this->allProducts[$productId] ?? null;
-            $currentStock = $this->allStocks[$productId] ?? null;
-
-            if (! $currentStock || ! $product) {
-                continue;
-            }
-
-            $closingBoxes = (float) ($stockData['closing_boxes'] ?? 0);
-            $closingUnits = (float) ($stockData['closing_units'] ?? 0);
-            $damagedUnits = (float) ($stockData['damaged_units'] ?? 0);
-            $creditUnits = (float) ($stockData['credit_units'] ?? 0);
-
-            // Use original opening stock from editing record
-            $openingStock = $stockData['original_opening_stock'] ?? $currentStock->total_units;
-
-            if ($closingUnits > $openingStock) {
-                throw new \Exception('Closing stock for product '.$product->name.' cannot be greater than opening stock.');
-            }
-
-            $openingBoxes = $product->units_per_box > 0 ?
-                floor($openingStock / $product->units_per_box) : 0;
-
-            $unitsSold = max(0, $openingStock - $closingUnits - $creditUnits);
-            $sellingPrice = $product->selling_price ?? 0;
-            $cashRevenue = $unitsSold * $sellingPrice;
-            $creditAmount = $creditUnits * $sellingPrice;
-            $lossAmount = $damagedUnits * $sellingPrice;
-            $productRevenue = $cashRevenue + $creditAmount;
-
-            $totalSoldUnits = $unitsSold + $creditUnits;
-            $unitProfit = $totalSoldUnits * ($currentStock->cost_margin ?? 0);
-
-            $totalRevenue += $productRevenue;
-            $totalItemsSold += $totalSoldUnits;
-            $totalProfit += $unitProfit;
-            $totalDamaged += $damagedUnits;
-            $totalCredit += $creditUnits;
-            $totalCreditAmount += $creditAmount;
-            $totalLossAmount += $lossAmount;
-
-            if ($unitsSold > $maxUnitsSold) {
-                $maxUnitsSold = $unitsSold;
-                $mostSoldProductId = $productId;
-            }
-
-            // Create new stock entry
-            $newStockRows[] = [
-                'product_id' => $productId,
-                'total_units' => $closingUnits,
-                'supplier' => $currentStock->supplier ?? null,
-                'total_cost' => $currentStock->total_cost ?? 0,
-                'cost_price' => $currentStock->cost_price ?? 0,
-                'cost_margin' => $sellingPrice - ($currentStock->cost_price ?? 0),
-                'free_units' => 0,
-                'notes' => 'Stock updated via inventory edit - '.$salesDate,
-                'restock_date' => null,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ];
+        // Validate based on user role
+        if (Auth::user()) {
+            $this->validate([
+                'cashAmount' => 'required|numeric|min:0',
+                'momoAmount' => 'required|numeric|min:0',
+                'hubtelAmount' => 'required|numeric|min:0',
+                'foodTotal' => 'required|numeric|min:0',
+                'onTheHouse' => 'required|numeric|min:0',
+            ]);
         }
 
-        // Insert new stock entries
-        if (! empty($newStockRows)) {
+        DB::transaction(function () {
+            $summary = DailySalesSummary::find($this->editingRecordId);
 
-            DB::table('stocks')->insert($newStockRows);
-            
-            // Get newly created stock IDs
-            $newStockIds = DB::table('stocks')
-                ->whereIn('product_id', array_column($newStockRows, 'product_id'))
-                ->where('created_at', '>=', now()->subSeconds(5))
-                ->orderBy('created_at', 'desc')
-                ->get()
-                ->keyBy('product_id');
+            if (! $summary) {
+                throw new \Exception('Summary record not found');
+            }
 
-            // Create sales rows with correct stock_id
+            $salesDate = $summary->sales_date ?: $summary->created_at->format('Y-m-d');
+            DailySales::where('sales_date', $salesDate)->delete();
+
+            $totalRevenue = 0;
+            $totalItemsSold = 0;
+            $totalProfit = 0;
+            $totalDamaged = 0;
+            $totalCredit = 0;
+            $totalCreditAmount = 0;
+            $totalLossAmount = 0;
+            $mostSoldProductId = null;
+            $maxUnitsSold = 0;
+
+            $salesRows = [];
+            $newStockRows = [];
+
             foreach ($this->productStocks as $productId => $stockData) {
                 if (! filled($stockData['closing_units'])) {
                     continue;
@@ -578,9 +546,10 @@ private function loadEditingProductStocks()
 
                 $product = $this->allProducts[$productId] ?? null;
                 $currentStock = $this->allStocks[$productId] ?? null;
-                $newStock = $newStockIds[$productId] ?? null;
 
-                if (!$product || !$currentStock || !$newStock) {
+                Log::debug('Current stock for product '.$productId.': '.($currentStock ? $currentStock->total_units : 'not found'));
+
+                if (! $currentStock || ! $product) {
                     continue;
                 }
 
@@ -588,7 +557,18 @@ private function loadEditingProductStocks()
                 $closingUnits = (float) ($stockData['closing_units'] ?? 0);
                 $damagedUnits = (float) ($stockData['damaged_units'] ?? 0);
                 $creditUnits = (float) ($stockData['credit_units'] ?? 0);
+
+                Log::debug('Product '.$product->name.' closingUnits: '.$closingUnits);
+
+                // Use original opening stock from editing record
                 $openingStock = $stockData['original_opening_stock'] ?? $currentStock->total_units;
+
+                Log::debug('Product '.$product->name.' openingStock: '.$openingStock);
+
+                if ($closingUnits > $openingStock) {
+                    throw new \Exception('Closing stock for product '.$product->name.' cannot be greater than opening stock.');
+                }
+
                 $openingBoxes = $product->units_per_box > 0 ?
                     floor($openingStock / $product->units_per_box) : 0;
 
@@ -597,77 +577,160 @@ private function loadEditingProductStocks()
                 $cashRevenue = $unitsSold * $sellingPrice;
                 $creditAmount = $creditUnits * $sellingPrice;
                 $lossAmount = $damagedUnits * $sellingPrice;
-                
-                $totalSoldUnits = $unitsSold + $creditUnits;
-                $unitProfit = $totalSoldUnits * ($product->currentStock->cost_margin ?? 0);
+                $productRevenue = $cashRevenue + $creditAmount;
 
-                $salesRows[] = [
+                
+                
+                $unitProfit = $unitsSold * ($currentStock->cost_margin ?? 0);
+
+
+                $totalRevenue += $productRevenue;
+                $totalItemsSold += $unitsSold;
+                $totalProfit += $unitProfit;
+                $totalDamaged += $damagedUnits;
+                $totalCredit += $creditUnits;
+                $totalCreditAmount += $creditAmount;
+                $totalLossAmount += $lossAmount;
+
+                if ($unitsSold > $maxUnitsSold) {
+                    $maxUnitsSold = $unitsSold;
+                    $mostSoldProductId = $productId;
+                }
+
+                // Create new stock entry
+                $newStockRows[] = [
                     'product_id' => $productId,
-                    'stock_id' => $newStock->id,
-                    'sales_date' => $salesDate,
-                    'opening_stock' => $openingStock,
-                    'closing_stock' => $closingUnits,
-                    'opening_boxes' => $openingBoxes,
-                    'closing_boxes' => $closingBoxes,
-                    'damaged_units' => $damagedUnits,
-                    'credit_units' => $creditUnits,
-                    'credit_amount' => $creditAmount,
-                    'loss_amount' => $lossAmount,
-                    'total_amount' => $cashRevenue,
-                    'unit_profit' => $unitProfit,
+                    'total_units' => $closingUnits,
+                    'supplier' => $currentStock->supplier ?? null,
+                    'total_cost' => $currentStock->total_cost ?? 0,
+                    'cost_price' => $currentStock->cost_price ?? 0,
+                    'cost_margin' => $sellingPrice - ($currentStock->cost_price ?? 0),
+                    'free_units' => 0,
+                    'notes' => 'Stock updated via inventory edit - '.$salesDate,
+                    'restock_date' => null,
                     'created_at' => now(),
                     'updated_at' => now(),
                 ];
             }
-        }
 
-        if (! empty($salesRows)) {
-            DB::table('daily_sales')->insert($salesRows);
-        }
+            // dd($newStockRows);
 
-        // Calculate total_money correctly: (cash + momo + hubtel + food) - on_the_house
-        $totalMoney = $this->cashAmount + $this->momoAmount + $this->hubtelAmount;
+            // Insert new stock entries
+            if (! empty($newStockRows)) {
 
-        // Update summary
-        $updateData = [
-            'total_revenue' => $totalRevenue,
-            'items_sold' => $totalItemsSold,
-            'total_profit' => $totalProfit,
-            'total_damaged' => $totalDamaged,
-            'total_credit_units' => $totalCredit,
-            'total_credit_amount' => $totalCreditAmount,
-            'total_loss_amount' => $totalLossAmount,
-            'total_cash' => (float) $this->cashAmount,
-            'total_momo' => (float) $this->momoAmount,
-            'total_hubtel' => (float) $this->hubtelAmount,
-            'food_total' => (float) $this->foodTotal,
-            'on_the_house' => (float) $this->onTheHouse,
-            'total_money' => $totalMoney,
-        ];
+                DB::table('stocks')->insert($newStockRows);
 
-        if ($mostSoldProductId) {
-            $updateData['product_id'] = $mostSoldProductId;
-        }
+                // Get newly created stock IDs
+                $newStockIds = DB::table('stocks')
+                    ->whereIn('product_id', array_column($newStockRows, 'product_id'))
+                    ->where('created_at', '>=', now()->subSeconds(5))
+                    ->orderBy('created_at', 'desc')
+                    ->get()
+                    ->keyBy('product_id');
 
-        $summary->update($updateData);
+                // Create sales rows with correct stock_id
+                foreach ($this->productStocks as $productId => $stockData) {
+                    if (! filled($stockData['closing_units'])) {
+                        continue;
+                    }
 
-        ActivityLogs::create([
-            'user_id' => Auth::id(),
-            'action_type' => 'daily_sales_edit',
-            'description' => 'Daily Sales record edited for '.$salesDate,
-            'entity_type' => 'inventory',
-            'entity_id' => $this->editingRecordId,
-            'metadata' => json_encode([
-                'updated_fields' => array_keys($updateData),
-                'drink_sales' => $totalRevenue,
+                    $product = $this->allProducts[$productId] ?? null;
+                    $currentStock = $this->allStocks[$productId] ?? null;
+                    $newStock = $newStockIds[$productId] ?? null;
+
+                    if (! $product || ! $currentStock || ! $newStock) {
+                        continue;
+                    }
+
+                    $closingBoxes = (float) ($stockData['closing_boxes'] ?? 0);
+                    $closingUnits = (float) ($stockData['closing_units'] ?? 0);
+
+                    // dd($closingUnits);
+                    $damagedUnits = (float) ($stockData['damaged_units'] ?? 0);
+                    $creditUnits = (float) ($stockData['credit_units'] ?? 0);
+                    $openingStock = $stockData['original_opening_stock'] ?? $currentStock->total_units;
+                    $openingBoxes = $product->units_per_box > 0 ?
+                        floor($openingStock / $product->units_per_box) : 0;
+
+                    $unitsSold = max(0, $openingStock - $closingUnits - $damagedUnits - $creditUnits);
+                    $sellingPrice = $product->selling_price ?? 0;
+                    $cashRevenue = $unitsSold * $sellingPrice;
+                    $creditAmount = $creditUnits * $sellingPrice;
+                    $lossAmount = $damagedUnits * $sellingPrice;
+
+                    $totalSoldUnits = $unitsSold + $creditUnits;
+                    $unitProfit = $unitsSold * $currentStock->cost_margin;
+
+                    $salesRows[] = [
+                        'product_id' => $productId,
+                        'stock_id' => $newStock->id,
+                        'sales_date' => $salesDate,
+                        'opening_stock' => $openingStock,
+                        'closing_stock' => $closingUnits,
+                        'opening_boxes' => $openingBoxes,
+                        'closing_boxes' => $closingBoxes,
+                        'damaged_units' => $damagedUnits,
+                        'credit_units' => $creditUnits,
+                        'credit_amount' => $creditAmount,
+                        'loss_amount' => $lossAmount,
+                        'total_amount' => $cashRevenue,
+                        'unit_profit' => $unitProfit,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ];
+                }
+
+                // dd($salesRows);
+            }
+
+            if (! empty($salesRows)) {
+                DB::table('daily_sales')->insert($salesRows);
+            }
+
+            // Calculate total_money correctly: (cash + momo + hubtel + food) - on_the_house
+            $totalMoney = $this->cashAmount + $this->momoAmount + $this->hubtelAmount;
+
+            // Update summary
+            $updateData = [
+                'total_revenue' => $totalRevenue,
                 'items_sold' => $totalItemsSold,
-            ]),
-        ]);
-    });
+                'total_profit' => $totalProfit,
+                'total_damaged' => $totalDamaged,
+                'total_credit_units' => $totalCredit,
+                'total_credit_amount' => $totalCreditAmount,
+                'total_loss_amount' => $totalLossAmount,
+                'total_cash' => (float) $this->cashAmount,
+                'total_momo' => (float) $this->momoAmount,
+                'total_hubtel' => (float) $this->hubtelAmount,
+                'food_total' => (float) $this->foodTotal,
+                'on_the_house' => (float) $this->onTheHouse,
+                'total_money' => $totalMoney,
+            ];
 
-    $this->closeTakeInventoryModal();
-    session()->flash('success', 'Sales record updated successfully!');
-}
+            if ($mostSoldProductId) {
+                $updateData['product_id'] = $mostSoldProductId;
+            }
+
+            $summary->update($updateData);
+
+            ActivityLogs::create([
+                'user_id' => Auth::id(),
+                'action_type' => 'daily_sales_edit',
+                'description' => 'Daily Sales record edited for '.$salesDate,
+                'entity_type' => 'inventory',
+                'entity_id' => $this->editingRecordId,
+                'metadata' => json_encode([
+                    'updated_fields' => array_keys($updateData),
+                    'drink_sales' => $totalRevenue,
+                    'items_sold' => $totalItemsSold,
+                ]),
+            ]);
+        });
+
+        $this->closeTakeInventoryModal();
+        session()->flash('success', 'Sales record updated successfully!');
+    }
+
     public function resetForm()
     {
         $this->currentStep = 1;
@@ -693,7 +756,6 @@ private function loadEditingProductStocks()
     {
         foreach ($this->allStocks as $stock) {
             $product = $this->allProducts[$stock->product_id] ?? null;
-
 
             Log::debug('Loading stock for product ID '.$stock->product_id.': '.($product ? $product->name : 'not found'));
             if (! $product || $stock->total_units <= 0) {
@@ -830,8 +892,7 @@ private function loadEditingProductStocks()
                 ->get()
                 ->keyBy('id');
 
-
-                Log::debug('Retrieved Products: '.$products);
+            Log::debug('Retrieved Products: '.$products);
 
             $stocks = Stock::whereIn('product_id', $productIds)
                 ->where('total_units', '>', 0)
@@ -866,48 +927,35 @@ private function loadEditingProductStocks()
                 $damagedUnits = (float) ($stockData['damaged_units'] ?? 0);
                 $creditUnits = (float) ($stockData['credit_units'] ?? 0);
 
-
-                Log::debug("Processing product ID: ".$productId);
-                Log::debug("Closing Units: ".$closingUnits);
-                // $totalLosses = $damagedUnits + $creditUnits;
-
-                // $totalClosingUnits = $this->calculateTotalUnits($productId);
-
-                // hubtel+cash+momo
-
-                //total_money = (total_momo + total_cash + total_hubtel) - on_the_house 
-
-                //$difference = total_money - (food total+ total_revenue)
-
+                Log::debug('Processing product ID: '.$productId);
+                Log::debug('Closing Units: '.$closingUnits);
 
                 // Get opening stock (current available units)
                 $openingStock = $currentStock->total_units;
+
+                if ($closingUnits > $openingStock) {
+                    throw new \Exception('Closing stock for product '.$product->name.' cannot be greater than opening stock.');
+                }
                 $openingBoxes = $product->units_per_box > 0 ?
                     floor($openingStock / $product->units_per_box) : 0;
 
                 // Calculate units sold and revenue
                 $unitsSold = max(0, $openingStock - $closingUnits - $damagedUnits - $creditUnits);
 
-
-                Log::debug("Units Sold: ".$unitsSold);
+                Log::debug('Units Sold: '.$unitsSold);
                 $sellingPrice = $product->selling_price ?? 0;
                 $cashRevenue = $unitsSold * $sellingPrice;
                 $creditAmount = $creditUnits * $sellingPrice;
                 $lossAmount = $damagedUnits * $sellingPrice;
                 $productRevenue = $cashRevenue + $creditAmount;
 
-                // Calculate profit per unit
-                // $unitProfit = $unitsSold * (($product->selling_price ?? 0) - ($stock->cost_price ?? 0));
 
-                //profit = margin * unitsSold
-                // $totalSoldUnits = $unitsSold + $creditUnits;
-                // $unitProfit = $totalSoldUnits * (($product->selling_price ?? 0) - ($stock->cost_price ?? 0));
 
                 $unitProfit = $unitsSold * $currentStock->cost_margin;
 
-                Log::debug("Stock Cost Margin: ".$currentStock->cost_margin);
+                Log::debug('Stock Cost Margin: '.$currentStock->cost_margin);
 
-                Log::debug("unitProfit: ".$unitProfit);
+                Log::debug('unitProfit: '.$unitProfit);
 
                 $totalRevenue += $productRevenue;
                 $totalItemsSold += $unitsSold;

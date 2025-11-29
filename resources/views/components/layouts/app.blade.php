@@ -13,7 +13,7 @@
         @livewireStyles
         <title>{{ $title ?? 'Trendy App' }}</title>
     </head>
-    <body class="flex md:gap-4 p-1 w-full lg:p-4 antialiased scrollbar-hidden bg-gray-100 h-screen">
+    <body class="flex md:gap-4 p-1 w-full font-[Urbanist] lg:p-4 antialiased scrollbar-hidden bg-gray-100 h-screen">
         <style>
         @import url('https://fonts.googleapis.com/css2?family=Urbanist:ital,wght@0,100..900;1,100..900&display=swap');
 
