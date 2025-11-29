@@ -2,16 +2,10 @@
 
 namespace App\Livewire\Pages;
 
-use App\Models\ActivityLogs;
-use App\Models\Categories;
-use App\Models\Product;
-use App\Models\Stock;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Log;
+use App\Models\{ActivityLogs,Categories,Product,Stock};
+use Illuminate\Support\Facades\{Auth,Log};
 use Livewire\Component;
-use Livewire\WithFileUploads;
-use Livewire\WithoutUrlPagination;
-use Livewire\WithPagination;
+use Livewire\{WithFileUploads,WithPagination,WithoutUrlPagination};
 
 class Products extends Component
 {
@@ -22,6 +16,9 @@ class Products extends Component
     public $showModal = false;       // single flag for modal
 
     public $searchTerm = '';
+
+    public $showCreateModal = false;
+    public $newProducts = [];
 
     public $importFile;
 
@@ -54,15 +51,32 @@ class Products extends Component
 
     protected $queryString = ['searchTerm', 'selectedCategory'];
 
-    protected $rules = [
-        'name' => 'required|string|max:255',
-        'category_id' => 'required|exists:categories,id',
-        'barcode' => 'nullable|string|max:255',
-        'selling_price' => 'required|numeric|min:0',
-        'stock_limit' => 'nullable|integer|min:0',
-        'importFile' => 'nullable|file|mimes:xlsx,xls,csv|max:2048',
-        'is_active' => 'boolean',
+protected function rules()
+{
+    return [
+        'newProducts.*.name' => 'required|string|max:255',
+        'newProducts.*.category_id' => 'required|exists:categories,id',
+        'newProducts.*.sku' => 'nullable|string|max:255',
+        'newProducts.*.barcode' => 'nullable|string|max:255',
+        'newProducts.*.stock_limit' => 'nullable|integer|min:0',
+        'newProducts.*.selling_price' => 'required|numeric|min:0',
+        'newProducts.*.units_per_box' => 'nullable|numeric|min:0',
     ];
+}
+
+
+        protected array $messages = [
+        'newProducts.*.name.required' => 'Product name is required',
+        'newProducts.*.name.unique' => 'Product name must be unique',
+        'newProducts.*.category_id.required' => 'Category selection is required',
+        'newProducts.*.category_id.exists' => 'Selected category does not exist',
+        'newProducts.*.sku.unique' => 'SKU must be unique',
+        'newProducts.*.barcode.unique' => 'Barcode must be unique',
+        'newProducts.*.selling_price.required' => 'Selling price is required',
+        'newProducts.*.selling_price.numeric' => 'Selling price must be a valid number',
+        'newProducts.*.units_per_box.numeric' => 'Units per box must be a valid number',
+    ];
+
 
     public $exportFilters = [
         'category_id' => 'all',
@@ -72,6 +86,180 @@ class Products extends Component
         'is_active' => 'all',
     ];
 
+// Add these methods to your Products class
+
+public function showCreateProductModal()
+{
+    $this->showCreateModal = true;
+    $this->resetNewProductForm();
+}
+
+    public function resetProductForm()
+    {
+        $this->newProducts = [[
+            'name' => '',
+            'category_id' => '',
+            'sku' => '',
+            'barcode' => '',
+            'stock_limit' => '',
+            'selling_price' => '',
+            'units_per_box' => '',
+        ]];
+
+        $this->resetErrorBag();
+    }
+public function closeCreateModal()
+{
+    $this->showCreateModal = false;
+    $this->resetNewProductForm();
+}
+
+public function resetNewProductForm()
+{
+    $this->newProducts = [[
+        'name' => '',
+        'category_id' => '',
+        'sku' => '',
+        'barcode' => '',
+        'stock_limit' => '',
+        'selling_price' => '',
+        'units_per_box' => '',
+    ]];
+    $this->resetErrorBag();
+}
+
+public function addProductRow()
+{
+    $this->newProducts[] = [
+        'name' => '',
+        'category_id' => '',
+        'sku' => '',
+        'barcode' => '',
+        'stock_limit' => '',
+        'selling_price' => '',
+        'units_per_box' => '',
+    ];
+}
+
+public function removeProductRow($index)
+{
+    if (count($this->newProducts) > 1) {
+        unset($this->newProducts[$index]);
+        $this->newProducts = array_values($this->newProducts);
+    }
+}
+
+public function saveNewProducts()
+{
+
+// dd('Method called!', $this->newProducts);
+        if (!$this->validateProducts()) {
+            dd('Validation failed');
+             return; // Stop if validation fails
+    }
+
+    Log::debug('Validated');
+
+    $validProducts = array_filter($this->newProducts, function ($product) {
+        return !empty($product['name']) &&
+            !empty($product['category_id']) &&
+            !empty($product['selling_price']);
+    });
+
+    if (empty($validProducts)) {
+        $this->addError('newProducts', 'At least one complete product is required');
+        return;
+    }
+
+    $successCount = 0;
+    $errors = [];
+
+    foreach ($validProducts as $index => $productData) {
+        try {
+            foreach ($productData as $key => $value) {
+                if (is_string($value)) {
+                    $productData[$key] = strtolower($value);
+                }
+            }
+
+            $cleanedData = array_filter($productData, function ($value) {
+                return $value !== '' && $value !== null;
+            });
+
+            $cleanedData['selling_price'] = $cleanedData['selling_price'] ?? 0.00;
+            $cleanedData['units_per_box'] = $cleanedData['units_per_box'] ?? 0.00;
+
+            Product::create($cleanedData);
+            $successCount++;
+        } catch (\Exception $e) {
+            $errors[] = "Product " . ($index + 1) . ": " . $e->getMessage();
+        }
+    }
+
+    if ($successCount > 0) {
+        $this->closeCreateModal();
+        
+        $message = "Successfully created {$successCount} product(s)";
+        if (!empty($errors)) {
+            $message .= ". Errors: " . implode(', ', $errors);
+        }
+        
+        session()->flash('message', $message);
+
+        ActivityLogs::create([
+            'user_id' => Auth::id(),
+            'action_type' => 'create_product',
+            'description' => "Created {$successCount} new product(s)",
+            'entity_type' => 'product_creation',
+            'metadata' => json_encode(['products' => $validProducts]),
+            'entity_id' => null
+        ]);
+    } else {
+        foreach ($errors as $error) {
+            $this->addError('newProducts', $error);
+        }
+    }
+}
+
+private function validateProducts()
+{
+    // Validate structure first
+    $this->validate();
+    
+    // Then check for duplicates within the form
+    $names = [];
+    $skus = [];
+    $barcodes = [];
+    $hasErrors = false;
+
+    foreach ($this->newProducts as $index => $product) {
+        if (!empty($product['name'])) {
+            if (in_array(strtolower($product['name']), $names)) {
+                $this->addError("newProducts.{$index}.name", 'Duplicate product name in form');
+                $hasErrors = true;
+            }
+            $names[] = strtolower($product['name']);
+        }
+
+        if (!empty($product['sku'])) {
+            if (in_array($product['sku'], $skus)) {
+                $this->addError("newProducts.{$index}.sku", 'Duplicate SKU in form');
+                $hasErrors = true;
+            }
+            $skus[] = $product['sku'];
+        }
+
+        if (!empty($product['barcode'])) {
+            if (in_array($product['barcode'], $barcodes)) {
+                $this->addError("newProducts.{$index}.barcode", 'Duplicate barcode in form');
+                $hasErrors = true;
+            }
+            $barcodes[] = $product['barcode'];
+        }
+    }
+
+    return !$hasErrors;
+}
     public function updatingSearchTerm()
     {
         $this->resetPage();
@@ -188,43 +376,7 @@ class Products extends Component
         ];
     }
 
-    // public function exportProducts()
-    // {
-    //     $filePath = storage_path('app/products_export_'.now()->format('Y-m-d_His').'.csv');
 
-    //     $header = [
-    //         'name',
-    //         'category_id',
-    //         'sku',
-    //         'stock_limit',
-    //         'barcode',
-    //         'selling_price',
-    //         'units_per_box',
-    //         'is_active',
-    //     ];
-
-    //     $file = fopen($filePath, 'w');
-    //     fputcsv($file, $header);
-
-    //     // Export existing products (optional - remove if you only want template)
-    //     $products = Product::with('category')->get();
-    //     foreach ($products as $product) {
-    //         fputcsv($file, [
-    //             $product->name,
-    //             $product->category->name,
-    //             $product->sku ?? '',
-    //             $product->stock_limit ?? '',
-    //             $product->barcode ?? '',
-    //             $product->selling_price,
-    //             $product->units_per_box ?? '',
-    //             $product->is_active ? '1' : '0',
-    //         ]);
-    //     }
-
-    //     fclose($file);
-
-    //     return response()->download($filePath)->deleteFileAfterSend(true);
-    // }
 
     public function exportTemplate()
     {
@@ -407,6 +559,8 @@ class Products extends Component
             )
             )
             ->orderBy('name');
+
+            Log::debug('Filtered products query: '.$query->toSql());
 
         return $query->paginate(10);
     }
