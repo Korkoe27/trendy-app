@@ -78,6 +78,35 @@
             );
         }
 
+
+        public function formatUserFriendlyDescription($log)
+{
+    $descriptions = [
+        'user_login' => "{$log->user->name} logged into the system",
+        'user_logout' => "{$log->user->name} logged out of the system",
+        'user_create' => "New user account created: {$this->getEntityName($log)}",
+        'user_update' => "User account updated: {$this->getEntityName($log)}",
+        'user_delete' => "User account removed: {$this->getEntityName($log)}",
+        'product_create' => "New product added: {$this->getEntityName($log)}",
+        'product_update' => "Product details updated: {$this->getEntityName($log)}",
+        'product_delete' => "Product removed: {$this->getEntityName($log)}",
+        'stock_update' => "Stock levels adjusted for {$this->getEntityName($log)}",
+        'stock_taking' => "Stock count performed for {$this->getEntityName($log)}",
+        'daily_sales_record' => "Daily sales recorded by {$log->user->name}",
+    ];
+
+    return $descriptions[$log->action_type] ?? $log->description;
+}
+
+private function getEntityName($log)
+{
+    // Extract entity name from metadata if available
+    if ($log->metadata) {
+        $metadata = is_string($log->metadata) ? json_decode($log->metadata, true) : $log->metadata;
+        return $metadata['name'] ?? $metadata['title'] ?? "ID: {$log->entity_id}";
+    }
+    return $log->entity_id ? "ID: {$log->entity_id}" : 'system';
+}
         public function getFilteredLogsProperty()
         {
             $query = ActivityLogs::with('user')

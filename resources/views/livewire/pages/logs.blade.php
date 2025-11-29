@@ -137,7 +137,7 @@
                         <th class="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
                         <th class="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
                         <th class="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Entity</th>
-                        <th class="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Timestamp</th>
+                        <th class="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Performed On</th>
                         <th class="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                     </tr>
                 </thead>
@@ -195,10 +195,12 @@
                                 </div>
                             </td>
                             <td class="px-4 md:px-6 py-4">
-                                <div class="text-sm text-gray-900 max-w-xs">
-                                    <div class="truncate" title="{{ $log->description }}">{{ $log->description }}</div>
-                                </div>
-                            </td>
+    <div class="text-sm text-gray-900 max-w-xs">
+        <div class="truncate" title="{{ $this->formatUserFriendlyDescription($log) }}">
+            {{ $this->formatUserFriendlyDescription($log) }}
+        </div>
+    </div>
+</td>
                             <td class="px-4 md:px-6 py-4 whitespace-nowrap">
                                 <div class="text-sm text-gray-900">
                                     <div class="font-medium">{{ ucfirst(str_replace('_', ' ', $log->entity_type)) }}</div>
@@ -384,13 +386,13 @@
 
                         <div class="space-y-4">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Timestamp</label>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Performed on</label>
                                 <div class="text-sm text-gray-900">
                                     <div class="flex items-center mb-1">
                                         <svg class="w-4 h-4 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
                                         </svg>
-                                                                                <span>{{ $selectedLog->created_at->format('M d, Y') }}</span>
+                                                                                <span>{{ $selectedLog->created_at->format('l, F j, Y') }}</span>
                                     </div>
                                     <div class="text-xs text-gray-500 ml-6">
                                         {{ $selectedLog->created_at->format('h:i:s A') }}
@@ -399,22 +401,22 @@
                             </div>
 
                             @if($selectedLog->description)
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
-                                    <div class="text-sm text-gray-900 bg-gray-50 border border-gray-200 rounded-md p-3">
-                                        {{ $selectedLog->description }}
-                                    </div>
-                                </div>
-                            @endif
+    <div>
+        <label class="block text-sm font-medium text-gray-700 mb-2">Activity Summary</label>
+        <div class="text-sm text-gray-900 bg-gray-50 border border-gray-200 rounded-md p-3">
+            {{ $this->formatUserFriendlyDescription($selectedLog) }}
+        </div>
+    </div>
+@endif
 
-                            @if($selectedLog->metadata)
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 mb-2">Metadata</label>
-                                    <div class="bg-gray-50 border border-gray-200 rounded-md p-3 text-sm text-gray-900 overflow-x-auto">
-                                        <pre class="whitespace-pre-wrap break-words">{{ json_encode(json_decode($selectedLog->metadata, true), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
-                                    </div>
-                                </div>
-                            @endif
+@if($selectedLog->metadata)
+    <div>
+        <label class="block text-sm font-medium text-gray-700 mb-2">Metadata</label>
+        <div class="bg-gray-50 border border-gray-200 rounded-md p-3 text-sm text-gray-900 overflow-x-auto">
+            <pre class="whitespace-pre-wrap break-words">{{ is_string($selectedLog->metadata) ? json_encode(json_decode($selectedLog->metadata, true), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) : json_encode($selectedLog->metadata, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
+        </div>
+    </div>
+@endif
                         </div>
                     </div>
 
