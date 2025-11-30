@@ -107,45 +107,45 @@ private function getEntityName($log)
     }
     return $log->entity_id ? "ID: {$log->entity_id}" : 'system';
 }
-        public function getFilteredLogsProperty()
-        {
-            $query = ActivityLogs::with('user')
-                ->when($this->searchTerm, function($q) {
-                    $q->where(function($query) {
-                        $query->where('description', 'like', '%' . $this->searchTerm . '%')
-                            ->orWhere('action_type', 'like', '%' . $this->searchTerm . '%')
-                            ->orWhereHas('user', function($userQuery) {
-                                $userQuery->where('name', 'like', '%' . $this->searchTerm . '%');
-                            });
+public function getFilteredLogsProperty()
+{
+    $query = ActivityLogs::with('user')
+        ->when($this->searchTerm, function($q) {
+            $q->where(function($query) {
+                $query->where('description', 'like', '%' . $this->searchTerm . '%')
+                    ->orWhere('action_type', 'like', '%' . $this->searchTerm . '%')
+                    ->orWhereHas('user', function($userQuery) {
+                        $userQuery->where('name', 'like', '%' . $this->searchTerm . '%');
                     });
-                })
-                ->when($this->selectedActionType !== 'all', function($q) {
-                    $q->where('action_type', $this->selectedActionType);
-                })
-                ->when($this->selectedEntityType !== 'all', function($q) {
-                    $q->where('entity_type', $this->selectedEntityType);
-                })
-                ->when($this->selectedUser !== 'all', function($q) {
-                    $q->where('user_id', $this->selectedUser);
-                })
-                ->when($this->dateRange !== 'all', function($q) {
-                    switch($this->dateRange) {
-                        case 'today':
-                            $q->whereDate('created_at', Carbon::today());
-                            break;
-                        case 'week':
-                            $q->whereBetween('created_at', [Carbon::now()->startOfWeek(), Carbon::now()->endOfWeek()]);
-                            break;
-                        case 'month':
-                            $q->whereMonth('created_at', Carbon::now()->month)
-                            ->whereYear('created_at', Carbon::now()->year);
-                            break;
-                    }
-                })
-                ->orderBy('created_at', 'desc');
+            });
+        })
+        ->when($this->selectedActionType !== 'all', function($q) {
+            $q->where('action_type', $this->selectedActionType);
+        })
+        ->when($this->selectedEntityType !== 'all', function($q) {
+            $q->where('entity_type', $this->selectedEntityType);
+        })
+        ->when($this->selectedUser !== 'all', function($q) {
+            $q->where('user_id', $this->selectedUser);
+        })
+        ->when($this->dateRange !== 'all' && $this->dateRange !== null, function($q) {
+            switch($this->dateRange) {
+                case 'today':
+                    $q->whereDate('created_at', Carbon::today());
+                    break;
+                case 'week':
+                    $q->whereBetween('created_at', [Carbon::now()->startOfWeek(), Carbon::now()->endOfWeek()]);
+                    break;
+                case 'month':
+                    $q->whereMonth('created_at', Carbon::now()->month)
+                      ->whereYear('created_at', Carbon::now()->year);
+                    break;
+            }
+        })
+        ->orderBy('created_at', 'desc');
 
-            return $query->paginate($this->perPage);
-        }
+    return $query->paginate($this->perPage);
+}
 
         public function getTotalActivitiesProperty()
         {
