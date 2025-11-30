@@ -15,7 +15,7 @@
         public $selectedActionType = 'all';
         public $selectedEntityType = 'all';
         public $selectedUser = 'all';
-        public $dateRange = 'today';
+        public $dateRange = 'all';
         public $showDetailsModal = false;
         public $selectedLog = null;
         public $perPage = 15;
@@ -25,7 +25,7 @@
             'selectedActionType' => ['except' => 'all'],
             'selectedEntityType' => ['except' => 'all'],
             'selectedUser' => ['except' => 'all'],
-            'dateRange' => ['except' => 'today'],
+            'dateRange' => ['except' => 'all'],
         ];
 
         public function mount()
