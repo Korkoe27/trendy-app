@@ -28,6 +28,10 @@ class Inventory extends Component
 
     public $allStocks;
 
+    // public $errors = [];
+public $dateError = null;
+public $stockErrors = [];
+
     private $productStockMap = [];
 
     public $isEditing = false;
@@ -128,6 +132,42 @@ class Inventory extends Component
             session()->flash('error', 'Sales date cannot be in the future');
         }
     }
+
+    protected function validateStockInputs()
+{
+    $this->stockErrors = [];
+    $hasErrors = false;
+
+    foreach ($this->productStocks as $productId => $stockData) {
+        $product = $this->allProducts[$productId] ?? null;
+        if (!$product) continue;
+
+        $closingUnits = (float) ($stockData['closing_units'] ?? 0);
+        
+        // Check if closing units is empty
+        if (!filled($stockData['closing_units'])) {
+            $this->stockErrors[$productId] = 'Please enter closing stock';
+            $hasErrors = true;
+            continue;
+        }
+
+        // Get opening stock based on edit mode
+        if ($this->isEditing && isset($stockData['original_opening_stock'])) {
+            $openingStock = $stockData['original_opening_stock'];
+        } else {
+            $currentStock = $this->allStocks[$productId] ?? null;
+            $openingStock = $currentStock ? $currentStock->total_units : 0;
+        }
+
+        // Check if closing stock is greater than opening stock
+        if ($closingUnits > $openingStock) {
+            $this->stockErrors[$productId] = "Closing stock ({$closingUnits}) cannot exceed opening stock ({$openingStock})";
+            $hasErrors = true;
+        }
+    }
+
+    return !$hasErrors;
+}
 
     public function updatedHubtelAmount($value)
     {
@@ -251,12 +291,17 @@ class Inventory extends Component
 
     public function updateInventory()
     {
+
+
+    $this->dateError = null;
+    $this->stockErrors = [];
         if (! $this->isEditing || ! $this->editingRecordId) {
             session()->flash('error', 'Invalid edit operation');
 
             return;
         }
 
+        $this->stockErrors = [];
         // Validate based on user role
         if (Auth::user()) {
             $this->validate([
@@ -267,6 +312,11 @@ class Inventory extends Component
                 'onTheHouse' => 'required|numeric|min:0',
             ]);
         }
+
+            if (!$this->validateStockInputs()) {
+        session()->flash('error', 'Please correct the stock errors below before updating.');
+        return;
+    }
 
         DB::transaction(function () {
             $summary = DailySalesSummary::find($this->editingRecordId);
@@ -600,6 +650,8 @@ class Inventory extends Component
 
 
         Log::debug('submitting inventory');
+          $this->dateError = null;
+    $this->stockErrors = [];
         $this->validate([
             'cashAmount' => 'required|numeric|min:0',
             'momoAmount' => 'required|numeric|min:0',
@@ -627,6 +679,10 @@ class Inventory extends Component
             return;
         }
 
+            if (!$this->validateStockInputs()) {
+        session()->flash('error', 'Please correct the stock errors below before submitting.');
+        return;
+    }
         // Log::debug('checked for existing record');
         DB::transaction(function () {
             $recordDate = $this->salesDate ?: now()->format('Y-m-d');

@@ -14,31 +14,56 @@
                 <p class="text-base text-gray-600 mt-1">Manage your pub's product inventory</p>
             </div>
             @haspermission('create','products')
-                <div class="flex gap-2">
-                    
-                    <button wire:click="showCreateProductModal" 
-                    class="bg-gradient-to-b text-white from-[#2b2b2b] to-black px-4 py-2 rounded-xl">
-                    New Products
-                </button>
-                    <button wire:click="exportTemplate"
-                        class="bg-green-600 text-white px-4 py-2 rounded-xl hover:bg-green-700">
-                        Download Template
-                    </button>
+<div class="flex flex-wrap gap-3 items-center p-4 bg-gradient-to-r from-gray-50 to-gray-100/50 rounded-2xl shadow-sm border border-gray-200/50">
+    <!-- New Products Button (Primary CTA) -->
+    <button 
+        wire:click="showCreateProductModal"
+        class="group relative flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-5 py-3 rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all duration-200 shadow-md hover:shadow-lg hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 font-medium"
+    >
+        <div class="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 rounded-xl transition-opacity duration-200"></div>
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+        </svg>
+        <span class="relative">New Product</span>
+    </button>
 
-                    <button wire:click="$set('showImportModal', true)"
-                        class="bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700">
-                        Import Products
-                    </button>
+    <!-- Template Button (Secondary) -->
+    <button 
+        wire:click="exportTemplate"
+        class="group relative flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-teal-600 text-white px-5 py-3 rounded-xl hover:from-emerald-600 hover:to-teal-700 transition-all duration-200 shadow hover:shadow-md font-medium"
+    >
+        <div class="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 rounded-xl transition-opacity duration-200"></div>
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+        <span class="relative">Download Template</span>
+    </button>
 
-                    <button wire:click="$set('showExportModal', true)"
-                        class="bg-gray-600 flex items-center gap-2 text-white px-4 py-2 rounded-xl hover:bg-gray-700">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
-  <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" />
-</svg>
+    <!-- Import Button (Secondary) -->
+    <button 
+        wire:click="$set('showImportModal', true)"
+        class="group relative flex items-center gap-2 bg-gradient-to-r from-blue-500 to-cyan-600 text-white px-5 py-3 rounded-xl hover:from-blue-600 hover:to-cyan-700 transition-all duration-200 shadow hover:shadow-md font-medium"
+    >
+        <div class="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 rounded-xl transition-opacity duration-200"></div>
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+        </svg>
+        <span class="relative">Import Products</span>
+    </button>
 
-                        <span>Export Products</span>
-                    </button>
-                </div>
+    <!-- Export Button (Secondary) -->
+    <button 
+        wire:click="$set('showExportModal', true)"
+        class="group relative flex items-center gap-2 bg-gradient-to-r from-slate-600 to-gray-700 text-white px-5 py-3 rounded-xl hover:from-slate-700 hover:to-gray-800 transition-all duration-200 shadow hover:shadow-md font-medium"
+    >
+        <div class="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 rounded-xl transition-opacity duration-200"></div>
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
+        </svg>
+        <span class="relative">Export Products</span>
+    </button>
+
+</div>
             @endhaspermission
         </div>
 

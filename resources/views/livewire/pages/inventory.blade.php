@@ -197,6 +197,22 @@
                                     date</p>
                             </div>
                         @endif
+                        {{-- @if ($dateError)
+                            <div class="mb-4 bg-red-50 border border-red-200 rounded-lg p-4">
+                                <div class="flex">
+                                    <div class="flex-shrink-0">
+                                        <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fill-rule="evenodd"
+                                                d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                                                clip-rule="evenodd" />
+                                        </svg>
+                                    </div>
+                                    <div class="ml-3">
+                                        <p class="text-sm font-medium text-red-800">{{ $dateError }}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        @endif --}}
                         <button wire:click="closeTakeInventoryModal" class="text-gray-400 hover:text-gray-600">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -206,7 +222,20 @@
                     </div>
 
                 </div>
-
+                            @if ($dateError)
+                <div class="mb-4 bg-red-50 border border-red-200 rounded-lg p-4">
+                    <div class="flex">
+                        <div class="flex-shrink-0">
+                            <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                            </svg>
+                        </div>
+                        <div class="ml-3">
+                            <p class="text-sm font-medium text-red-800">{{ $dateError }}</p>
+                        </div>
+                    </div>
+                </div>
+            @endif
                 {{-- Stepper --}}
                 <div class="mb-8">
                     <div class="flex items-center justify-between">
@@ -442,122 +471,131 @@
                                 @enderror
                             </div>
                         </div>
-@elseif($currentStep == 6)
-    <div wire:key="stock-step" class="space-y-4">
-        <div class="text-center mb-6">
-            <svg class="w-12 h-12 text-orange-600 mx-auto mb-2" fill="none"
-                stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
-            </svg>
-            <h3 class="text-lg font-semibold text-gray-900">Stock Count</h3>
-            <p class="text-sm text-gray-600">Enter the remaining stock for each product</p>
-        </div>
+                    @elseif($currentStep == 6)
+                        <div wire:key="stock-step" class="space-y-4">
+                            <div class="text-center mb-6">
+                                <svg class="w-12 h-12 text-orange-600 mx-auto mb-2" fill="none"
+                                    stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+                                </svg>
+                                <h3 class="text-lg font-semibold text-gray-900">Stock Count</h3>
+                                <p class="text-sm text-gray-600">Enter the remaining stock for each product</p>
+                            </div>
 
-        <div class="max-h-96 overflow-y-auto">
-            <div class="space-y-4">
-                @foreach ($products as $product)
-                    @php
-                        // Get product stock data
-                        $stockData = $productStocks[$product->id] ?? null;
-                        
-                        if ($isEditing && $stockData) {
-                            // In edit mode, use original opening stock
-                            $displayStock = $stockData['original_opening_stock'] ?? 0;
-                        } else {
-                            // In create mode, use current stock
-                            $currentStock = $product->stocks;
-                            $displayStock = $currentStock->total_units ?? 0;
-                        }
-                        
-                        $displayBoxes = $product->units_per_box > 0 
-                            ? round($displayStock / $product->units_per_box, 1) 
-                            : 0;
-                    @endphp
-                    
-                    <div class="border border-gray-200 rounded-lg p-4">
-                        <div class="flex items-center justify-between mb-3">
-                            <div>
-                                <h4 class="font-medium uppercase text-gray-900">
-                                    {{ $product->name }}</h4>
-                            </div>
-                            <div class="text-right text-sm text-gray-600">
-                                @if ($isEditing)
-                                    <div>Opening Stock: {{ $displayStock }} units</div>
-                                    <div>Boxes: {{ $displayBoxes }}</div>
-                                @else
-                                    <div>Current: {{ $displayStock }} units</div>
-                                    <div>Boxes: {{ $displayBoxes }}</div>
-                                @endif
-                            </div>
-                        </div>
-                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                            <div>
-                                <label class="block text-xs font-medium text-gray-700 mb-1">
-                                    Closing Units
-                                    @if ($isEditing && $stockData)
+                            <div class="max-h-96 overflow-y-auto">
+                                <div class="space-y-4">
+                                    @foreach ($products as $product)
                                         @php
-                                            $originalProduct = collect(
-                                                $editingOriginalRecord['products'] ?? [],
-                                            )->firstWhere('product_name', $product->name);
-                                            
-                                            $originalClosingUnits = $originalProduct
-                                                ? $originalProduct->closing_stock
-                                                : null;
+                                            // Get product stock data
+                                            $stockData = $productStocks[$product->id] ?? null;
+
+                                            if ($isEditing && $stockData) {
+                                                // In edit mode, use original opening stock
+                                                $displayStock = $stockData['original_opening_stock'] ?? 0;
+                                            } else {
+                                                // In create mode, use current stock
+                                                $currentStock = $product->stocks;
+                                                $displayStock = $currentStock->total_units ?? 0;
+                                            }
+
+                                            $displayBoxes =
+                                                $product->units_per_box > 0
+                                                    ? round($displayStock / $product->units_per_box, 1)
+                                                    : 0;
                                         @endphp
-                                        @if ($originalClosingUnits !== null)
-                                            <span class="text-xs text-blue-600 font-normal">(was: 
-                                                {{ number_format($originalClosingUnits, 0) }})</span>
-                                        @endif
-                                    @endif
-                                </label>
-                                <input type="text" pattern="[0-9]*" required
-                                    oninput="this.value = this.value.replace(/[^0-9]/g, '');"
-                                    wire:model="productStocks.{{ $product->id }}.closing_units"
-                                    placeholder="0"
-                                    class="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
-                            </div>
-                            <div>
-                                <label class="block text-xs font-medium text-gray-700 mb-1">
-                                    Damaged Units
-                                    @if ($isEditing && $stockData && filled($stockData['damaged_units']))
-                                        <span class="text-xs text-red-600 font-normal">(was: 
-                                            {{ $stockData['damaged_units'] }})</span>
-                                    @endif
-                                </label>
-                                <input type="text" pattern="[0-9]*"
-                                    oninput="this.value = this.value.replace(/[^0-9]/g, '');"
-                                    wire:model="productStocks.{{ $product->id }}.damaged_units"
-                                    placeholder="0"
-                                    class="w-full px-3 py-2 text-sm border border-red-300 rounded-md focus:ring-2 focus:ring-red-500 focus:border-transparent" />
-                            </div>
-                            <div>
-                                <label class="block text-xs font-medium text-gray-700 mb-1">
-                                    Credit Units
-                                    @if ($isEditing && $stockData && filled($stockData['credit_units']))
-                                        <span class="text-xs text-yellow-600 font-normal">(was: 
-                                            {{ $stockData['credit_units'] }})</span>
-                                    @endif
-                                </label>
-                                <input type="text" pattern="[0-9]*"
-                                    oninput="this.value = this.value.replace(/[^0-9]/g, '');"
-                                    wire:model="productStocks.{{ $product->id }}.credit_units"
-                                    placeholder="0"
-                                    class="w-full px-3 py-2 text-sm border border-yellow-300 rounded-md focus:ring-2 focus:ring-yellow-500 focus:border-transparent" />
-                            </div>
-                            <div>
-                                <label class="block text-xs font-medium text-gray-700 mb-1">Expected Revenue</label>
-                                <div class="w-full px-3 py-2 text-sm bg-green-50 border border-green-200 rounded-md text-green-700 font-medium">
-                                    GH₵ {{ number_format($this->calculateExpectedRevenue($product->id), 2) }}
+
+                                        <div class="border border-gray-200 rounded-lg p-4">
+                                            <div class="flex items-center justify-between mb-3">
+                                                <div>
+                                                    <h4 class="font-medium uppercase text-gray-900">
+                                                        {{ $product->name }}</h4>
+                                                </div>
+                                                <div class="text-right text-sm text-gray-600">
+                                                    @if ($isEditing)
+                                                        <div>Opening Stock: {{ $displayStock }} units</div>
+                                                        <div>Boxes: {{ $displayBoxes }}</div>
+                                                    @else
+                                                        <div>Current: {{ $displayStock }} units</div>
+                                                        <div>Boxes: {{ $displayBoxes }}</div>
+                                                    @endif
+                                                </div>
+                                            </div>
+                                            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                                <div>
+                                                    <label class="block text-xs font-medium text-gray-700 mb-1">
+                                                        Closing Units
+                                                        @if ($isEditing && $stockData)
+                                                            @php
+                                                                $originalProduct = collect(
+                                                                    $editingOriginalRecord['products'] ?? [],
+                                                                )->firstWhere('product_name', $product->name);
+
+                                                                $originalClosingUnits = $originalProduct
+                                                                    ? $originalProduct->closing_stock
+                                                                    : null;
+                                                            @endphp
+                                                            @if ($originalClosingUnits !== null)
+                                                                <span class="text-xs text-blue-600 font-normal">(was:
+                                                                    {{ number_format($originalClosingUnits, 0) }})</span>
+                                                            @endif
+                                                        @endif
+                                                    </label>
+                                                    <input type="text" pattern="[0-9]*" required
+                                                        oninput="this.value = this.value.replace(/[^0-9]/g, '');"
+                                                        wire:model="productStocks.{{ $product->id }}.closing_units"
+                                                        placeholder="0"
+                                                        class="w-full px-3 py-2 text-sm border {{ isset($stockErrors[$product->id]) ? 'border-red-500' : 'border-gray-300' }} rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                                                    @if (isset($stockErrors[$product->id]))
+                                                        <p class="mt-1 text-xs text-red-600">
+                                                            {{ $stockErrors[$product->id] }}</p>
+                                                    @endif
+                                                </div>
+                                                <div>
+                                                    <label class="block text-xs font-medium text-gray-700 mb-1">
+                                                        Damaged Units
+                                                        @if ($isEditing && $stockData && filled($stockData['damaged_units']))
+                                                            <span class="text-xs text-red-600 font-normal">(was:
+                                                                {{ $stockData['damaged_units'] }})</span>
+                                                        @endif
+                                                    </label>
+                                                    <input type="text" pattern="[0-9]*"
+                                                        oninput="this.value = this.value.replace(/[^0-9]/g, '');"
+                                                        wire:model="productStocks.{{ $product->id }}.damaged_units"
+                                                        placeholder="0"
+                                                        class="w-full px-3 py-2 text-sm border border-red-300 rounded-md focus:ring-2 focus:ring-red-500 focus:border-transparent" />
+                                                </div>
+                                                <div>
+                                                    <label class="block text-xs font-medium text-gray-700 mb-1">
+                                                        Credit Units
+                                                        @if ($isEditing && $stockData && filled($stockData['credit_units']))
+                                                            <span class="text-xs text-yellow-600 font-normal">(was:
+                                                                {{ $stockData['credit_units'] }})</span>
+                                                        @endif
+                                                    </label>
+                                                    <input type="text" pattern="[0-9]*"
+                                                        oninput="this.value = this.value.replace(/[^0-9]/g, '');"
+                                                        wire:model="productStocks.{{ $product->id }}.credit_units"
+                                                        placeholder="0"
+                                                        class="w-full px-3 py-2 text-sm border border-yellow-300 rounded-md focus:ring-2 focus:ring-yellow-500 focus:border-transparent" />
+                                                </div>
+                                                <div>
+                                                    <label
+                                                        class="block text-xs font-medium text-gray-700 mb-1">Expected
+                                                        Revenue</label>
+                                                    <div
+                                                        class="w-full px-3 py-2 text-sm bg-green-50 border border-green-200 rounded-md text-green-700 font-medium">
+                                                        GH₵
+                                                        {{ number_format($this->calculateExpectedRevenue($product->id), 2) }}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    @endforeach
                                 </div>
                             </div>
                         </div>
-                    </div>
-                @endforeach
-            </div>
-        </div>
-    </div>
-@endif
+                    @endif
                 </div>
 
                 {{-- Modal Footer --}}
