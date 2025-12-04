@@ -295,8 +295,8 @@ public $stockErrors = [];
 
 
         Log::debug('updating inventory');
-        $this->dateError = null;
-        $this->stockErrors = [];
+        // $this->dateError = null;
+        // $this->stockErrors = [];
         if (! $this->isEditing || ! $this->editingRecordId) {
             session()->flash('error', 'Invalid edit operation');
             
@@ -321,10 +321,10 @@ if (Auth::user()) {
 }
         Log::debug('updating inventory2');
         
-        if (!$this->validateStockInputs()) {
-            session()->flash('error', 'Please correct the stock errors below before updating.');
-            return;
-        }
+        // if (!$this->validateStockInputs()) {
+        //     session()->flash('error', 'Please correct the stock errors below before updating.');
+        //     return;
+        // }
         
         Log::debug('updating inventory3');
         DB::transaction(function () {
