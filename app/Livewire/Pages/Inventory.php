@@ -304,17 +304,21 @@ public $stockErrors = [];
         }
         Log::debug('updating inventory1');
         
-        $this->stockErrors = [];
         // Validate based on user role
-        if (Auth::user()) {
-            $this->validate([
-                'cashAmount' => 'required|numeric|min:0',
-                'momoAmount' => 'required|numeric|min:0',
-                'hubtelAmount' => 'required|numeric|min:0',
-                'foodTotal' => 'required|numeric|min:0',
-                'onTheHouse' => 'required|numeric|min:0',
-            ]);
-        }
+if (Auth::user()) {
+    try {
+        $this->validate([
+            'cashAmount' => 'required|numeric|min:0',
+            'momoAmount' => 'required|numeric|min:0',
+            'hubtelAmount' => 'required|numeric|min:0',
+            'foodTotal' => 'required|numeric|min:0',
+            'onTheHouse' => 'required|numeric|min:0',
+        ]);
+    } catch (\Illuminate\Validation\ValidationException $e) {
+        Log::debug('Validation failed', $e->errors());
+        throw $e; // Re-throw to show errors to user
+    }
+}
         Log::debug('updating inventory2');
         
         if (!$this->validateStockInputs()) {
