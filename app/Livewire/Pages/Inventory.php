@@ -295,14 +295,15 @@ public $stockErrors = [];
 
 
         Log::debug('updating inventory');
-    $this->dateError = null;
-    $this->stockErrors = [];
+        $this->dateError = null;
+        $this->stockErrors = [];
         if (! $this->isEditing || ! $this->editingRecordId) {
             session()->flash('error', 'Invalid edit operation');
-
+            
             return;
         }
-
+        Log::debug('updating inventory1');
+        
         $this->stockErrors = [];
         // Validate based on user role
         if (Auth::user()) {
@@ -314,14 +315,17 @@ public $stockErrors = [];
                 'onTheHouse' => 'required|numeric|min:0',
             ]);
         }
-
-            if (!$this->validateStockInputs()) {
-        session()->flash('error', 'Please correct the stock errors below before updating.');
-        return;
-    }
-
+        Log::debug('updating inventory2');
+        
+        if (!$this->validateStockInputs()) {
+            session()->flash('error', 'Please correct the stock errors below before updating.');
+            return;
+        }
+        
+        Log::debug('updating inventory3');
         DB::transaction(function () {
             $summary = DailySalesSummary::find($this->editingRecordId);
+            Log::debug('updating inventory4 started transaction');
 
             if (! $summary) {
                 throw new \Exception('Summary record not found');
