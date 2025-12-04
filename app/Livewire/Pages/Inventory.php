@@ -293,6 +293,8 @@ public $stockErrors = [];
     {
 
 
+
+        Log::debug('updating inventory');
     $this->dateError = null;
     $this->stockErrors = [];
         if (! $this->isEditing || ! $this->editingRecordId) {
