@@ -2,10 +2,16 @@
 
 namespace App\Livewire\Pages;
 
-use App\Models\{ActivityLogs,Categories,Product,Stock};
-use Illuminate\Support\Facades\{Auth,Log};
+use App\Models\ActivityLogs;
+use App\Models\Categories;
+use App\Models\Product;
+use App\Models\Stock;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Livewire\Component;
-use Livewire\{WithFileUploads,WithPagination,WithoutUrlPagination};
+use Livewire\WithFileUploads;
+use Livewire\WithoutUrlPagination;
+use Livewire\WithPagination;
 
 class Products extends Component
 {
@@ -18,6 +24,7 @@ class Products extends Component
     public $searchTerm = '';
 
     public $showCreateModal = false;
+
     public $newProducts = [];
 
     public $importFile;
@@ -35,6 +42,7 @@ class Products extends Component
     public $barcode = '';
 
     public $selling_price = '';
+
     public $units_per_box = '';
 
     public $stock_limit = '';
@@ -51,21 +59,20 @@ class Products extends Component
 
     protected $queryString = ['searchTerm', 'selectedCategory'];
 
-protected function rules()
-{
-    return [
-        'newProducts.*.name' => 'required|string|max:255',
-        'newProducts.*.category_id' => 'required|exists:categories,id',
-        'newProducts.*.sku' => 'nullable|string|max:255',
-        'newProducts.*.barcode' => 'nullable|string|max:255',
-        'newProducts.*.stock_limit' => 'nullable|integer|min:0',
-        'newProducts.*.selling_price' => 'required|numeric|min:0',
-        'newProducts.*.units_per_box' => 'nullable|numeric|min:0',
-    ];
-}
+    protected function rules()
+    {
+        return [
+            'newProducts.*.name' => 'required|string|max:255',
+            'newProducts.*.category_id' => 'required|exists:categories,id',
+            'newProducts.*.sku' => 'nullable|string|max:255',
+            'newProducts.*.barcode' => 'nullable|string|max:255',
+            'newProducts.*.stock_limit' => 'nullable|integer|min:0',
+            'newProducts.*.selling_price' => 'required|numeric|min:0',
+            'newProducts.*.units_per_box' => 'nullable|numeric|min:0',
+        ];
+    }
 
-
-        protected array $messages = [
+    protected array $messages = [
         'newProducts.*.name.required' => 'Product name is required',
         'newProducts.*.name.unique' => 'Product name must be unique',
         'newProducts.*.category_id.required' => 'Category selection is required',
@@ -77,7 +84,6 @@ protected function rules()
         'newProducts.*.units_per_box.numeric' => 'Units per box must be a valid number',
     ];
 
-
     public $exportFilters = [
         'category_id' => 'all',
         'price_min' => '',
@@ -86,13 +92,13 @@ protected function rules()
         'is_active' => 'all',
     ];
 
-// Add these methods to your Products class
+    // Add these methods to your Products class
 
-public function showCreateProductModal()
-{
-    $this->showCreateModal = true;
-    $this->resetNewProductForm();
-}
+    public function showCreateProductModal()
+    {
+        $this->showCreateModal = true;
+        $this->resetNewProductForm();
+    }
 
     public function resetProductForm()
     {
@@ -108,158 +114,162 @@ public function showCreateProductModal()
 
         $this->resetErrorBag();
     }
-public function closeCreateModal()
-{
-    $this->showCreateModal = false;
-    $this->resetNewProductForm();
-}
 
-public function resetNewProductForm()
-{
-    $this->newProducts = [[
-        'name' => '',
-        'category_id' => '',
-        'sku' => '',
-        'barcode' => '',
-        'stock_limit' => '',
-        'selling_price' => '',
-        'units_per_box' => '',
-    ]];
-    $this->resetErrorBag();
-}
-
-public function addProductRow()
-{
-    $this->newProducts[] = [
-        'name' => '',
-        'category_id' => '',
-        'sku' => '',
-        'barcode' => '',
-        'stock_limit' => '',
-        'selling_price' => '',
-        'units_per_box' => '',
-    ];
-}
-
-public function removeProductRow($index)
-{
-    if (count($this->newProducts) > 1) {
-        unset($this->newProducts[$index]);
-        $this->newProducts = array_values($this->newProducts);
+    public function closeCreateModal()
+    {
+        $this->showCreateModal = false;
+        $this->resetNewProductForm();
     }
-}
 
-public function saveNewProducts()
-{
+    public function resetNewProductForm()
+    {
+        $this->newProducts = [[
+            'name' => '',
+            'category_id' => '',
+            'sku' => '',
+            'barcode' => '',
+            'stock_limit' => '',
+            'selling_price' => '',
+            'units_per_box' => '',
+        ]];
+        $this->resetErrorBag();
+    }
 
-// dd('Method called!', $this->newProducts);
-        if (!$this->validateProducts()) {
+    public function addProductRow()
+    {
+        $this->newProducts[] = [
+            'name' => '',
+            'category_id' => '',
+            'sku' => '',
+            'barcode' => '',
+            'stock_limit' => '',
+            'selling_price' => '',
+            'units_per_box' => '',
+        ];
+    }
+
+    public function removeProductRow($index)
+    {
+        if (count($this->newProducts) > 1) {
+            unset($this->newProducts[$index]);
+            $this->newProducts = array_values($this->newProducts);
+        }
+    }
+
+    public function saveNewProducts()
+    {
+
+        // dd('Method called!', $this->newProducts);
+        if (! $this->validateProducts()) {
             dd('Validation failed');
-             return; // Stop if validation fails
-    }
 
-    Log::debug('Validated');
+            return; // Stop if validation fails
+        }
 
-    $validProducts = array_filter($this->newProducts, function ($product) {
-        return !empty($product['name']) &&
-            !empty($product['category_id']) &&
-            !empty($product['selling_price']);
-    });
+        Log::debug('Validated');
 
-    if (empty($validProducts)) {
-        $this->addError('newProducts', 'At least one complete product is required');
-        return;
-    }
+        $validProducts = array_filter($this->newProducts, function ($product) {
+            return ! empty($product['name']) &&
+                ! empty($product['category_id']) &&
+                ! empty($product['selling_price']);
+        });
 
-    $successCount = 0;
-    $errors = [];
+        if (empty($validProducts)) {
+            $this->addError('newProducts', 'At least one complete product is required');
 
-    foreach ($validProducts as $index => $productData) {
-        try {
-            foreach ($productData as $key => $value) {
-                if (is_string($value)) {
-                    $productData[$key] = strtolower($value);
+            return;
+        }
+
+        $successCount = 0;
+        $errors = [];
+
+        foreach ($validProducts as $index => $productData) {
+            try {
+                foreach ($productData as $key => $value) {
+                    if (is_string($value)) {
+                        $productData[$key] = strtolower($value);
+                    }
                 }
+
+                $cleanedData = array_filter($productData, function ($value) {
+                    return $value !== '' && $value !== null;
+                });
+
+                $cleanedData['selling_price'] = $cleanedData['selling_price'] ?? 0.00;
+                $cleanedData['units_per_box'] = $cleanedData['units_per_box'] ?? 0.00;
+
+                Product::create($cleanedData);
+                $successCount++;
+            } catch (\Exception $e) {
+                $errors[] = 'Product '.($index + 1).': '.$e->getMessage();
+            }
+        }
+
+        if ($successCount > 0) {
+            $this->closeCreateModal();
+
+            $message = "Successfully created {$successCount} product(s)";
+            if (! empty($errors)) {
+                $message .= '. Errors: '.implode(', ', $errors);
             }
 
-            $cleanedData = array_filter($productData, function ($value) {
-                return $value !== '' && $value !== null;
-            });
+            session()->flash('message', $message);
 
-            $cleanedData['selling_price'] = $cleanedData['selling_price'] ?? 0.00;
-            $cleanedData['units_per_box'] = $cleanedData['units_per_box'] ?? 0.00;
-
-            Product::create($cleanedData);
-            $successCount++;
-        } catch (\Exception $e) {
-            $errors[] = "Product " . ($index + 1) . ": " . $e->getMessage();
+            ActivityLogs::create([
+                'user_id' => Auth::id(),
+                'action_type' => 'create_product',
+                'description' => "Created {$successCount} new product(s)",
+                'entity_type' => 'product_creation',
+                'metadata' => json_encode(['products' => $validProducts]),
+                'entity_id' => null,
+            ]);
+        } else {
+            foreach ($errors as $error) {
+                $this->addError('newProducts', $error);
+            }
         }
     }
 
-    if ($successCount > 0) {
-        $this->closeCreateModal();
-        
-        $message = "Successfully created {$successCount} product(s)";
-        if (!empty($errors)) {
-            $message .= ". Errors: " . implode(', ', $errors);
-        }
-        
-        session()->flash('message', $message);
+    private function validateProducts()
+    {
+        // Validate structure first
+        $this->validate();
 
-        ActivityLogs::create([
-            'user_id' => Auth::id(),
-            'action_type' => 'create_product',
-            'description' => "Created {$successCount} new product(s)",
-            'entity_type' => 'product_creation',
-            'metadata' => json_encode(['products' => $validProducts]),
-            'entity_id' => null
-        ]);
-    } else {
-        foreach ($errors as $error) {
-            $this->addError('newProducts', $error);
-        }
-    }
-}
+        // Then check for duplicates within the form
+        $names = [];
+        $skus = [];
+        $barcodes = [];
+        $hasErrors = false;
 
-private function validateProducts()
-{
-    // Validate structure first
-    $this->validate();
-    
-    // Then check for duplicates within the form
-    $names = [];
-    $skus = [];
-    $barcodes = [];
-    $hasErrors = false;
-
-    foreach ($this->newProducts as $index => $product) {
-        if (!empty($product['name'])) {
-            if (in_array(strtolower($product['name']), $names)) {
-                $this->addError("newProducts.{$index}.name", 'Duplicate product name in form');
-                $hasErrors = true;
+        foreach ($this->newProducts as $index => $product) {
+            if (! empty($product['name'])) {
+                if (in_array(strtolower($product['name']), $names)) {
+                    $this->addError("newProducts.{$index}.name", 'Duplicate product name in form');
+                    $hasErrors = true;
+                }
+                $names[] = strtolower($product['name']);
             }
-            $names[] = strtolower($product['name']);
+
+            if (! empty($product['sku'])) {
+                if (in_array($product['sku'], $skus)) {
+                    $this->addError("newProducts.{$index}.sku", 'Duplicate SKU in form');
+                    $hasErrors = true;
+                }
+                $skus[] = $product['sku'];
+            }
+
+            if (! empty($product['barcode'])) {
+                if (in_array($product['barcode'], $barcodes)) {
+                    $this->addError("newProducts.{$index}.barcode", 'Duplicate barcode in form');
+                    $hasErrors = true;
+                }
+                $barcodes[] = $product['barcode'];
+            }
         }
 
-        if (!empty($product['sku'])) {
-            if (in_array($product['sku'], $skus)) {
-                $this->addError("newProducts.{$index}.sku", 'Duplicate SKU in form');
-                $hasErrors = true;
-            }
-            $skus[] = $product['sku'];
-        }
-
-        if (!empty($product['barcode'])) {
-            if (in_array($product['barcode'], $barcodes)) {
-                $this->addError("newProducts.{$index}.barcode", 'Duplicate barcode in form');
-                $hasErrors = true;
-            }
-            $barcodes[] = $product['barcode'];
-        }
+        return ! $hasErrors;
     }
 
-    return !$hasErrors;
-}
     public function updatingSearchTerm()
     {
         $this->resetPage();
@@ -375,8 +385,6 @@ private function validateProducts()
             'is_active' => 'all',
         ];
     }
-
-
 
     public function exportTemplate()
     {
@@ -560,7 +568,7 @@ private function validateProducts()
             )
             ->orderBy('name');
 
-            Log::debug('Filtered products query: '.$query->toSql());
+        Log::debug('Filtered products query: '.$query->toSql());
 
         return $query->paginate(10);
     }
@@ -617,7 +625,6 @@ private function validateProducts()
     {
         $this->productId = $productId;
         $product = Product::find($productId);
-
 
         if ($product) {
             $this->name = $product->name;
