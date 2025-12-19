@@ -2,14 +2,8 @@
 
 namespace App\Livewire\Pages;
 
-use App\Models\ActivityLogs;
-use App\Models\DailySales;
-use App\Models\DailySalesSummary;
-use App\Models\Product;
-use App\Models\Stock;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
+use App\Models\{ActivityLogs,DailySales,DailySalesSummary,Product,Stock};
+use Illuminate\Support\Facades\{Auth,DB,Log};
 use Livewire\Component;
 
 class Inventory extends Component
