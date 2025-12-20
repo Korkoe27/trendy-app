@@ -7,6 +7,12 @@
         </div>
     @endif
 
+
+    @if (session()->has('error'))
+    <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+        <span class="block sm:inline">{{ session('error') }}</span>
+    </div>
+@endif
     <!-- Header -->
     <div class="bg-white rounded-lg border border-gray-200 p-6">
         <div class="flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0">

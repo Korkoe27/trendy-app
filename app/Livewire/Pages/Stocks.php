@@ -82,22 +82,21 @@ class Stocks extends Component
         'restockDate.before_or_equal' => 'Restock date cannot be in the future',
     ];
 
-
-// Add these properties to your Stocks class
-public $exportFilters = [
-    'category_id' => 'all',
-    'supplier' => '',
-    'stock_min' => '',
-    'stock_max' => '',
-    'cost_price_min' => '',
-    'cost_price_max' => '',
-    'total_cost_min' => '',
-    'total_cost_max' => '',
-    'margin_min' => '',
-    'margin_max' => '',
-    'restock_date_from' => '',
-    'restock_date_to' => '',
-];
+    // Add these properties to your Stocks class
+    public $exportFilters = [
+        'category_id' => 'all',
+        'supplier' => '',
+        'stock_min' => '',
+        'stock_max' => '',
+        'cost_price_min' => '',
+        'cost_price_max' => '',
+        'total_cost_min' => '',
+        'total_cost_max' => '',
+        'margin_min' => '',
+        'margin_max' => '',
+        'restock_date_from' => '',
+        'restock_date_to' => '',
+    ];
 
     public function mount()
     {
@@ -218,147 +217,144 @@ public $exportFilters = [
         ];
     }
 
+    public function exportStocks()
+    {
+        $query = Stock::with(['product.category']);
 
-public function exportStocks()
-{
-    $query = Stock::with(['product.category']);
-    
-    // Apply filters
-    if ($this->exportFilters['category_id'] !== 'all') {
-        $query->whereHas('product', function($q) {
-            $q->where('category_id', $this->exportFilters['category_id']);
-        });
-    }
-    
-    if (!empty($this->exportFilters['supplier'])) {
-        $query->where('supplier', 'like', '%' . $this->exportFilters['supplier'] . '%');
-    }
-    
-    if (!empty($this->exportFilters['stock_min'])) {
-        $query->where('total_units', '>=', $this->exportFilters['stock_min']);
-    }
-    
-    if (!empty($this->exportFilters['stock_max'])) {
-        $query->where('total_units', '<=', $this->exportFilters['stock_max']);
-    }
-    
-    if (!empty($this->exportFilters['cost_price_min'])) {
-        $query->where('cost_price', '>=', $this->exportFilters['cost_price_min']);
-    }
-    
-    if (!empty($this->exportFilters['cost_price_max'])) {
-        $query->where('cost_price', '<=', $this->exportFilters['cost_price_max']);
-    }
-    
-    if (!empty($this->exportFilters['total_cost_min'])) {
-        $query->where('total_cost', '>=', $this->exportFilters['total_cost_min']);
-    }
-    
-    if (!empty($this->exportFilters['total_cost_max'])) {
-        $query->where('total_cost', '<=', $this->exportFilters['total_cost_max']);
-    }
-    
-    if (!empty($this->exportFilters['margin_min'])) {
-        $query->where('cost_margin', '>=', $this->exportFilters['margin_min']);
-    }
-    
-    if (!empty($this->exportFilters['margin_max'])) {
-        $query->where('cost_margin', '<=', $this->exportFilters['margin_max']);
-    }
-    
-    if (!empty($this->exportFilters['restock_date_from'])) {
-        $query->whereDate('restock_date', '>=', $this->exportFilters['restock_date_from']);
-    }
-    
-    if (!empty($this->exportFilters['restock_date_to'])) {
-        $query->whereDate('restock_date', '<=', $this->exportFilters['restock_date_to']);
-    }
-    
-    if ($this->exportFilters['has_notes'] !== 'all') {
-        if ($this->exportFilters['has_notes'] === 'yes') {
-            $query->whereNotNull('notes')->where('notes', '!=', '');
-        } else {
-            $query->where(function($q) {
-                $q->whereNull('notes')->orWhere('notes', '');
+        // Apply filters
+        if ($this->exportFilters['category_id'] !== 'all') {
+            $query->whereHas('product', function ($q) {
+                $q->where('category_id', $this->exportFilters['category_id']);
             });
         }
+
+        if (! empty($this->exportFilters['supplier'])) {
+            $query->where('supplier', 'like', '%'.$this->exportFilters['supplier'].'%');
+        }
+
+        if (! empty($this->exportFilters['stock_min'])) {
+            $query->where('total_units', '>=', $this->exportFilters['stock_min']);
+        }
+
+        if (! empty($this->exportFilters['stock_max'])) {
+            $query->where('total_units', '<=', $this->exportFilters['stock_max']);
+        }
+
+        if (! empty($this->exportFilters['cost_price_min'])) {
+            $query->where('cost_price', '>=', $this->exportFilters['cost_price_min']);
+        }
+
+        if (! empty($this->exportFilters['cost_price_max'])) {
+            $query->where('cost_price', '<=', $this->exportFilters['cost_price_max']);
+        }
+
+        if (! empty($this->exportFilters['total_cost_min'])) {
+            $query->where('total_cost', '>=', $this->exportFilters['total_cost_min']);
+        }
+
+        if (! empty($this->exportFilters['total_cost_max'])) {
+            $query->where('total_cost', '<=', $this->exportFilters['total_cost_max']);
+        }
+
+        if (! empty($this->exportFilters['margin_min'])) {
+            $query->where('cost_margin', '>=', $this->exportFilters['margin_min']);
+        }
+
+        if (! empty($this->exportFilters['margin_max'])) {
+            $query->where('cost_margin', '<=', $this->exportFilters['margin_max']);
+        }
+
+        if (! empty($this->exportFilters['restock_date_from'])) {
+            $query->whereDate('restock_date', '>=', $this->exportFilters['restock_date_from']);
+        }
+
+        if (! empty($this->exportFilters['restock_date_to'])) {
+            $query->whereDate('restock_date', '<=', $this->exportFilters['restock_date_to']);
+        }
+
+        if ($this->exportFilters['has_notes'] !== 'all') {
+            if ($this->exportFilters['has_notes'] === 'yes') {
+                $query->whereNotNull('notes')->where('notes', '!=', '');
+            } else {
+                $query->where(function ($q) {
+                    $q->whereNull('notes')->orWhere('notes', '');
+                });
+            }
+        }
+
+        $stocks = $query->get();
+
+        $filePath = storage_path('app/stocks_export_'.now()->format('Y-m-d_His').'.csv');
+
+        $header = [
+            'product_name',
+            'category',
+            'sku',
+            'barcode',
+            'supplier',
+            'total_units',
+            'free_units',
+            'boxes_equivalent',
+            'total_cost',
+            'cost_price',
+            'selling_price',
+            'profit_margin',
+            'restock_date',
+            'notes',
+        ];
+
+        $file = fopen($filePath, 'w');
+        fputcsv($file, $header);
+
+        foreach ($stocks as $stock) {
+            $boxesEquivalent = $stock->product->units_per_box > 0
+                ? round($stock->total_units / $stock->product->units_per_box, 2)
+                : 0;
+
+            fputcsv($file, [
+                $stock->product->name,
+                $stock->product->category->name,
+                $stock->product->sku ?? '',
+                $stock->product->barcode ?? '',
+                $stock->supplier ?? '',
+                $stock->total_units,
+                $stock->free_units,
+                $boxesEquivalent,
+                $stock->total_cost,
+                $stock->cost_price,
+                $stock->product->selling_price,
+                $stock->cost_margin,
+                $stock->restock_date ? Carbon::parse($stock->restock_date)->format('Y-m-d') : '',
+                $stock->notes ?? '',
+            ]);
+        }
+
+        fclose($file);
+
+        $this->showExportModal = false;
+        $this->reset('exportFilters');
+
+        return response()->download($filePath)->deleteFileAfterSend(true);
     }
 
-    $stocks = $query->get();
-
-    $filePath = storage_path('app/stocks_export_' . now()->format('Y-m-d_His') . '.csv');
-
-    $header = [
-        'product_name',
-        'category',
-        'sku',
-        'barcode',
-        'supplier',
-        'total_units',
-        'free_units',
-        'boxes_equivalent',
-        'total_cost',
-        'cost_price',
-        'selling_price',
-        'profit_margin',
-        'restock_date',
-        'notes',
-    ];
-
-    $file = fopen($filePath, 'w');
-    fputcsv($file, $header);
-
-    foreach ($stocks as $stock) {
-        $boxesEquivalent = $stock->product->units_per_box > 0 
-            ? round($stock->total_units / $stock->product->units_per_box, 2) 
-            : 0;
-            
-        fputcsv($file, [
-            $stock->product->name,
-            $stock->product->category->name,
-            $stock->product->sku ?? '',
-            $stock->product->barcode ?? '',
-            $stock->supplier ?? '',
-            $stock->total_units,
-            $stock->free_units,
-            $boxesEquivalent,
-            $stock->total_cost,
-            $stock->cost_price,
-            $stock->product->selling_price,
-            $stock->cost_margin,
-            $stock->restock_date ? Carbon::parse($stock->restock_date)->format('Y-m-d') : '',
-            $stock->notes ?? '',
-        ]);
+    public function resetExportFilters()
+    {
+        $this->exportFilters = [
+            'category_id' => 'all',
+            'supplier' => '',
+            'stock_min' => '',
+            'stock_max' => '',
+            'cost_price_min' => '',
+            'cost_price_max' => '',
+            'total_cost_min' => '',
+            'total_cost_max' => '',
+            'margin_min' => '',
+            'margin_max' => '',
+            'restock_date_from' => '',
+            'restock_date_to' => '',
+            'has_notes' => 'all',
+        ];
     }
-
-    fclose($file);
-    
-    $this->showExportModal = false;
-    $this->reset('exportFilters');
-
-    
-
-    return response()->download($filePath)->deleteFileAfterSend(true);
-}
-
-public function resetExportFilters()
-{
-    $this->exportFilters = [
-        'category_id' => 'all',
-        'supplier' => '',
-        'stock_min' => '',
-        'stock_max' => '',
-        'cost_price_min' => '',
-        'cost_price_max' => '',
-        'total_cost_min' => '',
-        'total_cost_max' => '',
-        'margin_min' => '',
-        'margin_max' => '',
-        'restock_date_from' => '',
-        'restock_date_to' => '',
-        'has_notes' => 'all',
-    ];
-}
 
     public function removeStockItem($index)
     {
@@ -514,7 +510,6 @@ public function resetExportFilters()
         $productName = $this->selectedStock->product->name;
         // $product = $this->selectedStock->product->id;
 
-
         ActivityLogs::create([
             'user_id' => Auth::id(),
             'action_type' => 'stock_update',
@@ -536,7 +531,6 @@ public function resetExportFilters()
         $this->closeEditStockModal();
         session()->flash('message', 'Stock entry updated successfully!');
     }
-    // Replace the saveNewStock() method in Stocks.php with this refactored version
 
     public function saveNewStock()
     {
@@ -555,16 +549,29 @@ public function resetExportFilters()
             return;
         }
 
+try {
+    $successCount = 0; // Define BEFORE transaction
+    $totalExpenseAmount = 0; // Define BEFORE transaction
+    
+    DB::transaction(function () use ($validItems, &$successCount, &$totalExpenseAmount) {
+        // Pass by reference using &
+
         $restockDate = $this->restockDate ?: Carbon::today()->format('Y-m-d');
 
         // Get all product IDs for batch query
         $productIds = array_column($validItems, 'product_id');
 
         // Fetch all products at once
-        $products = Product::select('id', 'name', 'barcode', 'sku')
+        $products = Product::select('id', 'name', 'barcode', 'sku', 'selling_price', 'units_per_box')
             ->whereIn('id', $productIds)
             ->get()
             ->keyBy('id');
+
+        // Validate all products exist
+        if ($products->count() !== count($productIds)) {
+            $missingIds = array_diff($productIds, $products->pluck('id')->toArray());
+            throw new \Exception('Products not found: '.implode(', ', $missingIds));
+        }
 
         // Fetch all existing stocks at once
         $existingStocks = Stock::whereIn('product_id', $productIds)
@@ -573,22 +580,44 @@ public function resetExportFilters()
 
         $stockCreateRows = [];
         $stockUpdateRows = [];
-        $successCount = 0;
 
-        foreach ($validItems as $item) {
+        foreach ($validItems as $index => $item) {
             $product = $products->get($item['product_id']);
+
+            $this->validateStockItem($item, $index, $product);
+
             if (! $product) {
-                continue;
+                throw new \Exception('Product not found for item at position '.($index + 1));
+            }
+
+            // Validate calculations
+            if (! isset($item['calculated_cost_price']) || $item['calculated_cost_price'] <= 0) {
+                throw new \Exception("Invalid cost price calculation for {$product->name}. Please check total cost and units.");
             }
 
             $freeUnits = (int) ($item['free_units'] ?? 0);
-
             $totalUnitsToAdd = (int) $item['calculated_total_units'] + $freeUnits;
             $totalCost = (float) $item['total_cost'];
-            $supplier = $item['supplier'];
+            $supplier = trim($item['supplier']);
             $costPrice = (float) $item['calculated_cost_price'];
             $costMargin = (float) $item['calculated_profit_margin'];
 
+            // Validate supplier
+            if (empty($supplier)) {
+                throw new \Exception("Supplier is required for {$product->name}");
+            }
+
+            // Validate total cost
+            if ($totalCost <= 0) {
+                throw new \Exception("Total cost must be greater than zero for {$product->name}");
+            }
+
+            // Validate units
+            if ($totalUnitsToAdd <= 0) {
+                throw new \Exception("Total units must be greater than zero for {$product->name}");
+            }
+
+            $totalExpenseAmount += $totalCost;
             $existingStock = $existingStocks->get($item['product_id']);
 
             if ($existingStock) {
@@ -599,7 +628,7 @@ public function resetExportFilters()
                     'supplier' => $supplier,
                     'total_cost' => $totalCost,
                     'cost_price' => $costPrice,
-                    'free_units'=>$freeUnits,
+                    'free_units' => $freeUnits,
                     'cost_margin' => $costMargin,
                     'notes' => $this->notes,
                     'restock_date' => $restockDate,
@@ -614,7 +643,7 @@ public function resetExportFilters()
                     'total_cost' => $totalCost,
                     'cost_price' => $costPrice,
                     'cost_margin' => $costMargin,
-                    'free_units'=>$freeUnits,
+                    'free_units' => $freeUnits,
                     'notes' => $this->notes,
                     'restock_date' => $restockDate,
                     'created_at' => now(),
@@ -625,19 +654,16 @@ public function resetExportFilters()
             $successCount++;
         }
 
-
-        // DB::transaction(function(){
-    // Batch insert new stocks
+        // Batch insert new stocks
         if (! empty($stockCreateRows)) {
             DB::table('stocks')->insert($stockCreateRows);
             Log::info('Created new stock entries', ['count' => count($stockCreateRows)]);
         }
 
-
         // Batch update existing stocks
         if (! empty($stockUpdateRows)) {
             foreach ($stockUpdateRows as $updateData) {
-                DB::table('stocks')
+                $affected = DB::table('stocks')
                     ->where('id', $updateData['id'])
                     ->update([
                         'total_units' => $updateData['total_units'],
@@ -650,12 +676,27 @@ public function resetExportFilters()
                         'restock_date' => $updateData['restock_date'],
                         'updated_at' => $updateData['updated_at'],
                     ]);
+
+                if ($affected === 0) {
+                    throw new \Exception('Failed to update stock entry ID: '.$updateData['id']);
+                }
             }
             Log::info('Updated existing stock entries', ['count' => count($stockUpdateRows)]);
         }
 
-        $this->closeAddStockModal();
-        session()->flash('message', "Successfully updated stock for {$successCount} product(s)");
+        // Create expense record
+        Expense::create([
+            'reference' => 'STK-'.strtoupper(uniqid()),
+            'amount' => $totalExpenseAmount,
+            'description' => "Stock replenishment for {$successCount} product(s) (Restock Date: ".Carbon::parse($restockDate)->format('M j, Y').')',
+            'incurred_at' => now(),
+            'payment_method' => 'inventory',
+            'paid_by' => Auth::id(),
+            'category' => 'inventory',
+            'notes' => $this->notes,
+            'status' => 'pending',
+            'supplier' => implode(', ', array_unique(array_column($validItems, 'supplier'))),
+        ]);
 
         // Create activity log
         ActivityLogs::create([
@@ -668,27 +709,178 @@ public function resetExportFilters()
                 'total_items_updated' => $successCount,
                 'new_entries' => count($stockCreateRows),
                 'updated_entries' => count($stockUpdateRows),
+                'total_expense' => $totalExpenseAmount,
                 'restock_date' => $restockDate,
                 'timestamp' => now(),
             ]),
         ]);
-        Expense::create([
-            'reference' => 'STK-'.strtoupper(uniqid()),
-            'amount' => array_sum(array_column($validItems, 'total_cost')),
-            'description' => "Stock replenishment for {$successCount} product(s) (Restock Date: ".Carbon::parse($restockDate)->format('M j, Y').')',
-            'incurred_at' => now(),
-            'payment_method' => 'inventory',
-            'paid_by' => Auth::id(),
-            'category' => 'inventory',
-            'notes' => $this->notes,
-            'status' => 'pending',
-            'supplier' => implode(', ', array_unique(array_column($validItems, 'supplier'))),
-        ]);
+    }); // Transaction ends here
+
+    // These run AFTER successful transaction
+    $this->closeAddStockModal();
+    session()->flash('message', "Successfully updated stock for {$successCount} product(s)");
+
+} catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Stock update failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            $this->addError('newStockItems', $e->getMessage());
+            session()->flash('error', 'Stock update failed: '.$e->getMessage());
+        }
+    }
+
+    // Replace the saveNewStock() method in Stocks.php with this refactored version 
+
+    // public function saveNewStock()
+    // {
+    //     $this->validate();
+
+    //     // Filter out empty items
+    //     $validItems = array_filter($this->newStockItems, function ($item) {
+    //         return ! empty($item['product_id']) &&
+    //             $item['calculated_total_units'] > 0 &&
+    //             !empty($item['total_cost']);
+    //     });
+
+    //     if (empty($validItems)) {
+    //         $this->addError('newStockItems', 'At least one item with quantities, total cost, and supplier is required');
+
+    //         return;
+    //     }
+    //     DB::transaction(function($validItems){
+
+    //     $restockDate = $this->restockDate ?: Carbon::today()->format('Y-m-d');
+
+    //     // Get all product IDs for batch query
+    //     $productIds = array_column($validItems, 'product_id');
+
+    //     // Fetch all products at once
+    //     $products = Product::select('id', 'name', 'barcode', 'sku')
+    //         ->whereIn('id', $productIds)
+    //         ->get()
+    //         ->keyBy('id');
+
+    //     // Fetch all existing stocks at once
+    //     $existingStocks = Stock::whereIn('product_id', $productIds)
+    //         ->get()
+    //         ->keyBy('product_id');
+
+    //     $stockCreateRows = [];
+    //     $stockUpdateRows = [];
+    //     $successCount = 0;
+
+    //     foreach ($validItems as $item) {
+    //         $product = $products->get($item['product_id']);
+    //         if (! $product) {
+    //             continue;
+    //         }
+
+    //         $freeUnits = (int) ($item['free_units'] ?? 0);
+
+    //         $totalUnitsToAdd = (int) $item['calculated_total_units'] + $freeUnits;
+    //         $totalCost = (float) $item['total_cost'];
+    //         $supplier = $item['supplier'];
+    //         $costPrice = (float) $item['calculated_cost_price'];
+    //         $costMargin = (float) $item['calculated_profit_margin'];
+
+    //         $existingStock = $existingStocks->get($item['product_id']);
+
+    //         if ($existingStock) {
+    //             // Prepare update data
+    //             $stockUpdateRows[] = [
+    //                 'id' => $existingStock->id,
+    //                 'total_units' => $existingStock->total_units + $totalUnitsToAdd,
+    //                 'supplier' => $supplier,
+    //                 'total_cost' => $totalCost,
+    //                 'cost_price' => $costPrice,
+    //                 'free_units'=>$freeUnits,
+    //                 'cost_margin' => $costMargin,
+    //                 'notes' => $this->notes,
+    //                 'restock_date' => $restockDate,
+    //                 'updated_at' => now(),
+    //             ];
+    //         } else {
+    //             // Prepare create data
+    //             $stockCreateRows[] = [
+    //                 'product_id' => $product->id,
+    //                 'total_units' => $totalUnitsToAdd,
+    //                 'supplier' => $supplier,
+    //                 'total_cost' => $totalCost,
+    //                 'cost_price' => $costPrice,
+    //                 'cost_margin' => $costMargin,
+    //                 'free_units'=>$freeUnits,
+    //                 'notes' => $this->notes,
+    //                 'restock_date' => $restockDate,
+    //                 'created_at' => now(),
+    //                 'updated_at' => now(),
+    //             ];
+    //         }
+
+    //         $successCount++;
+    //     }
+
+    // // Batch insert new stocks
+    //     if (! empty($stockCreateRows)) {
+    //         DB::table('stocks')->insert($stockCreateRows);
+    //         Log::info('Created new stock entries', ['count' => count($stockCreateRows)]);
+    //     }
+
+    //     // Batch update existing stocks
+    //     if (! empty($stockUpdateRows)) {
+    //         foreach ($stockUpdateRows as $updateData) {
+    //             DB::table('stocks')
+    //                 ->where('id', $updateData['id'])
+    //                 ->update([
+    //                     'total_units' => $updateData['total_units'],
+    //                     'free_units' => $updateData['free_units'],
+    //                     'supplier' => $updateData['supplier'],
+    //                     'total_cost' => $updateData['total_cost'],
+    //                     'cost_price' => $updateData['cost_price'],
+    //                     'cost_margin' => $updateData['cost_margin'],
+    //                     'notes' => $updateData['notes'],
+    //                     'restock_date' => $updateData['restock_date'],
+    //                     'updated_at' => $updateData['updated_at'],
+    //                 ]);
+    //         }
+    //         Log::info('Updated existing stock entries', ['count' => count($stockUpdateRows)]);
+    //     }
+
+    //     $this->closeAddStockModal();
+    //     session()->flash('message', "Successfully updated stock for {$successCount} product(s)");
+
+    //     // Create activity log
+    //     ActivityLogs::create([
+    //         'user_id' => Auth::id(),
+    //         'action_type' => 'stock_update',
+    //         'description' => "Stock updated for {$successCount} product(s) (Restock Date: ".Carbon::parse($restockDate)->format('M j, Y').')',
+    //         'entity_type' => 'stock_record',
+    //         'entity_id' => 'bulk_update',
+    //         'metadata' => json_encode([
+    //             'total_items_updated' => $successCount,
+    //             'new_entries' => count($stockCreateRows),
+    //             'updated_entries' => count($stockUpdateRows),
+    //             'restock_date' => $restockDate,
+    //             'timestamp' => now(),
+    //         ]),
+    //     ]);
+    //     Expense::create([
+    //         'reference' => 'STK-'.strtoupper(uniqid()),
+    //         'amount' => array_sum(array_column($validItems, 'total_cost')),
+    //         'description' => "Stock replenishment for {$successCount} product(s) (Restock Date: ".Carbon::parse($restockDate)->format('M j, Y').')',
+    //         'incurred_at' => now(),
+    //         'payment_method' => 'inventory',
+    //         'paid_by' => Auth::id(),
+    //         'category' => 'inventory',
+    //         'notes' => $this->notes,
+    //         'status' => 'pending',
+    //         'supplier' => implode(', ', array_unique(array_column($validItems, 'supplier'))),
+    //     ]);
     // });
 
-    
-
-    }
+    // }
 
     private function createActivityLog($product, $stockItem, $costMargin, $costPrice, $totalUnitsAdded)
     {
@@ -755,40 +947,64 @@ public function resetExportFilters()
         session()->flash('message', 'Stock entry deleted successfully');
     }
 
+    private function validateStockItem($item, $index, $product)
+    {
+        $errors = [];
+
+        if (empty($item['supplier'])) {
+            $errors[] = 'Supplier is required';
+        }
+
+        if (! isset($item['total_cost']) || $item['total_cost'] <= 0) {
+            $errors[] = 'Total cost must be greater than zero';
+        }
+
+        if (! isset($item['calculated_total_units']) || $item['calculated_total_units'] <= 0) {
+            $errors[] = 'Total units must be greater than zero';
+        }
+
+        if (! isset($item['calculated_cost_price']) || $item['calculated_cost_price'] <= 0) {
+            $errors[] = 'Invalid cost price calculation. Please check your inputs';
+        }
+
+        if (! empty($errors)) {
+            $productName = $product ? $product->name : 'Product at position '.($index + 1);
+            throw new \Exception("{$productName}: ".implode(', ', $errors));
+        }
+    }
 
     public function render()
-{
-    $categories = Categories::all();
+    {
+        $categories = Categories::all();
 
-
-    // Using window function for PostgreSQL (more efficient)
-    $query = Stock::with(['product.category'])
-    ->whereRaw('id IN (
+        // Using window function for PostgreSQL (more efficient)
+        $query = Stock::with(['product.category'])
+            ->whereRaw('id IN (
         SELECT DISTINCT ON (product_id) id
         FROM stocks
         ORDER BY product_id, created_at DESC
         )');
-        
+
         if ($this->searchTerm) {
-        $query->whereHas('product', function ($q) {
-            $q->where('name', 'like', '%'.$this->searchTerm.'%')
-                ->orWhere('barcode', 'like', '%'.$this->searchTerm.'%')
-                ->orWhere('sku', 'like', '%'.$this->searchTerm.'%');
-        });
-    }
+            $query->whereHas('product', function ($q) {
+                $q->where('name', 'like', '%'.$this->searchTerm.'%')
+                    ->orWhere('barcode', 'like', '%'.$this->searchTerm.'%')
+                    ->orWhere('sku', 'like', '%'.$this->searchTerm.'%');
+            });
+        }
 
         // dd($query);
-    if ($this->selectedCategory !== 'all') {
-        $query->whereHas('product.category', function ($q) {
-            $q->where('name', $this->selectedCategory);
-        });
+        if ($this->selectedCategory !== 'all') {
+            $query->whereHas('product.category', function ($q) {
+                $q->where('name', $this->selectedCategory);
+            });
+        }
+
+        $stocks = $query->paginate(10);
+
+        return view('livewire.pages.stocks', [
+            'stocks' => $stocks,
+            'categories' => $categories,
+        ]);
     }
-
-    $stocks = $query->paginate(10);
-
-    return view('livewire.pages.stocks', [
-        'stocks' => $stocks,
-        'categories' => $categories,
-    ]);
-}
 }
