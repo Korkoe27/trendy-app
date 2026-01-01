@@ -216,7 +216,7 @@ public $stockErrors = [];
 
         $this->showTakeInventoryModal = true;
         // $this->currentStep = auth()->user()->role === 'admin' ? 1 : 4; // Start at money step for admin, stock step for others
-        $this->currentStep = Auth::user() ? 1 : 6;
+        $this->currentStep = Auth::user() ? 1 : 2;
     }
 
     public function getOriginalOpeningStock($productId)
@@ -579,20 +579,26 @@ if (Auth::user()) {
         }
     }
 
-    public function nextStep()
-    {
-        if ($this->currentStep < 6) {
-            $this->currentStep++;
-        }
-        Log::info('next step');
+public function nextStep()
+{
+    if ($this->currentStep == 1) {
+        // Validate money inputs
+        $this->validate([
+            'cashAmount' => 'required|numeric|min:0',
+            'momoAmount' => 'required|numeric|min:0',
+            'hubtelAmount' => 'required|numeric|min:0',
+            'foodTotal' => 'required|numeric|min:0',
+            'onTheHouse' => 'required|numeric|min:0',
+        ]);
     }
+    
+    $this->currentStep++;
+}
 
-    public function previousStep()
-    {
-        if ($this->currentStep > 1) {
-            $this->currentStep--;
-        }
-    }
+public function previousStep()
+{
+    $this->currentStep--;
+}
 
     public function calculateTotalUnits($productId)
     {

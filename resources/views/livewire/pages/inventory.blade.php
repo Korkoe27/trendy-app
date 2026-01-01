@@ -197,22 +197,6 @@
                                     date</p>
                             </div>
                         @endif
-                        {{-- @if ($dateError)
-                            <div class="mb-4 bg-red-50 border border-red-200 rounded-lg p-4">
-                                <div class="flex">
-                                    <div class="flex-shrink-0">
-                                        <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                                            <path fill-rule="evenodd"
-                                                d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                                                clip-rule="evenodd" />
-                                        </svg>
-                                    </div>
-                                    <div class="ml-3">
-                                        <p class="text-sm font-medium text-red-800">{{ $dateError }}</p>
-                                    </div>
-                                </div>
-                            </div>
-                        @endif --}}
                         <button wire:click="closeTakeInventoryModal" class="text-gray-400 hover:text-gray-600">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -241,238 +225,152 @@
                     <div class="flex items-center justify-between">
                         @php
                             $steps = [
-                                ['number' => 1, 'title' => 'Cash Sales', 'icon' => 'dollar'],
-                                ['number' => 2, 'title' => 'Mobile Money', 'icon' => 'phone'],
-                                ['number' => 3, 'title' => 'Hubtel', 'icon' => 'credit-card'],
-                                ['number' => 4, 'title' => 'Food Total', 'icon' => 'food'],
-                                ['number' => 5, 'title' => 'On the House', 'icon' => 'package'],
-                                ['number' => 6, 'title' => 'Stock Count', 'icon' => 'package'],
+                                ['number' => 1, 'title' => 'Money Collection', 'icon' => 'dollar'],
+                ['number' => 2, 'title' => 'Stock Count', 'icon' => 'package'],
                             ];
                         @endphp
-                        @foreach ($steps as $index => $step)
-                            <div class="flex items-center">
-                                <div
-                                    class="flex items-center justify-center w-10 h-10 rounded-full border-2 {{ $currentStep > $step['number']
-                                        ? 'bg-green-600 border-green-600 text-white'
-                                        : ($currentStep == $step['number']
-                                            ? 'bg-blue-600 border-blue-600 text-white'
-                                            : 'border-gray-300 text-gray-400') }}">
-                                    @if ($currentStep > $step['number'])
-                                        <svg class="w-5 h-5" fill="none" stroke="currentColor"
-                                            viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M5 13l4 4L19 7"></path>
-                                        </svg>
-                                    @else
-                                        @if ($step['icon'] == 'dollar')
-                                            <svg class="w-5 h-5" fill="none" stroke="currentColor"
-                                                viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                    d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1">
-                                                </path>
-                                            </svg>
-                                        @elseif($step['icon'] == 'phone')
-                                            <svg class="w-5 h-5" fill="none" stroke="currentColor"
-                                                viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                    d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z">
-                                                </path>
-                                            </svg>
-                                        @elseif($step['icon'] == 'food')
-                                            {{-- <svg class="w-5 h-5" fill="none" stroke="currentColor"
-                                                viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                    d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z">
-                                                </path>
-                                            </svg> --}}
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
-                                                viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                                                class="w-5 h-5">
-                                                <path d="M12 21a9 9 0 0 0 9-9H3a9 9 0 0 0 9 9Z" />
-                                                <path d="M7 21h10" />
-                                                <path d="M19.5 12 22 6" />
-                                                <path
-                                                    d="M16.25 3c.27.1.8.53.75 1.36-.06.83-.93 1.2-1 2.02-.05.78.34 1.24.73 1.62" />
-                                                <path
-                                                    d="M11.25 3c.27.1.8.53.74 1.36-.05.83-.93 1.2-.98 2.02-.06.78.33 1.24.72 1.62" />
-                                                <path
-                                                    d="M6.25 3c.27.1.8.53.75 1.36-.06.83-.93 1.2-1 2.02-.05.78.34 1.24.74 1.62" />
-                                            </svg>
-                                        @elseif($step['icon'] == 'credit-card')
-                                            <svg class="w-5 h-5" fill="none" stroke="currentColor"
-                                                viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                    d="M3 10h18M7 15h1m4 0h1m-7 4h12a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v11a2 2 0 002 2z">
-                                                </path>
-                                            </svg>
-                                        @elseif($step['icon'] == 'gift')
-                                            <svg class="w-5 h-5" fill="none" stroke="currentColor"
-                                                viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                    d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7">
-                                                </path>
-                                            </svg>
-                                        @else
-                                            <svg class="w-5 h-5" fill="none" stroke="currentColor"
-                                                viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                    d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4">
-                                                </path>
-                                            </svg>
-                                        @endif
-                                    @endif
-                                </div>
-                                <div class="ml-3">
-                                    <p
-                                        class="text-sm font-medium {{ $currentStep == $step['number']
-                                            ? 'text-blue-600'
-                                            : ($currentStep > $step['number']
-                                                ? 'text-green-600'
-                                                : 'text-gray-400') }}">
-                                        {{ $step['title'] }}
-                                    </p>
-                                </div>
-                                @if ($index < count($steps) - 1)
-                                    <div
-                                        class="flex-1 h-0.5 mx-4 {{ $currentStep > $step['number'] ? 'bg-green-600' : 'bg-gray-300' }}">
-                                    </div>
-                                @endif
-                            </div>
-                        @endforeach
+@foreach ($steps as $index => $step)
+            <div class="flex items-center flex-1">
+                <div class="flex items-center justify-center w-10 h-10 rounded-full border-2 
+                    {{ $currentStep > $step['number'] ? 'bg-green-600 border-green-600 text-white' : 
+                       ($currentStep == $step['number'] ? 'bg-blue-600 border-blue-600 text-white' : 
+                       'border-gray-300 text-gray-400') }}">
+                    @if ($currentStep > $step['number'])
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                    @else
+                        @if ($step['icon'] == 'dollar')
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"></path>
+                            </svg>
+                        @else
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+                            </svg>
+                        @endif
+                    @endif
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm font-medium {{ $currentStep == $step['number'] ? 'text-blue-600' : 
+                       ($currentStep > $step['number'] ? 'text-green-600' : 'text-gray-400') }}">
+                        {{ $step['title'] }}
+                    </p>
+                </div>
+                @if ($index < count($steps) - 1)
+                    <div class="flex-1 h-0.5 mx-4 {{ $currentStep > $step['number'] ? 'bg-green-600' : 'bg-gray-300' }}"></div>
+                @endif
+            </div>
+        @endforeach
                     </div>
                 </div>
 
-                {{-- Step Content --}}
-                <div class="mb-8">
-                    @if ($currentStep == 1)
-                        <div wire:key="cash-step" class="space-y-4">
-                            <div class="text-center mb-6">
-                                <svg class="w-12 h-12 text-green-600 mx-auto mb-2" fill="none"
-                                    stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1">
-                                    </path>
-                                </svg>
-                                <h3 class="text-lg font-semibold text-gray-900">Cash Sales</h3>
-                                <p class="text-sm text-gray-600">Enter the total cash amount collected today</p>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Cash Amount (GH₵)</label>
-                                <input type="text" pattern="[0-9]*"
-                                    oninput="this.value = this.value.replace(/[^0-9]/g, '');" step="0.01"
-                                    wire:model.lazy="cashAmount" placeholder="0.00"
-                                    class="w-full px-4 py-3 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-center" />
-                                @error('cashAmount')
-                                    <span class="text-red-500 text-sm">{{ $message }}</span>
-                                @enderror
-                            </div>
-                        </div>
-                    @elseif($currentStep == 2)
-                        <div wire:key="momo-step" class="space-y-4">
-                            <div class="text-center mb-6">
-                                <svg class="w-12 h-12 text-blue-600 mx-auto mb-2" fill="none"
-                                    stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z">
-                                    </path>
-                                </svg>
-                                <h3 class="text-lg font-semibold text-gray-900">Mobile Money Sales</h3>
-                                <p class="text-sm text-gray-600">Enter the total mobile money amount collected today
-                                </p>
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-2">Mobile Money Amount
-                                    (GH₵)</label>
-                                <input type="text" pattern="[0-9]*"
-                                    oninput="this.value = this.value.replace(/[^0-9]/g, '');" step="0.01"
-                                    wire:model.defer="momoAmount" placeholder="0.00"
-                                    class="w-full px-4 py-3 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-center" />
-                                @error('momoAmount')
-                                    <span class="text-red-500 text-sm">{{ $message }}</span>
-                                @enderror
-                            </div>
-                        </div>
-                    @elseif($currentStep == 3)
-                        <div wire:key="hubtel-step" class="space-y-4">
-                            <div class="text-center mb-6">
-                                <svg class="w-12 h-12 text-purple-600 mx-auto mb-2" fill="none"
-                                    stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M3 10h18M7 15h1m4 0h1m-7 4h12a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v11a2 2 0 002 2z">
-                                    </path>
-                                </svg>
-                                <h3 class="text-lg font-semibold text-gray-900">Hubtel Sales</h3>
-                                <p class="text-sm text-gray-600">Enter the total Hubtel amount collected today</p>
-                            </div>
-                            <div>
-                                <label class="block text-xs font-medium text-gray-700 mb-2">Hubtel Amount (GH₵)</label>
-                                <input type="text" step="0.01" pattern="[0-9]*"
-                                    oninput="this.value = this.value.replace(/[^0-9]/g, '');"
-                                    wire:model.defer="hubtelAmount" placeholder="0.00"
-                                    class="w-full px-4 py-3 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-center" />
-                                @error('hubtelAmount')
-                                    <span class="text-red-500 text-sm">{{ $message }}</span>
-                                @enderror
-                            </div>
-                        </div>
-                    @elseif($currentStep == 4)
-                        <div wire:key="foodSales-step" class="space-y-4">
-                            <div class="text-center mb-6">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
-                                    viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                                    stroke-linecap="round" stroke-linejoin="round"
-                                    class="w-12 h-12 text-amber-600 mx-auto mb-2">
-                                    <path d="M12 21a9 9 0 0 0 9-9H3a9 9 0 0 0 9 9Z" />
-                                    <path d="M7 21h10" />
-                                    <path d="M19.5 12 22 6" />
-                                    <path
-                                        d="M16.25 3c.27.1.8.53.75 1.36-.06.83-.93 1.2-1 2.02-.05.78.34 1.24.73 1.62" />
-                                    <path
-                                        d="M11.25 3c.27.1.8.53.74 1.36-.05.83-.93 1.2-.98 2.02-.06.78.33 1.24.72 1.62" />
-                                    <path d="M6.25 3c.27.1.8.53.75 1.36-.06.83-.93 1.2-1 2.02-.05.78.34 1.24.74 1.62" />
-                                </svg>
-                                <h3 class="text-lg font-semibold text-gray-900">Food Sales</h3>
-                                <p class="text-sm text-gray-600">Enter the total Food amount collected today</p>
-                            </div>
-                            <div>
-                                <label class="block text-xs font-medium text-gray-700 mb-2">Food Total (GH₵)</label>
-                                <input type="text" step="0.01" pattern="[0-9]*"
-                                    oninput="this.value = this.value.replace(/[^0-9]/g, '');"
-                                    wire:model.defer="foodTotal" placeholder="0.00"
-                                    class="w-full px-4 py-3 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-center" />
-                                @error('foodTotal')
-                                    <span class="text-red-500 text-sm">{{ $message }}</span>
-                                @enderror
-                            </div>
-                        </div>
-                    @elseif($currentStep == 5)
-                        <div wire:key="onthehouse-step" class="space-y-4">
-                            <div class="text-center mb-6">
-                                <svg class="w-12 h-12 text-pink-600 mx-auto mb-2" fill="none"
-                                    stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7">
-                                    </path>
-                                </svg>
-                                <h3 class="text-lg font-semibold text-gray-900">On The House</h3>
-                                <p class="text-sm text-gray-600">Enter the total value of complimentary items given out
-                                    today (free drinks, services, etc.)</p>
-                            </div>
-                            <div>
-                                <label class="block text-xs font-medium text-gray-700 mb-2">On The House Amount
-                                    (GH₵)</label>
-                                <input type="text" step="0.01" pattern="[0-9]*"
-                                    oninput="this.value = this.value.replace(/[^0-9]/g, '');"
-                                    wire:model.defer="onTheHouse" placeholder="0.00"
-                                    class="w-full px-4 py-3 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-center" />
-                                @error('onTheHouse')
-                                    <span class="text-red-500 text-sm">{{ $message }}</span>
-                                @enderror
-                            </div>
-                        </div>
-                    @elseif($currentStep == 6)
-                        <div wire:key="stock-step" class="space-y-4">
+{{-- Step Content --}}
+<div class="mb-8">
+    @if ($currentStep == 1)
+        <div wire:key="money-step" class="space-y-6">
+            <div class="text-center mb-6">
+                <svg class="w-12 h-12 text-green-600 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"></path>
+                </svg>
+                <h3 class="text-lg font-semibold text-gray-900">Money Collection</h3>
+                <p class="text-sm text-gray-600">Enter all payment amounts collected today</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {{-- Cash Amount --}}
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        <span class="flex items-center">
+                            <svg class="w-4 h-4 mr-1 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"></path>
+                            </svg>
+                            Cash Amount (GH₵)
+                        </span>
+                    </label>
+                    <input type="text" pattern="[0-9]*" oninput="this.value = this.value.replace(/[^0-9]/g, '');"
+                        wire:model.defer="cashAmount" placeholder="0.00"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                    @error('cashAmount') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
+                </div>
+
+                {{-- Mobile Money --}}
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        <span class="flex items-center">
+                            <svg class="w-4 h-4 mr-1 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                            </svg>
+                            Mobile Money (GH₵)
+                        </span>
+                    </label>
+                    <input type="text" pattern="[0-9]*" oninput="this.value = this.value.replace(/[^0-9]/g, '');"
+                        wire:model.defer="momoAmount" placeholder="0.00"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                    @error('momoAmount') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
+                </div>
+
+                {{-- Hubtel --}}
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        <span class="flex items-center">
+                            <svg class="w-4 h-4 mr-1 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M3 10h18M7 15h1m4 0h1m-7 4h12a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v11a2 2 0 002 2z"></path>
+                            </svg>
+                            Hubtel (GH₵)
+                        </span>
+                    </label>
+                    <input type="text" pattern="[0-9]*" oninput="this.value = this.value.replace(/[^0-9]/g, '');"
+                        wire:model.defer="hubtelAmount" placeholder="0.00"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                    @error('hubtelAmount') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
+                </div>
+
+                {{-- Food Total --}}
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        <span class="flex items-center">
+                            <svg class="w-4 h-4 mr-1 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path d="M12 21a9 9 0 0 0 9-9H3a9 9 0 0 0 9 9Z" />
+                                <path d="M7 21h10" />
+                            </svg>
+                            Food Total (GH₵)
+                        </span>
+                    </label>
+                    <input type="text" pattern="[0-9]*" oninput="this.value = this.value.replace(/[^0-9]/g, '');"
+                        wire:model.defer="foodTotal" placeholder="0.00"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                    @error('foodTotal') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
+                </div>
+
+                {{-- On the House --}}
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        <span class="flex items-center">
+                            <svg class="w-4 h-4 mr-1 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"></path>
+                            </svg>
+                            On the House (GH₵)
+                        </span>
+                    </label>
+                    <input type="text" pattern="[0-9]*" oninput="this.value = this.value.replace(/[^0-9]/g, '');"
+                        wire:model.defer="onTheHouse" placeholder="0.00"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                    @error('onTheHouse') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
+                </div>
+            </div>
+        </div>
+    @elseif($currentStep == 2)
+        {{-- Keep your existing stock count step here (step 6 content) --}}
+        {{-- Just change wire:key="stock-step" --}}
+         <div wire:key="stock-step" class="space-y-4">
                             <div class="text-center mb-6">
                                 <svg class="w-12 h-12 text-orange-600 mx-auto mb-2" fill="none"
                                     stroke="currentColor" viewBox="0 0 24 24">
@@ -595,61 +493,40 @@
                                 </div>
                             </div>
                         </div>
-                    @endif
-                </div>
+    @endif
+</div>
 
                 {{-- Modal Footer --}}
-                <div class="flex justify-between items-center pt-6 border-t border-gray-200">
-                    <div class="flex space-x-3">
-                        @if ($currentStep > 1 && (!$isEditing || Auth::user()))
-                            {{-- @if ($currentStep > 1 && (!$isEditing || auth()->user()->role === 'admin')) --}}
-                            <button wire:click="previousStep"
-                                class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                                Previous
-                            </button>
-                        @endif
-                    </div>
+{{-- Navigation Buttons --}}
+<div class="flex justify-between pt-6 border-t border-gray-200">
+    @if ($currentStep > 1)
+        <button wire:click="previousStep" 
+            class="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">
+            Previous
+        </button>
+    @else
+        <div></div>
+    @endif
 
-                    <div class="flex space-x-3">
-                        <button wire:click="closeTakeInventoryModal"
-                            class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                            Cancel
-                        </button>
-
-                        @if ($currentStep < 6 && (!$isEditing || Auth::user()))
-
-                            <button wire:click="nextStep"
-                                class="px-4 py-2 text-sm font-medium text-white bg-black border border-transparent rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
-                                wire:loading.attr="disabled" wire:target="nextStep">
-                                <span wire:loading.remove wire:target="nextStep">Next</span>
-                                <div wire:loading wire:target="nextStep" class="flex items-center space-x-2">
-                                    <span>Loading...</span>
-                                </div>
-                            </button>
-                        @else
-                            @if ($isEditing)
-                                <button wire:click="updateInventory"
-                                    class="px-6 py-2 text-sm font-medium text-white bg-amber-600 border border-transparent rounded-md hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 flex items-center space-x-2">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z">
-                                        </path>
-                                    </svg>
-                                    <span>Update Record</span>
-                                </button>
-                            @else
-                                <button wire:click="submitInventory"
-                                    class="px-6 py-2 text-sm font-medium text-white bg-green-600 border border-transparent rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 flex items-center space-x-2">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M5 13l4 4L19 7"></path>
-                                    </svg>
-                                    <span>Submit Inventory</span>
-                                </button>
-                            @endif
-                        @endif
-                    </div>
-                </div>
+    @if ($currentStep < 2)
+        <button wire:click="nextStep" 
+            class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+            Next
+        </button>
+    @else
+        @if ($isEditing)
+            <button wire:click="updateInventory" 
+                class="bg-amber-600 text-white px-6 py-2 rounded-lg hover:bg-amber-700 transition-colors">
+                Update Inventory
+            </button>
+        @else
+            <button wire:click="submitInventory" 
+                class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors">
+                Submit Inventory
+            </button>
+        @endif
+    @endif
+</div>
             </div>
         </div>
     @endif
@@ -811,20 +688,6 @@
                                 </svg>
                             </div>
                         </div>
-                        {{-- <div class="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
-                            <div class="rounded-lg bg-white border border-rose-100 p-4">
-                                <p class="text-xs text-gray-500">Losses</p>
-                                <p class="mt-1 text-lg font-semibold text-rose-700">GH₵ {{ $lossAmt }}</p>
-                            </div>
-                            <div class="rounded-lg bg-white border border-rose-100 p-4">
-                                <p class="text-xs text-gray-500">Credited Amount</p>
-                                <p class="mt-1 text-lg font-semibold text-rose-700">GH₵ {{ $creditAmt }}</p>
-                            </div>
-                            <div class="rounded-lg bg-white border border-rose-100 p-4">
-                                <p class="text-xs text-gray-500">Credited Items</p>
-                                <p class="mt-1 text-lg font-semibold text-rose-700">{{ $creditU }} units</p>
-                            </div>
-                        </div> --}}
                     </div>
 
 
