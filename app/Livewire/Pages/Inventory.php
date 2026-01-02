@@ -313,12 +313,8 @@ if (Auth::user()) {
         throw $e; // Re-throw to show errors to user
     }
 }
-        Log::debug('updating inventory2');
         
-        // if (!$this->validateStockInputs()) {
-        //     session()->flash('error', 'Please correct the stock errors below before updating.');
-        //     return;
-        // }
+
         
         Log::debug('updating inventory3');
         DB::transaction(function () {
@@ -329,7 +325,7 @@ if (Auth::user()) {
                 throw new \Exception('Summary record not found');
             }
 
-            $salesDate = $summary->sales_date ?: $summary->created_at->format('Y-m-d');
+            $salesDate = $this->salesDate ?? $summary->sales_date;
             DailySales::where('sales_date', $salesDate)->delete();
 
             $totalRevenue = 0;
@@ -660,7 +656,7 @@ public function previousStep()
 
 
         Log::debug('submitting inventory');
-          $this->dateError = null;
+        $this->dateError = null;
     $this->stockErrors = [];
         $this->validate([
             'cashAmount' => 'required|numeric|min:0',
@@ -958,8 +954,7 @@ public function previousStep()
                 'id as first_id'
             )
             ->orderBy('sales_date', 'desc')
-            ->limit(100) // Add limit for performance
-            ->get();
+            ->paginate(10);
     }
 
     public function getDailySalesRecord($recordId)
