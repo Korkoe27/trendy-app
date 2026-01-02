@@ -236,10 +236,14 @@ public $stockErrors = [];
             ->get()
             ->keyBy('product_id');
 
+            $productIdsWithSales = $dailySales->pluck('product_id')->toArray();
+
         // Get all active products
-        $products = Product::with('currentStock')
-            ->where('is_active', true)
-            ->get();
+            $products = Product::where(function($query) use ($productIdsWithSales) {
+            $query->whereIn('id', $productIdsWithSales)
+                  ->orWhere('is_active', true);
+        })
+        ->get();
 
         foreach ($products as $product) {
             // Find existing data for this product in the record being edited
@@ -354,6 +358,8 @@ if (Auth::user()) {
                 if (! $currentStock || ! $product) {
                     continue;
                 }
+
+                //momo -> 
 
                 $closingBoxes = (float) ($stockData['closing_boxes'] ?? 0);
                 $closingUnits = (float) ($stockData['closing_units'] ?? 0);
