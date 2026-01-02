@@ -954,7 +954,7 @@ public function previousStep()
                 'id as first_id'
             )
             ->orderBy('sales_date', 'desc')
-            ->paginate(10);
+            ->paginate(15);
     }
 
     public function getDailySalesRecord($recordId)
