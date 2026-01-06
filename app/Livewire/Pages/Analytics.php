@@ -2,7 +2,7 @@
 
 namespace App\Livewire\Pages;
 
-use App\Models\{DailySales,DailySalesSummary,Product,Stock,Categories};
+use App\Models\{DailySales, DailySalesSummary, Product, Stock, Categories};
 use Carbon\Carbon;
 use Livewire\Component;
 use Illuminate\Support\Facades\DB;
@@ -10,10 +10,16 @@ use Illuminate\Support\Facades\Log;
 
 class Analytics extends Component
 {
-    public $timeframe = '30d'; // Default timeframe
+
+    // Add these properties at the top of your Analytics class
+public $isLoading = true;
+public $metricsLoaded = false;
+public $chartsLoaded = false;
+    public $timeframe = '30d';
     public $startDate;
     public $endDate;
     public $customDateRange = false;
+    public $selectedMonth = ''; // For specific month selection (format: Y-m)
 
     // Revenue Metrics
     public $totalRevenue = 0;
@@ -38,18 +44,26 @@ class Analytics extends Component
     public $profitGrowth = 0;
     public $grossProfitMargin = 0;
 
-    // Loss Metrics
+    // Loss Metrics - IMPROVED
     public $totalDamagedUnits = 0;
     public $totalDamagedValue = 0;
     public $totalCreditUnits = 0;
     public $totalLossAmount = 0;
     public $damageRate = 0;
+    public $accumulatedLosses = 0; // NEW: Collection discrepancies
+    public $totalOnTheHouse = 0; // NEW: Sum of on_the_house
 
-    // Inventory Metrics
+    // Inventory Metrics - IMPROVED
     public $totalInventoryValue = 0;
     public $lowStockProducts = 0;
     public $outOfStockProducts = 0;
     public $inventoryTurnoverRate = 0;
+    public $averageInventoryValue = 0; // NEW: For better turnover calculation
+
+    // Food Sales Metrics - NEW
+    public $totalFoodSales = 0;
+    public $averageDailyFoodSales = 0;
+    public $foodSalesGrowth = 0;
 
     // Product Performance
     public $topSellingProducts = [];
@@ -64,22 +78,90 @@ class Analytics extends Component
     // Daily breakdown for charts
     public $dailySalesData = [];
     public $dailyProfitData = [];
+    public $dailyFoodSalesData = []; // NEW
+    public $dailyLossesData = []; // NEW
     public $paymentMethodDistribution = [];
 
     public function mount()
     {
         $this->setDateRange();
-        $this->calculateAllMetrics();
+        // $this->calculateAllMetrics();
     }
 
+    // Add these methods to your Analytics class
+
+public function loadMetrics()
+{
+    $this->isLoading = true;
+    
+    $this->calculateRevenueMetrics();
+    $this->calculateSalesMetrics();
+    $this->calculateExpenseMetrics();
+    $this->calculateProfitMetrics();
+    $this->calculateLossMetrics();
+    $this->calculateFoodSalesMetrics();
+    $this->calculateInventoryMetrics();
+    $this->calculateGrowthRates();
+    
+    $this->metricsLoaded = true;
+    $this->isLoading = false;
+}
+
+public function loadCharts()
+{
+    $this->calculateProductPerformance();
+    $this->calculateCategoryPerformance();
+    $this->calculateDailyData();
+    $this->calculatePaymentMethodDistribution();
+    
+    $this->chartsLoaded = true;
+    $this->dispatch('chartsLoaded');
+}
+
+// Modify updatedTimeframe
+
+
+// Add reset method
+private function resetLoadedData()
+{
+    $this->metricsLoaded = false;
+    $this->chartsLoaded = false;
+}
+
+    // public function updatedTimeframe()
+    // {
+    //     if ($this->timeframe !== 'custom' && $this->timeframe !== 'specific_month') {
+    //         $this->customDateRange = false;
+    //         $this->selectedMonth = '';
+    //         $this->setDateRange();
+    //         $this->calculateAllMetrics();
+    //     } elseif ($this->timeframe === 'custom') {
+    //         $this->customDateRange = true;
+    //         $this->selectedMonth = '';
+    //     } elseif ($this->timeframe === 'specific_month') {
+    //         $this->customDateRange = false;
+    //         // Don't calculate yet, wait for month selection
+    //     }
+    // }
+
+
     public function updatedTimeframe()
+{
+    if ($this->timeframe !== 'custom' && $this->timeframe !== 'specific_month') {
+        $this->customDateRange = false;
+        $this->selectedMonth = '';
+        $this->setDateRange();
+        $this->resetLoadedData();
+    } elseif ($this->timeframe === 'custom') {
+        $this->customDateRange = true;
+        $this->selectedMonth = '';
+    }
+}
+    public function updatedSelectedMonth()
     {
-        if ($this->timeframe !== 'custom') {
-            $this->customDateRange = false;
-            $this->setDateRange();
+        if ($this->selectedMonth) {
+            $this->setDateRangeFromMonth();
             $this->calculateAllMetrics();
-        } else {
-            $this->customDateRange = true;
         }
     }
 
@@ -125,6 +207,21 @@ class Analytics extends Component
         }
     }
 
+    private function setDateRangeFromMonth()
+    {
+        if (!$this->selectedMonth) {
+            return;
+        }
+
+        try {
+            $date = Carbon::createFromFormat('Y-m', $this->selectedMonth);
+            $this->startDate = $date->copy()->startOfMonth()->format('Y-m-d');
+            $this->endDate = $date->copy()->endOfMonth()->format('Y-m-d');
+        } catch (\Exception $e) {
+            Log::error('Invalid month format', ['month' => $this->selectedMonth]);
+        }
+    }
+
     public function calculateAllMetrics()
     {
         try {
@@ -133,6 +230,7 @@ class Analytics extends Component
             $this->calculateExpenseMetrics();
             $this->calculateProfitMetrics();
             $this->calculateLossMetrics();
+            $this->calculateFoodSalesMetrics(); // NEW
             $this->calculateInventoryMetrics();
             $this->calculateProductPerformance();
             $this->calculateCategoryPerformance();
@@ -170,13 +268,11 @@ class Analytics extends Component
     private function calculateSalesMetrics()
     {
         $summaries = $this->getCurrentPeriodSummaries();
-
         $this->totalItemsSold = $summaries->sum('items_sold');
     }
 
     private function calculateExpenseMetrics()
     {
-        // Calculate total expenses from stock purchases during the period
         $this->totalExpenses = Stock::whereBetween('restock_date', [$this->startDate, $this->endDate])
             ->sum('total_cost');
     }
@@ -184,27 +280,28 @@ class Analytics extends Component
     private function calculateProfitMetrics()
     {
         $summaries = $this->getCurrentPeriodSummaries();
-
         $this->totalProfit = $summaries->sum('total_profit');
         
-        // Calculate gross profit margin percentage
         $this->grossProfitMargin = $this->totalRevenue > 0 
             ? ($this->totalProfit / $this->totalRevenue) * 100 
             : 0;
 
-        // Calculate average profit margin across all products
-        $salesWithCost = DailySales::whereBetween('sales_date', [$this->startDate, $this->endDate])
+        // Calculate average profit margin using actual sales data
+        $salesWithMargin = DailySales::whereBetween('sales_date', [$this->startDate, $this->endDate])
             ->with(['stock', 'product'])
             ->get();
 
         $totalMargin = 0;
         $count = 0;
 
-        foreach ($salesWithCost as $sale) {
-            if ($sale->stock && $sale->product) {
-                $unitsSold = $sale->opening_stock - $sale->closing_stock - ($sale->damaged_units ?? 0) - ($sale->credit_units ?? 0);
-                if ($unitsSold > 0) {
-                    $margin = (($sale->product->selling_price - $sale->stock->cost_price) / $sale->product->selling_price) * 100;
+        foreach ($salesWithMargin as $sale) {
+            if ($sale->stock && $sale->product && $sale->product->selling_price > 0) {
+                $unitsSold = max(0, $sale->opening_stock - $sale->closing_stock - 
+                    ($sale->damaged_units ?? 0) - ($sale->credit_units ?? 0));
+                
+                if ($unitsSold > 0 && $sale->stock->cost_price > 0) {
+                    $margin = (($sale->product->selling_price - $sale->stock->cost_price) / 
+                        $sale->product->selling_price) * 100;
                     $totalMargin += $margin;
                     $count++;
                 }
@@ -223,34 +320,72 @@ class Analytics extends Component
         $this->totalCreditUnits = $summaries->sum('total_credit_units');
         $this->totalLossAmount = $this->totalDamagedValue;
 
-        // Calculate damage rate as percentage of items sold
-        $this->damageRate = $this->totalItemsSold > 0 
-            ? ($this->totalDamagedUnits / ($this->totalItemsSold + $this->totalDamagedUnits)) * 100 
+        // Calculate accumulated losses (collection discrepancies)
+        $this->accumulatedLosses = 0;
+        $this->totalOnTheHouse = 0;
+
+        foreach ($summaries as $summary) {
+            $collected = ($summary->total_cash ?? 0) + 
+                        ($summary->total_momo ?? 0) + 
+                        ($summary->total_hubtel ?? 0);
+            
+            $expectedVal = ($summary->total_revenue ?? 0) + ($summary->food_total ?? 0);
+            $onTheHouse = $summary->on_the_house ?? 0;
+            
+            $difference = $collected - $expectedVal + $onTheHouse;
+            $this->accumulatedLosses += $difference;
+            $this->totalOnTheHouse += $onTheHouse;
+        }
+
+        // Calculate damage rate
+        $totalUnitsHandled = $this->totalItemsSold + $this->totalDamagedUnits;
+        $this->damageRate = $totalUnitsHandled > 0 
+            ? ($this->totalDamagedUnits / $totalUnitsHandled) * 100 
             : 0;
+    }
+
+    private function calculateFoodSalesMetrics()
+    {
+        $summaries = $this->getCurrentPeriodSummaries();
+        
+        $this->totalFoodSales = $summaries->sum('food_total');
+        
+        $daysInPeriod = max(1, Carbon::parse($this->startDate)->diffInDays($this->endDate) + 1);
+        $this->averageDailyFoodSales = $this->totalFoodSales / $daysInPeriod;
     }
 
     private function calculateInventoryMetrics()
     {
-        // Current inventory value
-        $stocks = Stock::with('product')->where('total_units', '>', 0)->get();
-        
-        $this->totalInventoryValue = $stocks->sum(function ($stock) {
-            return $stock->total_units * $stock->cost_price;
+        // Get latest stock for each product using subquery
+        $latestStocks = Stock::select('stocks.*')
+            ->whereIn('id', function ($query) {
+                $query->select(DB::raw('MAX(id)'))
+                    ->from('stocks')
+                    ->groupBy('product_id');
+            })
+            ->where('total_units', '>', 0)
+            ->with('product')
+            ->get();
+
+        // Current inventory value using cost_price
+        $this->totalInventoryValue = $latestStocks->sum(function ($stock) {
+            return $stock->total_units * ($stock->cost_price ?? 0);
         });
 
-        // Low stock products (below 20% of their limit)
-        $this->lowStockProducts = Product::whereHas('stocks', function ($query) {
-            $query->where('total_units', '>', 0);
-        })
-        ->get()
-        ->filter(function ($product) {
-            $stock = $product->stocks->first();
-            if ($stock && $product->stock_limit) {
-                return $stock->total_units <= ($product->stock_limit * 0.2);
-            }
-            return false;
-        })
-        ->count();
+        // Low stock products
+        $this->lowStockProducts = Product::where('is_active', true)
+            ->whereHas('stocks', function ($query) {
+                $query->where('total_units', '>', 0);
+            })
+            ->get()
+            ->filter(function ($product) use ($latestStocks) {
+                $stock = $latestStocks->firstWhere('product_id', $product->id);
+                if ($stock && $product->stock_limit && $product->stock_limit > 0) {
+                    return $stock->total_units <= ($product->stock_limit * 0.2);
+                }
+                return false;
+            })
+            ->count();
 
         // Out of stock products
         $this->outOfStockProducts = Product::where('is_active', true)
@@ -259,16 +394,41 @@ class Analytics extends Component
             })
             ->count();
 
-        // Inventory turnover rate (COGS / Average Inventory Value)
-        $cogs = $this->totalRevenue - $this->totalProfit; // Cost of goods sold
-        $this->inventoryTurnoverRate = $this->totalInventoryValue > 0 
-            ? $cogs / $this->totalInventoryValue 
+        // Improved inventory turnover calculation
+        // COGS = Revenue - Profit
+        $cogs = $this->totalRevenue - $this->totalProfit;
+        
+        // Calculate average inventory value during period
+        $startInventory = $this->getInventoryValueAtDate($this->startDate);
+        $endInventory = $this->totalInventoryValue;
+        $this->averageInventoryValue = ($startInventory + $endInventory) / 2;
+        
+        // Inventory Turnover = COGS / Average Inventory
+        $this->inventoryTurnoverRate = $this->averageInventoryValue > 0 
+            ? $cogs / $this->averageInventoryValue 
             : 0;
+    }
+
+    private function getInventoryValueAtDate($date)
+    {
+        // Get stock snapshot at specific date
+        $stocks = Stock::where('created_at', '<=', $date)
+            ->whereIn('id', function ($query) use ($date) {
+                $query->select(DB::raw('MAX(id)'))
+                    ->from('stocks')
+                    ->where('created_at', '<=', $date)
+                    ->groupBy('product_id');
+            })
+            ->get();
+
+        return $stocks->sum(function ($stock) {
+            return $stock->total_units * ($stock->cost_price ?? 0);
+        });
     }
 
     private function calculateProductPerformance()
     {
-        // Top selling products by units
+        // Top selling products
         $topSelling = DailySales::whereBetween('sales_date', [$this->startDate, $this->endDate])
             ->select(
                 'product_id',
@@ -294,7 +454,7 @@ class Analytics extends Component
 
         $this->topSellingProducts = $topSelling->toArray();
 
-        // Least selling products (active products with sales)
+        // Least selling products
         $leastSelling = DailySales::whereBetween('sales_date', [$this->startDate, $this->endDate])
             ->select(
                 'product_id',
@@ -341,7 +501,7 @@ class Analytics extends Component
 
         $this->mostProfitableProducts = $mostProfitable->toArray();
 
-        // Products with highest losses (damaged + credit)
+        // Products with highest losses
         $highestLoss = DailySales::whereBetween('sales_date', [$this->startDate, $this->endDate])
             ->select(
                 'product_id',
@@ -417,7 +577,11 @@ class Analytics extends Component
                 DB::raw('SUM(total_profit) as profit'),
                 DB::raw('SUM(items_sold) as items'),
                 DB::raw('SUM(total_damaged) as damaged'),
-                DB::raw('SUM(total_money) as money_collected')
+                DB::raw('SUM(total_money) as money_collected'),
+                DB::raw('SUM(food_total) as food_sales'),
+                DB::raw('SUM(on_the_house) as on_the_house'),
+                DB::raw('SUM(total_cash + total_momo + total_hubtel) as total_collected'),
+                DB::raw('SUM(total_revenue + food_total) as expected_total')
             )
             ->groupBy('sales_date')
             ->orderBy('sales_date')
@@ -440,6 +604,26 @@ class Analytics extends Component
                 'date' => Carbon::parse($day->sales_date)->format('M d'),
                 'profit' => round($day->profit, 2),
                 'profit_margin' => $day->revenue > 0 ? round(($day->profit / $day->revenue) * 100, 2) : 0,
+            ];
+        })->toArray();
+
+        // NEW: Food sales data
+        $this->dailyFoodSalesData = $dailyData->map(function ($day) {
+            return [
+                'date' => Carbon::parse($day->sales_date)->format('M d'),
+                'full_date' => $day->sales_date,
+                'amount' => round($day->food_sales, 2),
+            ];
+        })->toArray();
+
+        // NEW: Daily losses data (collection discrepancies)
+        $this->dailyLossesData = $dailyData->map(function ($day) {
+            $difference = $day->total_collected - $day->expected_total + $day->on_the_house;
+            return [
+                'date' => Carbon::parse($day->sales_date)->format('M d'),
+                'full_date' => $day->sales_date,
+                'loss' => round($difference, 2),
+                'on_the_house' => round($day->on_the_house, 2),
             ];
         })->toArray();
     }
@@ -481,7 +665,6 @@ class Analytics extends Component
 
     private function calculateGrowthRates()
     {
-        // Get previous period data for comparison
         $currentDays = Carbon::parse($this->startDate)->diffInDays($this->endDate) + 1;
         $previousStartDate = Carbon::parse($this->startDate)->subDays($currentDays)->format('Y-m-d');
         $previousEndDate = Carbon::parse($this->startDate)->subDay()->format('Y-m-d');
@@ -491,8 +674,8 @@ class Analytics extends Component
         $previousRevenue = $previousSummaries->sum('total_revenue');
         $previousItemsSold = $previousSummaries->sum('items_sold');
         $previousProfit = $previousSummaries->sum('total_profit');
+        $previousFoodSales = $previousSummaries->sum('food_total');
         
-        // Calculate previous period expenses
         $previousExpenses = Stock::whereBetween('restock_date', [$previousStartDate, $previousEndDate])
             ->sum('total_cost');
 
@@ -500,6 +683,7 @@ class Analytics extends Component
         $this->itemsSoldGrowth = $this->calculateGrowthPercentage($this->totalItemsSold, $previousItemsSold);
         $this->profitGrowth = $this->calculateGrowthPercentage($this->totalProfit, $previousProfit);
         $this->expensesGrowth = $this->calculateGrowthPercentage($this->totalExpenses, $previousExpenses);
+        $this->foodSalesGrowth = $this->calculateGrowthPercentage($this->totalFoodSales, $previousFoodSales);
     }
 
     private function calculateGrowthPercentage($current, $previous)
@@ -515,10 +699,23 @@ class Analytics extends Component
         return DailySalesSummary::whereBetween('sales_date', [$this->startDate, $this->endDate])->get();
     }
 
+    // Helper method to get available months for dropdown
+    public function getAvailableMonths()
+    {
+        $months = DailySalesSummary::selectRaw("TO_CHAR(sales_date, 'YYYY-MM') as month")
+            ->distinct()
+            ->orderBy('month', 'desc')
+            ->pluck('month')
+            ->toArray();
+
+        return $months;
+    }
+
     public function render()
     {
         return view('livewire.pages.analytics', [
             'categories' => Categories::all(),
+            'availableMonths' => $this->getAvailableMonths(),
         ]);
     }
 }
