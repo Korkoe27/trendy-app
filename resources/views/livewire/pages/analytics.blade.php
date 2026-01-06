@@ -245,11 +245,25 @@
 
             {{-- Daily Collection Discrepancies --}}
 <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-    <h3 class="text-lg font-semibold text-gray-900 mb-4">Daily Collection Discrepancies</h3>
+    <h3 class="text-lg font-semibold text-gray-900 mb-4">
+        Daily Collection Discrepancies
+    </h3>
+
     <p class="text-sm text-gray-600 mb-4">
-        Total Loss: <span class="font-semibold text-red-500 text-lg">GH₵ {{ number_format($accumulatedLosses, 2) }}</span> • 
-        On the House: <span class="font-semibold text-lg text-amber-500">GH₵ {{ number_format($totalOnTheHouse, 2) }}</span>
+        Total Loss:
+        <span
+            class="font-semibold text-lg
+                {{ $accumulatedLosses < 0 ? 'text-red-500' : ($accumulatedLosses > 0 ? 'text-green-400' : 'text-gray-400') }}
+">
+            GH₵ {{ number_format($accumulatedLosses, 2) }}
+        </span>
+        •
+        On the House:
+        <span class="font-semibold text-lg text-amber-500">
+            GH₵ {{ number_format($totalOnTheHouse, 2) }}
+        </span>
     </p>
+
     <canvas id="lossesChart" class="w-full" style="height: 300px;"></canvas>
 </div>
 
