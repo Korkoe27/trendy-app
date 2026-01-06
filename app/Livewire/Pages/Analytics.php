@@ -314,38 +314,41 @@ public function updatedSelectedMonth()
         $this->averageProfitMargin = $count > 0 ? $totalMargin / $count : 0;
     }
 
-    private function calculateLossMetrics()
-    {
-        $summaries = $this->getCurrentPeriodSummaries();
+private function calculateLossMetrics()
+{
+    $summaries = $this->getCurrentPeriodSummaries();
 
-        $this->totalDamagedUnits = $summaries->sum('total_damaged');
-        $this->totalDamagedValue = $summaries->sum('total_loss_amount');
-        $this->totalCreditUnits = $summaries->sum('total_credit_units');
-        $this->totalLossAmount = $this->totalDamagedValue;
+    $this->totalDamagedUnits = $summaries->sum('total_damaged');
+    $this->totalDamagedValue = $summaries->sum('total_loss_amount');
+    $this->totalCreditUnits = $summaries->sum('total_credit_units');
+    $this->totalLossAmount = $this->totalDamagedValue;
 
-        // Calculate accumulated losses (collection discrepancies)
-        $this->accumulatedLosses = 0;
-        $this->totalOnTheHouse = 0;
+    // Calculate accumulated losses (collection discrepancies) - CORRECTED
+    $this->accumulatedLosses = 0;
+    $this->totalOnTheHouse = $summaries->sum('on_the_house'); // Simple sum
 
-        foreach ($summaries as $summary) {
-            $collected = ($summary->total_cash ?? 0) + 
-                        ($summary->total_momo ?? 0) + 
-                        ($summary->total_hubtel ?? 0);
-            
-            $expectedVal = ($summary->total_revenue ?? 0) + ($summary->food_total ?? 0);
-            $onTheHouse = $summary->on_the_house ?? 0;
-            
-            $difference = $collected - $expectedVal + $onTheHouse;
-            $this->accumulatedLosses += $difference;
-            $this->totalOnTheHouse += $onTheHouse;
+    foreach ($summaries as $summary) {
+        $collected = ($summary->total_cash ?? 0) + 
+                    ($summary->total_momo ?? 0) + 
+                    ($summary->total_hubtel ?? 0);
+        
+        $expectedVal = ($summary->total_revenue ?? 0) + ($summary->food_total ?? 0);
+        $onTheHouse = $summary->on_the_house ?? 0;
+        
+        $difference = $collected - $expectedVal + $onTheHouse;
+        
+        // Only accumulate if it's a loss (negative difference)
+        if ($difference < 0) {
+            $this->accumulatedLosses += abs($difference); // Store as positive for display
         }
-
-        // Calculate damage rate
-        $totalUnitsHandled = $this->totalItemsSold + $this->totalDamagedUnits;
-        $this->damageRate = $totalUnitsHandled > 0 
-            ? ($this->totalDamagedUnits / $totalUnitsHandled) * 100 
-            : 0;
     }
+
+    // Calculate damage rate
+    $totalUnitsHandled = $this->totalItemsSold + $this->totalDamagedUnits;
+    $this->damageRate = $totalUnitsHandled > 0 
+        ? ($this->totalDamagedUnits / $totalUnitsHandled) * 100 
+        : 0;
+}
 
     private function calculateFoodSalesMetrics()
     {
@@ -594,17 +597,19 @@ $this->leastPerformingProducts = $leastPerforming->toArray();
             ->orderBy('sales_date')
             ->get();
 
-        $this->dailySalesData = $dailyData->map(function ($day) {
-            return [
-                'date' => Carbon::parse($day->sales_date)->format('M d'),
-                'full_date' => $day->sales_date,
-                'revenue' => round($day->revenue, 2),
-                'profit' => round($day->profit, 2),
-                'items' => $day->items,
-                'damaged' => $day->damaged,
-                'money_collected' => round($day->money_collected, 2),
-            ];
-        })->toArray();
+$this->dailyLossesData = $dailyData->map(function ($day) {
+    $difference = $day->total_collected - $day->expected_total + $day->on_the_house;
+    
+    // Only show as loss if negative
+    $lossAmount = $difference < 0 ? abs($difference) : 0;
+    
+    return [
+        'date' => Carbon::parse($day->sales_date)->format('M d'),
+        'full_date' => $day->sales_date,
+        'loss' => round($lossAmount, 2), // Always positive or zero
+        'on_the_house' => round($day->on_the_house, 2),
+    ];
+})->toArray();
 
         $this->dailyProfitData = $dailyData->map(function ($day) {
             return [

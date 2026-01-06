@@ -1,6 +1,6 @@
 <div>
     {{-- Loading Overlay --}}
-    {{-- @if(!$metricsLoaded)
+    @if(!$metricsLoaded)
     <div class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 flex items-center justify-center">
         <div class="bg-white rounded-lg p-8 shadow-2xl">
             <div class="flex flex-col items-center space-y-4">
@@ -12,9 +12,9 @@
             </div>
         </div>
     </div>
-    @endif --}}
+    @endif
 
-    <div class="p-6 space-y-6">
+    <div class="space-y-6">
         {{-- Header Section with Enhanced Filters --}}
         <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
@@ -241,17 +241,17 @@
             <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                 <h3 class="text-lg font-semibold text-gray-900 mb-4">Daily Food Sales</h3>
                 <canvas id="foodSalesChart" class="w-full" style="height: 300px;"></canvas>
-            </div>
+            </div>  
 
             {{-- Daily Collection Discrepancies --}}
-            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <h3 class="text-lg font-semibold text-gray-900 mb-4">Daily Collection Discrepancies</h3>
-                <p class="text-sm text-gray-600 mb-4">
-                    Total Discrepancy: <span class="font-semibold">GH₵ {{ number_format(abs($accumulatedLosses), 2) }}</span> • 
-                    On the House: <span class="font-semibold">GH₵ {{ number_format($totalOnTheHouse, 2) }}</span>
-                </p>
-                <canvas id="lossesChart" class="w-full" style="height: 300px;"></canvas>
-            </div>
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+    <h3 class="text-lg font-semibold text-gray-900 mb-4">Daily Collection Discrepancies</h3>
+    <p class="text-sm text-gray-600 mb-4">
+        Total Loss: <span class="font-semibold text-red-500 text-lg">GH₵ {{ number_format($accumulatedLosses, 2) }}</span> • 
+        On the House: <span class="font-semibold text-lg text-amber-500">GH₵ {{ number_format($totalOnTheHouse, 2) }}</span>
+    </p>
+    <canvas id="lossesChart" class="w-full" style="height: 300px;"></canvas>
+</div>
 
             {{-- Payment Method Breakdown --}}
             <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
@@ -287,7 +287,7 @@
                         </div>
                         <div class="flex-1 min-w-0">
                             <p class="text-sm font-medium text-gray-900 truncate">{{ $p['product_name'] }}</p>
-                            <p class="text-xs text-gray-500">{{ $p['category'] }}</p>
+                            <p class="text-sm text-gray-500">{{ $p['category'] }}</p>
                         </div>
                         <div class="text-right">
                             <p class="text-sm font-semibold text-gray-900">{{ number_format($p['units_sold']) }} units</p>
@@ -310,8 +310,8 @@
                             {{ $i + 1 }}
                         </div>
                         <div class="flex-1 min-w-0">
-                            <p class="text-sm font-medium text-gray-900 truncate">{{ $p['product_name'] }}</p>
-                            <p class="text-xs text-gray-500">{{ number_format($p['units_sold']) }} units</p>
+                            <p class="text-base font-medium text-gray-900 uppercase truncate">{{ $p['product_name'] }}</p>
+                            <p class="text-sm text-amber-500 italic">{{ number_format($p['units_sold']) }} units</p>
                         </div>
                         <div class="text-right">
                             <p class="text-sm font-semibold text-green-600">GH₵ {{ number_format($p['total_profit'], 2) }}</p>
@@ -334,8 +334,8 @@
                 {{ $i + 1 }}
             </div>
             <div class="flex-1 min-w-0">
-                <p class="text-sm font-medium text-gray-900 truncate">{{ $p['product_name'] }}</p>
-                <p class="text-xs text-gray-500">{{ $p['category'] }} • {{ number_format($p['units_sold']) }} units</p>
+                <p class="text-base font-medium text-gray-900 uppercase truncate">{{ $p['product_name'] }}</p>
+                <p class="text-xs italic capitalize text-green-500">{{ $p['category'] }} • <span class="text-sm text-amber-500">{{ number_format($p['units_sold']) }} units</span></p>
             </div>
             <div class="text-right">
                 <p class="text-sm font-semibold text-orange-600">GH₵ {{ number_format($p['revenue'], 2) }}</p>
@@ -507,51 +507,50 @@
                 });
             }
 
-            // Daily Losses Chart
-            const lossesCtx = document.getElementById('lossesChart');
-            if (lossesCtx) {
-                charts.losses = new Chart(lossesCtx, {
-                    type: 'bar',
-                    data: {
-                        labels: @json(array_column($dailyLossesData, 'date')),
-                        datasets: [
-                            {
-                                label: 'Collection Shortfall',
-                                data: @json(array_map(fn($d) => $d['loss'] < 0 ? abs($d['loss']) : 0, $dailyLossesData)),
-                                backgroundColor: '#EF4444',
-                                borderRadius: 4
-                            },
-                            {
-                                label: 'On the House',
-                                data: @json(array_column($dailyLossesData, 'on_the_house')),
-                                backgroundColor: '#F97316',
-                                borderRadius: 4
-                            }
-                        ]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: { position: 'top' },
-                            tooltip: {
-                                callbacks: {
-                                    label: context => context.dataset.label + ': GH₵ ' + context.parsed.y.toLocaleString()
-                                }
-                            }
-                        },
-                        scales: {
-                            y: { 
-                                beginAtZero: true,
-                                ticks: {
-                                    callback: value => 'GH₵' + value.toLocaleString()
-                                }
-                            }
-                        }
+// Daily Losses Chart
+const lossesCtx = document.getElementById('lossesChart');
+if (lossesCtx) {
+    charts.losses = new Chart(lossesCtx, {
+        type: 'bar',
+        data: {
+            labels: @json(array_column($dailyLossesData, 'date')),
+            datasets: [
+                {
+                    label: 'Collection Shortfall',
+                    data: @json(array_column($dailyLossesData, 'loss')),
+                    backgroundColor: '#EF4444',
+                    borderRadius: 4
+                },
+                {
+                    label: 'On the House',
+                    data: @json(array_column($dailyLossesData, 'on_the_house')),
+                    backgroundColor: '#F97316',
+                    borderRadius: 4
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'top' },
+                tooltip: {
+                    callbacks: {
+                        label: context => context.dataset.label + ': GH₵ ' + context.parsed.y.toLocaleString()
                     }
-                });
+                }
+            },
+            scales: {
+                y: { 
+                    beginAtZero: true,
+                    ticks: {
+                        callback: value => 'GH₵' + value.toLocaleString()
+                    }
+                }
             }
         }
+    });
+}
 
         // Initialize charts on page load if charts are loaded
         if (@json($chartsLoaded)) {
