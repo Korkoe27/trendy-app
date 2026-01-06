@@ -338,9 +338,9 @@ private function calculateLossMetrics()
         $difference = $collected - $expectedVal + $onTheHouse;
         
         // Only accumulate if it's a loss (negative difference)
-        if ($difference < 0) {
+        // if ($difference < 0) {
             $this->accumulatedLosses += abs($difference); // Store as positive for display
-        }
+        // }
     }
 
     // Calculate damage rate
