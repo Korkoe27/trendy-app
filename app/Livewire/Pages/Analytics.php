@@ -69,7 +69,7 @@ public $chartsLoaded = false;
     public $topSellingProducts = [];
     public $leastSellingProducts = [];
     public $mostProfitableProducts = [];
-    public $highestLossProducts = [];
+    public $leastPerformingProducts  = [];
 
     // Category Performance
     public $categoryPerformance = [];
@@ -85,7 +85,7 @@ public $chartsLoaded = false;
     public function mount()
     {
         $this->setDateRange();
-        // $this->calculateAllMetrics();
+        $this->loadMetrics();
     }
 
     // Add these methods to your Analytics class
@@ -151,31 +151,34 @@ private function resetLoadedData()
         $this->customDateRange = false;
         $this->selectedMonth = '';
         $this->setDateRange();
-        $this->resetLoadedData();
+        $this->loadMetrics();
     } elseif ($this->timeframe === 'custom') {
         $this->customDateRange = true;
         $this->selectedMonth = '';
     }
 }
-    public function updatedSelectedMonth()
-    {
-        if ($this->selectedMonth) {
-            $this->setDateRangeFromMonth();
-            $this->calculateAllMetrics();
-        }
+public function updatedSelectedMonth()
+{
+    if ($this->selectedMonth) {
+        $this->setDateRangeFromMonth();
+        $this->resetLoadedData();
+        $this->loadMetrics(); // Use loadMetrics instead
     }
+}
 
     public function updatedStartDate()
     {
         if ($this->customDateRange && $this->startDate && $this->endDate) {
-            $this->calculateAllMetrics();
+            $this->resetLoadedData();
+            $this->loadMetrics();
         }
     }
 
     public function updatedEndDate()
     {
         if ($this->customDateRange && $this->startDate && $this->endDate) {
-            $this->calculateAllMetrics();
+            $this->resetLoadedData();
+            $this->loadMetrics();
         }
     }
 
@@ -349,6 +352,8 @@ private function resetLoadedData()
         $summaries = $this->getCurrentPeriodSummaries();
         
         $this->totalFoodSales = $summaries->sum('food_total');
+
+        Log::info('Total Food Sales', ['total_food_sales' => $this->totalFoodSales]);
         
         $daysInPeriod = max(1, Carbon::parse($this->startDate)->diffInDays($this->endDate) + 1);
         $this->averageDailyFoodSales = $this->totalFoodSales / $daysInPeriod;
@@ -502,33 +507,35 @@ private function resetLoadedData()
         $this->mostProfitableProducts = $mostProfitable->toArray();
 
         // Products with highest losses
-        $highestLoss = DailySales::whereBetween('sales_date', [$this->startDate, $this->endDate])
-            ->select(
-                'product_id',
-                DB::raw('SUM(COALESCE(damaged_units, 0)) as damaged_units'),
-                DB::raw('SUM(COALESCE(loss_amount, 0)) as loss_value'),
-                DB::raw('SUM(COALESCE(credit_units, 0)) as credit_units'),
-                DB::raw('SUM(COALESCE(credit_amount, 0)) as credit_value')
-            )
-            ->groupBy('product_id')
-            ->havingRaw('SUM(COALESCE(damaged_units, 0) + COALESCE(credit_units, 0)) > 0')
-            ->orderByRaw('SUM(COALESCE(loss_amount, 0)) desc')
-            ->limit(10)
-            ->with('product')
-            ->get()
-            ->map(function ($sale) {
-                return [
-                    'product_id' => $sale->product_id,
-                    'product_name' => $sale->product->name ?? 'Unknown',
-                    'damaged_units' => $sale->damaged_units,
-                    'loss_value' => $sale->loss_value,
-                    'credit_units' => $sale->credit_units,
-                    'credit_value' => $sale->credit_value,
-                    'total_loss' => $sale->loss_value,
-                ];
-            });
+$leastPerforming = DailySales::whereBetween('sales_date', [$this->startDate, $this->endDate])
+    ->select(
+        'product_id',
+        DB::raw('SUM(total_amount + COALESCE(credit_amount, 0)) as revenue'),
+        DB::raw('SUM(unit_profit) as profit'),
+        DB::raw('SUM(COALESCE(damaged_units, 0)) as damaged_units'),
+        DB::raw('SUM(opening_stock - closing_stock - COALESCE(damaged_units, 0) - COALESCE(credit_units, 0)) as units_sold')
+    )
+    ->groupBy('product_id')
+    ->havingRaw('SUM(opening_stock - closing_stock - COALESCE(damaged_units, 0) - COALESCE(credit_units, 0)) > 0') // Only products that sold
+    ->orderBy('revenue', 'asc') // Lowest revenue first
+    ->limit(10)
+    ->with('product.category')
+    ->get()
+    ->map(function ($sale) {
+        $profitMargin = $sale->revenue > 0 ? ($sale->profit / $sale->revenue) * 100 : 0;
+        return [
+            'product_id' => $sale->product_id,
+            'product_name' => $sale->product->name ?? 'Unknown',
+            'category' => $sale->product->category->name ?? 'N/A',
+            'units_sold' => $sale->units_sold,
+            'revenue' => $sale->revenue,
+            'profit' => $sale->profit,
+            'profit_margin' => $profitMargin,
+            'damaged_units' => $sale->damaged_units,
+        ];
+    });
 
-        $this->highestLossProducts = $highestLoss->toArray();
+$this->leastPerformingProducts = $leastPerforming->toArray();
     }
 
     private function calculateCategoryPerformance()

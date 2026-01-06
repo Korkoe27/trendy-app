@@ -324,27 +324,29 @@
             </div>
 
             {{-- Highest Loss Products --}}
-            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <h3 class="text-lg font-semibold text-gray-900 mb-4">Highest Loss Products</h3>
-                <div class="space-y-3">
-                    @forelse(array_slice($highestLossProducts, 0, 8) as $i => $p)
-                    <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                        <div class="flex-shrink-0 w-8 h-8 bg-red-600 text-white rounded-full flex items-center justify-center font-semibold text-sm">
-                            {{ $i + 1 }}
-                        </div>
-                        <div class="flex-1 min-w-0">
-                            <p class="text-sm font-medium text-gray-900 truncate">{{ $p['product_name'] }}</p>
-                            <p class="text-xs text-gray-500">{{ $p['damaged_units'] }} dmg • {{ $p['credit_units'] }} credit</p>
-                        </div>
-                        <div class="text-right">
-                            <p class="text-sm font-semibold text-red-600">GH₵ {{ number_format($p['total_loss'], 2) }}</p>
-                        </div>
-                    </div>
-                    @empty
-                    <p class="text-sm text-gray-500 text-center py-8">No losses recorded</p>
-                    @endforelse
-                </div>
+            {{-- Least Performing Products --}}
+<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+    <h3 class="text-lg font-semibold text-gray-900 mb-4">Least Performing Products</h3>
+    <div class="space-y-3">
+        @forelse(array_slice($leastPerformingProducts, 0, 8) as $i => $p)
+        <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+            <div class="flex-shrink-0 w-8 h-8 bg-orange-600 text-white rounded-full flex items-center justify-center font-semibold text-sm">
+                {{ $i + 1 }}
             </div>
+            <div class="flex-1 min-w-0">
+                <p class="text-sm font-medium text-gray-900 truncate">{{ $p['product_name'] }}</p>
+                <p class="text-xs text-gray-500">{{ $p['category'] }} • {{ number_format($p['units_sold']) }} units</p>
+            </div>
+            <div class="text-right">
+                <p class="text-sm font-semibold text-orange-600">GH₵ {{ number_format($p['revenue'], 2) }}</p>
+                <p class="text-xs text-gray-600">{{ number_format($p['profit_margin'], 1) }}% margin</p>
+            </div>
+        </div>
+        @empty
+        <p class="text-sm text-gray-500 text-center py-8">No data available</p>
+        @endforelse
+    </div>
+</div>
         </div>
 
         {{-- Inventory & Categories Section --}}
