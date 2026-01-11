@@ -366,12 +366,12 @@ Log::debug('Product stocks before validation:', [
     'sample' => array_slice($this->productStocks, 0, 2, true) // Log first 2 products
 ]);
     // Validate stock inputs
-    if (!$this->validateStockInputs()) {
+    // if (!$this->validateStockInputs()) {
 
-        Log::debug('Stock validation failed', $this->stockErrors);
-        session()->flash('error', 'Please correct the stock errors before updating.');
-        return;
-    }
+    //     Log::debug('Stock validation failed', $this->stockErrors);
+    //     session()->flash('error', 'Please correct the stock errors before updating.');
+    //     return;
+    // }
 
     Log::debug('Validated stock inputs successfully');
     
