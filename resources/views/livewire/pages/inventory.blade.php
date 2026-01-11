@@ -185,13 +185,6 @@
                                     class="" />
                             </div>
                         @else
-                            {{-- Show the sales date (read-only when editing)
-                            <div class="mt-4 bg-gray-50 border border-gray-200 rounded-lg p-3">
-                                <span class="text-sm text-gray-600">Recording sales for: </span>
-                                <span class="text-sm font-semibold text-gray-900">
-                                    {{ \Carbon\Carbon::parse($salesDate)->format('l, M j, Y') }}
-                                </span>
-                            </div> --}}
                             <div class="mt-4 bg-amber-50 border border-amber-200 rounded-lg p-4">
                                 <label class="text-xs text-amber-700 font-medium mb-1 block">Edit Sales Date:</label>
                                 <input type="date" wire:model.live="salesDate" max="{{ now()->format('Y-m-d') }}"

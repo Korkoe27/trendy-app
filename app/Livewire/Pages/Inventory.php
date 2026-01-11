@@ -290,6 +290,7 @@ public $stockErrors = [];
 
     public function updateInventory()
 {
+
     if (!$this->isEditing || !$this->editingRecordId) {
         session()->flash('error', 'Invalid edit operation');
         return;
@@ -312,12 +313,16 @@ public $stockErrors = [];
             throw $e;
         }
     }
+
+    Log::debug('Validated money inputs successfully');
     
     // Validate stock inputs
     if (!$this->validateStockInputs()) {
         session()->flash('error', 'Please correct the stock errors before updating.');
         return;
     }
+
+    Log::debug('Validated stock inputs successfully');
     
     DB::transaction(function () {
         $summary = DailySalesSummary::find($this->editingRecordId);
