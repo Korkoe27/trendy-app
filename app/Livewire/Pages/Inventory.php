@@ -132,6 +132,8 @@ public $stockErrors = [];
     $this->stockErrors = [];
     $hasErrors = false;
 
+    Log::debug("validating stocks");
+
     foreach ($this->productStocks as $productId => $stockData) {
         $product = $this->allProducts[$productId] ?? null;
         if (!$product) continue;
@@ -318,6 +320,8 @@ public $stockErrors = [];
     
     // Validate stock inputs
     if (!$this->validateStockInputs()) {
+
+        Log::debug('Stock validation failed', $this->stockErrors);
         session()->flash('error', 'Please correct the stock errors before updating.');
         return;
     }
