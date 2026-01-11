@@ -127,7 +127,7 @@ public $stockErrors = [];
         }
     }
 
-    protected function validateStockInputs()
+protected function validateStockInputs()
 {
     $this->stockErrors = [];
     $hasErrors = false;
@@ -147,12 +147,31 @@ public $stockErrors = [];
             continue;
         }
 
-        // Get opening stock based on edit mode
-        if ($this->isEditing && isset($stockData['original_opening_stock'])) {
-            $openingStock = $stockData['original_opening_stock'];
+        // Get opening stock based on edit mode - WITH BETTER NULL CHECKS
+        if ($this->isEditing) {
+            // Try to get original opening stock first
+            if (isset($stockData['original_opening_stock']) && $stockData['original_opening_stock'] !== null) {
+                $openingStock = $stockData['original_opening_stock'];
+            } else {
+                // Fallback to current stock if original not available
+                $currentStock = $this->allStocks[$productId] ?? null;
+                $openingStock = $currentStock ? $currentStock->total_units : 0;
+                
+                // If we still don't have opening stock, skip validation for this product
+                if ($openingStock === 0 && !$currentStock) {
+                    Log::warning("No opening stock found for product {$productId} during edit");
+                    continue;
+                }
+            }
         } else {
             $currentStock = $this->allStocks[$productId] ?? null;
             $openingStock = $currentStock ? $currentStock->total_units : 0;
+            
+            // If no stock record exists for new entry, skip validation
+            if (!$currentStock) {
+                Log::warning("No current stock found for product {$productId} during new entry");
+                continue;
+            }
         }
 
         // Check if closing stock is greater than opening stock
@@ -162,9 +181,10 @@ public $stockErrors = [];
         }
     }
 
+    Log::debug("Stock validation completed", ['hasErrors' => $hasErrors, 'errors' => $this->stockErrors]);
+
     return !$hasErrors;
 }
-
     public function updatedHubtelAmount($value)
     {
         $this->hubtelAmount = $value;
@@ -316,15 +336,17 @@ public $stockErrors = [];
         }
     }
 
-    Log::debug('Validated money inputs successfully');
-    
+Log::debug('Product stocks before validation:', [
+    'count' => count($this->productStocks),
+    'sample' => array_slice($this->productStocks, 0, 2, true) // Log first 2 products
+]);
     // Validate stock inputs
-    // if (!$this->validateStockInputs()) {
+    if (!$this->validateStockInputs()) {
 
-    //     Log::debug('Stock validation failed', $this->stockErrors);
-    //     session()->flash('error', 'Please correct the stock errors before updating.');
-    //     return;
-    // }
+        Log::debug('Stock validation failed', $this->stockErrors);
+        session()->flash('error', 'Please correct the stock errors before updating.');
+        return;
+    }
 
     Log::debug('Validated stock inputs successfully');
     
