@@ -531,172 +531,175 @@ class Stocks extends Component
         $this->closeEditStockModal();
         session()->flash('message', 'Stock entry updated successfully!');
     }
-public function saveNewStock()
-{
-    $this->validate();
 
-    // Filter out empty items
-    $validItems = array_filter($this->newStockItems, function ($item) {
-        return !empty($item['product_id']) &&
-            $item['calculated_total_units'] > 0 &&
-            !empty($item['total_cost']);
-    });
+    public function saveNewStock()
+    {
+        $this->validate();
 
-    Log::debug('Valid stock items for addition: ', $validItems);
+        // Filter out empty items
+        $validItems = array_filter($this->newStockItems, function ($item) {
+            return ! empty($item['product_id']) &&
+                $item['calculated_total_units'] > 0 &&
+                ! empty($item['total_cost']);
+        });
 
-    if (empty($validItems)) {
-        $this->addError('newStockItems', 'At least one item with quantities, total cost, and supplier is required');
-        return;
-    }
+        Log::debug('Valid stock items for addition: ', $validItems);
 
-    // Validate products exist BEFORE transaction
-    $productIds = array_column($validItems, 'product_id');
-    $existingProducts = Product::whereIn('id', $productIds)->pluck('id')->toArray();
-    $missingIds = array_diff($productIds, $existingProducts);
+        if (empty($validItems)) {
+            $this->addError('newStockItems', 'At least one item with quantities, total cost, and supplier is required');
 
-    if (!empty($missingIds)) {
-        $this->addError('newStockItems', 'Products not found: ' . implode(', ', $missingIds));
-        return;
-    }
+            return;
+        }
 
-    $successCount = 0;
-    $totalExpenseAmount = 0;
+        // Validate products exist BEFORE transaction
+        $productIds = array_column($validItems, 'product_id');
+        $existingProducts = Product::whereIn('id', $productIds)->pluck('id')->toArray();
+        $missingIds = array_diff($productIds, $existingProducts);
 
-    try {
-        DB::beginTransaction();
-        
-        $restockDate = $this->restockDate ?: Carbon::today()->format('Y-m-d');
+        if (! empty($missingIds)) {
+            $this->addError('newStockItems', 'Products not found: '.implode(', ', $missingIds));
 
-        // Fetch all products at once
-        $products = Product::select('id', 'name', 'barcode', 'sku', 'selling_price', 'units_per_box')
-            ->with('currentStock')
-            ->whereIn('id', $productIds)
-            ->get()
-            ->keyBy('id');
+            return;
+        }
 
-        $stockCreateRows = [];
+        $successCount = 0;
+        $totalExpenseAmount = 0;
 
-        foreach ($validItems as $index => $item) {
-            $product = $products->get($item['product_id']);
+        try {
+            DB::beginTransaction();
 
-            if (!$product) {
-                throw new \Exception('Product not found for item at position ' . ($index + 1));
+            $restockDate = $this->restockDate ?: Carbon::today()->format('Y-m-d');
+
+            // Fetch all products at once
+            $products = Product::select('id', 'name', 'barcode', 'sku', 'selling_price', 'units_per_box')
+                ->with('currentStock')
+                ->whereIn('id', $productIds)
+                ->get()
+                ->keyBy('id');
+
+            $stockCreateRows = [];
+
+            foreach ($validItems as $index => $item) {
+                $product = $products->get($item['product_id']);
+
+                if (! $product) {
+                    throw new \Exception('Product not found for item at position '.($index + 1));
+                }
+
+                // Validate item
+                $this->validateStockItem($item, $index, $product);
+
+                $freeUnits = (int) ($item['free_units'] ?? 0);
+                $totalUnitsToAdd = (int) $item['calculated_total_units'] + $freeUnits;
+                $totalCost = (float) $item['total_cost'];
+                $supplier = trim($item['supplier']);
+                $costPrice = (float) $item['calculated_cost_price'];
+                $costMargin = (float) $item['calculated_profit_margin'];
+
+                $totalExpenseAmount += $totalCost;
+
+                // Always create a NEW stock record - this becomes the currentStock
+                $stockCreateRows[] = [
+                    'product_id' => $product->id,
+                    'total_units' => $totalUnitsToAdd,
+                    'supplier' => $supplier,
+                    'total_cost' => $totalCost,
+                    'cost_price' => $costPrice,
+                    'cost_margin' => $costMargin,
+                    'free_units' => $freeUnits,
+                    'notes' => $this->notes,
+                    'restock_date' => $restockDate,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
+
+                $successCount++;
             }
 
-            // Validate item
-            $this->validateStockItem($item, $index, $product);
+            // Batch insert new stock records
+            if (! empty($stockCreateRows)) {
+                DB::table('stocks')->insert($stockCreateRows);
+                Log::info('Created new stock entries', ['count' => count($stockCreateRows)]);
+            }
+            // Build detailed product list for descriptions
+            $productNames = [];
+            $productDetails = [];
+            foreach ($validItems as $item) {
+                $product = $products->get($item['product_id']);
+                if ($product) {
+                    $productNames[] = $product->name;
+                    $productDetails[] = [
+                        'name' => $product->name,
+                        'sku' => $product->sku,
+                        'units_added' => (int) $item['calculated_total_units'] + (int) ($item['free_units'] ?? 0),
+                        'free_units' => (int) ($item['free_units'] ?? 0),
+                        'cost' => (float) $item['total_cost'],
+                        'supplier' => trim($item['supplier']),
+                    ];
+                }
+            }
 
-            $freeUnits = (int) ($item['free_units'] ?? 0);
-            $totalUnitsToAdd = (int) $item['calculated_total_units'] + $freeUnits;
-            $totalCost = (float) $item['total_cost'];
-            $supplier = trim($item['supplier']);
-            $costPrice = (float) $item['calculated_cost_price'];
-            $costMargin = (float) $item['calculated_profit_margin'];
+            $productNamesList = implode(', ', $productNames);
+            $truncatedProductList = strlen($productNamesList) > 200
+                ? substr($productNamesList, 0, 197).'...'
+                : $productNamesList;
 
-            $totalExpenseAmount += $totalCost;
+            // Create expense record with detailed description
+            Expense::create([
+                'reference' => 'STK-'.strtoupper(uniqid()),
+                'amount' => $totalExpenseAmount,
+                'description' => "Stock replenishment for {$successCount} product(s): {$truncatedProductList} (Restock Date: ".Carbon::parse($restockDate)->format('M j, Y').')',
+                'incurred_at' => now(),
+                'payment_method' => 'inventory',
+                'paid_by' => Auth::id(),
+                'category' => 'inventory',
+                'notes' => $this->notes."\n\nProducts: ".$productNamesList,
+                'status' => 'pending',
+                'supplier' => implode(', ', array_unique(array_column($validItems, 'supplier'))),
+            ]);
 
-            // Always create a NEW stock record - this becomes the currentStock
-            $stockCreateRows[] = [
-                'product_id' => $product->id,
-                'total_units' => $totalUnitsToAdd,
-                'supplier' => $supplier,
-                'total_cost' => $totalCost,
-                'cost_price' => $costPrice,
-                'cost_margin' => $costMargin,
-                'free_units' => $freeUnits,
-                'notes' => $this->notes,
-                'restock_date' => $restockDate,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ];
+            // Create activity log with comprehensive metadata
+            ActivityLogs::create([
+                'user_id' => Auth::id(),
+                'action_type' => 'stock_update',
+                'description' => "Stock added for {$successCount} product(s): {$truncatedProductList} (Restock Date: ".Carbon::parse($restockDate)->format('M j, Y').')',
+                'entity_type' => 'stock_record',
+                'entity_id' => 'bulk_update',
+                'metadata' => json_encode([
+                    'total_items_added' => $successCount,
+                    'new_entries' => count($stockCreateRows),
+                    'total_expense' => $totalExpenseAmount,
+                    'restock_date' => $restockDate,
+                    'timestamp' => now(),
+                    'products' => $productDetails,
+                    'product_names' => $productNames,
+                    'suppliers' => array_unique(array_column($validItems, 'supplier')),
+                    'total_units_added' => array_sum(array_column($productDetails, 'units_added')),
+                    'total_free_units' => array_sum(array_column($productDetails, 'free_units')),
+                    'user_name' => Auth::user()->name ?? 'Unknown',
+                ]),
+            ]);
 
-            $successCount++;
+            DB::commit();
+
+            // Success actions AFTER commit
+            $this->closeAddStockModal();
+            session()->flash('message', "Successfully added stock for {$successCount} product(s)");
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            Log::error('Stock update failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            $this->addError('newStockItems', $e->getMessage());
+            session()->flash('error', 'Stock update failed: '.$e->getMessage());
         }
-
-        // Batch insert new stock records
-        if (!empty($stockCreateRows)) {
-            DB::table('stocks')->insert($stockCreateRows);
-            Log::info('Created new stock entries', ['count' => count($stockCreateRows)]);
-        }
-// Build detailed product list for descriptions
-$productNames = [];
-$productDetails = [];
-foreach ($validItems as $item) {
-    $product = $products->get($item['product_id']);
-    if ($product) {
-        $productNames[] = $product->name;
-        $productDetails[] = [
-            'name' => $product->name,
-            'sku' => $product->sku,
-            'units_added' => (int) $item['calculated_total_units'] + (int) ($item['free_units'] ?? 0),
-            'free_units' => (int) ($item['free_units'] ?? 0),
-            'cost' => (float) $item['total_cost'],
-            'supplier' => trim($item['supplier']),
-        ];
     }
-}
 
-$productNamesList = implode(', ', $productNames);
-$truncatedProductList = strlen($productNamesList) > 200 
-    ? substr($productNamesList, 0, 197) . '...' 
-    : $productNamesList;
-
-// Create expense record with detailed description
-Expense::create([
-    'reference' => 'STK-' . strtoupper(uniqid()),
-    'amount' => $totalExpenseAmount,
-    'description' => "Stock replenishment for {$successCount} product(s): {$truncatedProductList} (Restock Date: " . Carbon::parse($restockDate)->format('M j, Y') . ')',
-    'incurred_at' => now(),
-    'payment_method' => 'inventory',
-    'paid_by' => Auth::id(),
-    'category' => 'inventory',
-    'notes' => $this->notes . "\n\nProducts: " . $productNamesList,
-    'status' => 'pending',
-    'supplier' => implode(', ', array_unique(array_column($validItems, 'supplier'))),
-]);
-
-// Create activity log with comprehensive metadata
-ActivityLogs::create([
-    'user_id' => Auth::id(),
-    'action_type' => 'stock_update',
-    'description' => "Stock added for {$successCount} product(s): {$truncatedProductList} (Restock Date: " . Carbon::parse($restockDate)->format('M j, Y') . ')',
-    'entity_type' => 'stock_record',
-    'entity_id' => 'bulk_update',
-    'metadata' => json_encode([
-        'total_items_added' => $successCount,
-        'new_entries' => count($stockCreateRows),
-        'total_expense' => $totalExpenseAmount,
-        'restock_date' => $restockDate,
-        'timestamp' => now(),
-        'products' => $productDetails,
-        'product_names' => $productNames,
-        'suppliers' => array_unique(array_column($validItems, 'supplier')),
-        'total_units_added' => array_sum(array_column($productDetails, 'units_added')),
-        'total_free_units' => array_sum(array_column($productDetails, 'free_units')),
-        'user_name' => Auth::user()->name ?? 'Unknown',
-    ]),
-]);
-
-        DB::commit();
-
-        // Success actions AFTER commit
-        $this->closeAddStockModal();
-        session()->flash('message', "Successfully added stock for {$successCount} product(s)");
-
-    } catch (\Exception $e) {
-        DB::rollBack();
-        
-        Log::error('Stock update failed', [
-            'error' => $e->getMessage(),
-            'trace' => $e->getTraceAsString(),
-        ]);
-
-        $this->addError('newStockItems', $e->getMessage());
-        session()->flash('error', 'Stock update failed: ' . $e->getMessage());
-    }
-}
-
-private function createActivityLog($product, $stockItem, $costMargin, $costPrice, $totalUnitsAdded)
+    private function createActivityLog($product, $stockItem, $costMargin, $costPrice, $totalUnitsAdded)
     {
         $description = "Stock updated for {$product->name}";
 
