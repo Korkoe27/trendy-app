@@ -127,89 +127,162 @@ public $stockErrors = [];
         }
     }
 
-        protected function validateStockInputs()
-        {
-            $this->stockErrors = [];
-            $hasErrors = false;
+    protected function validateStockInputs()
+{
+    $this->stockErrors = [];
+    $hasErrors = false;
 
-            Log::debug("Starting stock validation", [
-                'productStocks_count' => count($this->productStocks),
-                'isEditing' => $this->isEditing
-            ]);
+    Log::debug("validating stocks");
 
-            foreach ($this->productStocks as $productId => $stockData) {
-                // 1. Early skip if data structure is broken
-                if (!is_array($stockData)) {
-                    Log::warning("Invalid stock data structure for product {$productId}", ['data' => $stockData]);
+    foreach ($this->productStocks as $productId => $stockData) {
+        $product = $this->allProducts[$productId] ?? null;
+        if (!$product) continue;
+
+        Log::debug("Validating product: {$product->name} (ID: {$productId})");
+
+        $closingUnits = (float) ($stockData['closing_units'] ?? 0);
+        
+        // Check if closing units is empty
+        if (!filled($stockData['closing_units'])) {
+            $this->stockErrors[$productId] = 'Please enter closing stock';
+            $hasErrors = true;
+            continue;
+        }
+
+        // Get opening stock based on edit mode - WITH BETTER NULL CHECKS
+        if ($this->isEditing) {
+            // Try to get original opening stock first
+            Log::info("this is editing");
+            if (isset($stockData['original_opening_stock']) && $stockData['original_opening_stock'] !== null) {
+                $openingStock = $stockData['original_opening_stock'];
+                Log::debug("Using original opening stock for product {$productId}: {$openingStock}");
+            } else {
+                // Fallback to current stock if original not available
+                $currentStock = $this->allStocks[$productId] ?? null;
+                $openingStock = $currentStock ? $currentStock->total_units : 0;
+
+                Log::debug("Fallback to current stock for product {$productId}: {$openingStock}");
+                
+                // If we still don't have opening stock, skip validation for this product
+                if ($openingStock === 0 && !$currentStock) {
+                    Log::warning("No opening stock found for product {$productId} during edit");
                     continue;
-                }
-
-                $product = $this->allProducts[$productId] ?? null;
-
-                // Skip if product no longer exists in allProducts cache
-                if (!$product) {
-                    Log::notice("Product {$productId} not found in allProducts cache during validation - skipping");
-                    continue;
-                }
-
-                // 2. Very defensive closing units check
-                $closingUnitsRaw = $stockData['closing_units'] ?? null;
-                $closingUnits = filled($closingUnitsRaw) ? (float) $closingUnitsRaw : null;
-
-                if ($closingUnits === null || $closingUnitsRaw === '') {
-                    $this->stockErrors[$productId] = 'Closing stock is required';
-                    $hasErrors = true;
-                    continue;
-                }
-
-                // 3. Determine opening stock very carefully
-                $openingStock = 0;
-
-                if ($this->isEditing) {
-                    // Prefer original value from the edit form
-                    if (isset($stockData['original_opening_stock']) && is_numeric($stockData['original_opening_stock'])) {
-                        $openingStock = (float) $stockData['original_opening_stock'];
-                    }
-                    // Fallback - very last resort
-                    elseif (isset($this->allStocks[$productId])) {
-                        $openingStock = (float) $this->allStocks[$productId]->total_units;
-                        Log::warning("Used current stock as fallback opening for product {$productId} during edit", [
-                            'product' => $product->name ?? 'unknown'
-                        ]);
-                    }
-                } else {
-                    // New entry → must have current stock
-                    if (isset($this->allStocks[$productId])) {
-                        $openingStock = (float) $this->allStocks[$productId]->total_units;
-                    } else {
-                        Log::warning("No opening stock available for new entry - product {$productId}", [
-                            'name' => $product->name ?? 'unknown'
-                        ]);
-                        continue; // skip validation for this product
-                    }
-                }
-
-                // 4. Final validation
-                if ($closingUnits > $openingStock) {
-                    $this->stockErrors[$productId] = "Closing stock ({$closingUnits}) cannot be more than opening stock ({$openingStock}) - {$product->name}";
-                    $hasErrors = true;
-                }
-
-                // Optional: warn about suspicious negative values
-                if ($closingUnits < 0) {
-                    $this->stockErrors[$productId] = "Closing stock cannot be negative ({$closingUnits})";
-                    $hasErrors = true;
                 }
             }
+        } else {
+            $currentStock = $this->allStocks[$productId] ?? null;
+            $openingStock = $currentStock ? $currentStock->total_units : 0;
 
-            Log::debug("Stock validation finished", [
-                'hasErrors' => $hasErrors,
-                'errorCount' => count($this->stockErrors),
-                'errors' => $this->stockErrors
-            ]);
-
-            return !$hasErrors;
+            Log::debug("this is not editing");
+            
+            // If no stock record exists for new entry, skip validation
+            if (!$currentStock) {
+                Log::warning("No current stock found for product {$productId} during new entry");
+                continue;
+            }
         }
+
+        // Check if closing stock is greater than opening stock
+        if ($closingUnits > $openingStock) {
+            Log::debug("Closing stock exceeds opening stock for product {$productId}");
+            $this->stockErrors[$productId] = "Closing stock ({$closingUnits}) cannot exceed opening stock ({$openingStock})";
+            $hasErrors = true;
+        }
+    }
+
+    Log::debug("Stock validation completed", ['hasErrors' => $hasErrors, 'errors' => $this->stockErrors]);
+
+    return !$hasErrors;
+}
+
+        // protected function validateStockInputs()
+        // {
+        //     $this->stockErrors = [];
+        //     $hasErrors = false;
+
+        //     Log::debug("Starting stock validation", [
+        //         'productStocks_count' => count($this->productStocks),
+        //         'isEditing' => $this->isEditing
+        //     ]);
+
+        //     foreach ($this->productStocks as $productId => $stockData) {
+        //         // 1. Early skip if data structure is broken
+        //         Log::debug("start");
+        //         if (!is_array($stockData)) {
+        //             Log::warning("Invalid stock data structure for product {$productId}", ['data' => $stockData]);
+        //             continue;
+        //         }
+
+        //         $product = $this->allProducts[$productId] ?? null;
+
+        //         Log::debug("product: ".($product ? $product->name : 'not found'));
+
+        //         // Skip if product no longer exists in allProducts cache
+        //         if (!$product) {
+        //             Log::notice("Product {$productId} not found in allProducts cache during validation - skipping");
+        //             continue;
+        //         }
+
+
+
+        //         // 2. Very defensive closing units check
+        //         $closingUnitsRaw = $stockData['closing_units'] ?? null;
+        //         $closingUnits = filled($closingUnitsRaw) ? (float) $closingUnitsRaw : null;
+
+        //         if ($closingUnits === null || $closingUnitsRaw === '') {
+        //             $this->stockErrors[$productId] = 'Closing stock is required';
+        //             $hasErrors = true;
+        //             continue;
+        //         }
+
+        //         // 3. Determine opening stock very carefully
+        //         $openingStock = 0;
+
+        //         if ($this->isEditing) {
+        //             // Prefer original value from the edit form
+        //             if (isset($stockData['original_opening_stock']) && is_numeric($stockData['original_opening_stock'])) {
+        //                 $openingStock = (float) $stockData['original_opening_stock'];
+        //             }
+        //             // Fallback - very last resort
+        //             elseif (isset($this->allStocks[$productId])) {
+        //                 $openingStock = (float) $this->allStocks[$productId]->total_units;
+        //                 Log::warning("Used current stock as fallback opening for product {$productId} during edit", [
+        //                     'product' => $product->name ?? 'unknown'
+        //                 ]);
+        //             }
+        //         } else {
+        //             // New entry → must have current stock
+        //             if (isset($this->allStocks[$productId])) {
+        //                 $openingStock = (float) $this->allStocks[$productId]->total_units;
+        //             } else {
+        //                 Log::warning("No opening stock available for new entry - product {$productId}", [
+        //                     'name' => $product->name ?? 'unknown'
+        //                 ]);
+        //                 continue; // skip validation for this product
+        //             }
+        //         }
+
+        //         // 4. Final validation
+        //         if ($closingUnits > $openingStock) {
+        //             $this->stockErrors[$productId] = "Closing stock ({$closingUnits}) cannot be more than opening stock ({$openingStock}) - {$product->name}";
+        //             $hasErrors = true;
+        //         }
+
+        //         // Optional: warn about suspicious negative values
+        //         if ($closingUnits < 0) {
+        //             $this->stockErrors[$productId] = "Closing stock cannot be negative ({$closingUnits})";
+        //             $hasErrors = true;
+        //         }
+        //     }
+
+        //     Log::debug("Stock validation finished", [
+        //         'hasErrors' => $hasErrors,
+        //         'errorCount' => count($this->stockErrors),
+        //         'errors' => $this->stockErrors
+        //     ]);
+
+        //     return !$hasErrors;
+        // }
     public function updatedHubtelAmount($value)
     {
         $this->hubtelAmount = $value;
@@ -366,12 +439,12 @@ Log::debug('Product stocks before validation:', [
     'sample' => array_slice($this->productStocks, 0, 2, true) // Log first 2 products
 ]);
     // Validate stock inputs
-    // if (!$this->validateStockInputs()) {
+    if (!$this->validateStockInputs()) {
 
-    //     Log::debug('Stock validation failed', $this->stockErrors);
-    //     session()->flash('error', 'Please correct the stock errors before updating.');
-    //     return;
-    // }
+        Log::debug('Stock validation failed', $this->stockErrors);
+        session()->flash('error', 'Please correct the stock errors before updating.');
+        return;
+    }
 
     Log::debug('Validated stock inputs successfully');
     
