@@ -42,6 +42,8 @@
 
                 $table->float('closing_boxes')->nullable()->default(0.00);
 
+                $table->json('metadata')->nullable();
+
                 $table->date('sales_date')->nullable()->after('id');
                 $table->index('sales_date');
 

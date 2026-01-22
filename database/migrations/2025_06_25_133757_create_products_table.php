@@ -33,7 +33,8 @@ return new class extends Migration
 
             $table->decimal('selling_price', 8, 2)->default(0.00);
 
-            // $table->integer('unit_profit')->nullable();
+            
+            $table->json('metadata')->nullable();
 
             $table->integer('units_per_box')->default(0)->nullable();
 

@@ -34,6 +34,9 @@ return new class extends Migration
             
             $table->text('notes')->nullable();
 
+            
+            $table->json('metadata')->nullable();
+
             $table->timestamp('restock_date')->nullable();
             
             $table->timestamps();

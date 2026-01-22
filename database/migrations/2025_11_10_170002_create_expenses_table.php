@@ -23,6 +23,9 @@ return new class extends Migration
             $table->text('notes')->nullable();
             $table->enum('status', ['pending', 'paid', 'canceled'])->default('pending');
             $table->string('supplier')->nullable();
+            
+            $table->json('items')->nullable();
+            $table->json('metadata')->nullable();
             $table->timestamps();
         });
     }

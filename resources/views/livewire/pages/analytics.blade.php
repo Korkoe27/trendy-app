@@ -132,8 +132,8 @@
             <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
                 <div class="flex items-start justify-between">
                     <div class="flex-1">
-                        <p class="text-sm font-medium text-gray-600">Total Revenue</p>
-                        <p class="text-3xl font-bold text-gray-900 mt-2">GH₵ {{ number_format($totalRevenue, 2) }}</p>
+                        <p class="text-sm font-medium text-gray-600">Drink Sales</p>
+                        <p class="text-3xl font-bold text-gray-900 mt-2">GH₵ {{ number_format($drinksTotal, 2) }}</p>
                         <p class="text-xs text-gray-500 mt-1">Avg daily: GH₵ {{ number_format($averageDailyRevenue, 2) }}</p>
                     </div>
                     <div class="flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium

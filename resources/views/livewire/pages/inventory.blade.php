@@ -106,7 +106,7 @@
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <div class="text-sm font-bold text-gray-900">
-                                        GH₵ {{ number_format($record->total_revenue, 2) }}
+                                        GH₵ {{ number_format($record->drinks_total, 2) }}
                                     </div>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
@@ -229,8 +229,8 @@
             <div class="flex items-center flex-1">
                 <div class="flex items-center justify-center w-10 h-10 rounded-full border-2 
                     {{ $currentStep > $step['number'] ? 'bg-green-600 border-green-600 text-white' : 
-                       ($currentStep == $step['number'] ? 'bg-blue-600 border-blue-600 text-white' : 
-                       'border-gray-300 text-gray-400') }}">
+                    ($currentStep == $step['number'] ? 'bg-blue-600 border-blue-600 text-white' : 
+                    'border-gray-300 text-gray-400') }}">
                     @if ($currentStep > $step['number'])
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
@@ -268,10 +268,26 @@
     @if ($currentStep == 1)
         <div wire:key="money-step" class="space-y-6">
             <div class="text-center mb-6">
-                <svg class="w-12 h-12 text-green-600 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                {{-- <svg class="w-12 h-12 text-green-600 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                         d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"></path>
-                </svg>
+                </svg> --}}
+
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 text-green-600 mx-auto mb-2" viewBox="0 0 100 100" width="100" height="100">
+  <!-- Vertical stroke -->
+  <line x1="50" y1="15" x2="50" y2="85" stroke="currentColor" stroke-width="8" />
+
+  <!-- Curved "c" -->
+  <path
+    d="M65 30
+       C55 20, 30 25, 30 50
+       C30 75, 55 80, 65 70"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="8"
+    stroke-linecap="round"
+  />
+</svg>
                 <h3 class="text-lg font-semibold text-gray-900">Money Collection</h3>
                 <p class="text-sm text-gray-600">Enter all payment amounts collected today</p>
             </div>
@@ -279,12 +295,28 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {{-- Cash Amount --}}
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                    <label class="block text-base font-medium text-gray-700 mb-2">
                         <span class="flex items-center">
-                            <svg class="w-4 h-4 mr-1 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            {{-- <svg class="w-4 h-4 mr-1 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"></path>
-                            </svg>
+                            </svg> --}}
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 mr-1 text-green-600" viewBox="0 0 100 100" width="100" height="100">
+  <!-- Vertical stroke -->
+  <line x1="50" y1="15" x2="50" y2="85" stroke="currentColor" stroke-width="8" />
+
+  <!-- Curved "c" -->
+  <path
+    d="M65 30
+       C55 20, 30 25, 30 50
+       C30 75, 55 80, 65 70"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="8"
+    stroke-linecap="round"
+  />
+</svg>
+
                             Cash Amount (GH₵)
                         </span>
                     </label>
@@ -296,9 +328,9 @@
 
                 {{-- Mobile Money --}}
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                    <label class="block text-base font-medium text-gray-700 mb-2">
                         <span class="flex items-center">
-                            <svg class="w-4 h-4 mr-1 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg class="w-5 h-5 mr-1 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
                             </svg>
@@ -313,9 +345,9 @@
 
                 {{-- Hubtel --}}
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                    <label class="block text-base font-medium text-gray-700 mb-2">
                         <span class="flex items-center">
-                            <svg class="w-4 h-4 mr-1 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg class="w-5 h-5 mr-1 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="M3 10h18M7 15h1m4 0h1m-7 4h12a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v11a2 2 0 002 2z"></path>
                             </svg>
@@ -330,9 +362,9 @@
 
                 {{-- Food Total --}}
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                    <label class="block text-base font-medium text-gray-700 mb-2">
                         <span class="flex items-center">
-                            <svg class="w-4 h-4 mr-1 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg class="w-5 h-5 mr-1 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path d="M12 21a9 9 0 0 0 9-9H3a9 9 0 0 0 9 9Z" />
                                 <path d="M7 21h10" />
                             </svg>
@@ -346,10 +378,10 @@
                 </div>
 
                 {{-- On the House --}}
-                <div class="md:col-span-2">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                <div class="">
+                    <label class="block text-base font-medium text-gray-700 mb-2">
                         <span class="flex items-center">
-                            <svg class="w-4 h-4 mr-1 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg class="w-5 h-5 mr-1 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"></path>
                             </svg>
@@ -360,6 +392,45 @@
                         wire:model.defer="onTheHouse" placeholder="0.00"
                         class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
                     @error('onTheHouse') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
+                </div>
+                {{-- Snooker --}}
+                <div class="">
+                    <label class="block text-basw font-medium text-gray-700 mb-2">
+                        <span class="flex items-center">
+                            {{-- <svg class="w-4 h-4 mr-1 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"></path>
+                            </svg> --}}
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 mr-1 text-red-600" viewBox="0 0 100 100" width="100" height="100">
+  <!-- Outer ball -->
+  <circle cx="50" cy="50" r="48" fill="#000000"/>
+
+  <!-- Highlight -->
+  <ellipse cx="35" cy="30" rx="10" ry="14" fill="rgba(255,255,255,0.15)"/>
+
+  <!-- Inner white circle -->
+  <circle cx="50" cy="58" r="18" fill="#ffffff"/>
+
+  <!-- Number 8 -->
+  <text
+    x="50"
+    y="65"
+    text-anchor="middle"
+    font-size="24"
+    font-weight="bold"
+    fill="#000000"
+    font-family="Arial, Helvetica, sans-serif">
+    8
+  </text>
+</svg>
+
+                            Snooker (GH₵)
+                        </span>
+                    </label>
+                    <input type="text" pattern="[0-9]*" oninput="this.value = this.value.replace(/[^0-9]/g, '');"
+                        wire:model.defer="snooker" placeholder="0.00"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                    @error('snooker') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
                 </div>
             </div>
         </div>
@@ -557,13 +628,14 @@
                     $sumRevenue = collect($selectedRecord['products'] ?? [])->sum('revenue');
 
                     $money = number_format($selectedRecord['total_money'] ?? 0, 2);
+                    $snooker = number_format($selectedRecord['snooker'] ?? 0, 2);
                     $momo = number_format($selectedRecord['total_momo'] ?? 0, 2);
                     $cash = number_format($selectedRecord['total_cash'] ?? 0, 2);
                     $hubtel = number_format($selectedRecord['total_hubtel'] ?? 0, 2);
                     $foodTotal = number_format($selectedRecord['food_total'] ?? 0, 2);
                     $onTheHouse = number_format($selectedRecord['on_the_house'] ?? 0, 2);
 
-                    $expected = number_format($selectedRecord['total_revenue'] ?? 0, 2);
+                    $expected = number_format($selectedRecord['drinks_total'] ?? 0, 2);
                     $profit = number_format($selectedRecord['total_profit'] ?? 0, 2);
 
                     $lossAmt = number_format($selectedRecord['total_loss_amount'] ?? 0, 2);
@@ -576,7 +648,7 @@
                         ($selectedRecord['total_momo'] ?? 0) +
                         ($selectedRecord['total_hubtel'] ?? 0);
 
-                    $expectedVal = ($selectedRecord['total_revenue'] ?? 0) + ($selectedRecord['food_total'] ?? 0);
+                    $expectedVal = ($selectedRecord['drinks_total'] ?? 0) + ($selectedRecord['food_total'] ?? 0) + ($selectedRecord['snooker']);
                     $difference = $collected - $expectedVal + $onTheHouse;
                     $diffFormatted = number_format($difference, 2);
 
@@ -651,19 +723,23 @@
                             </div>
                         </div>
                         <div class="mt-4 flex items-center w-full gap-3 text-xs text-pink-700">
-                            <span class="rounded-full bg-pink-100 px-2 py-0.5 text-pink-600">Addition of food and drink
-                                sales</span>
+                            <span class="rounded-full bg-pink-100 px-2 py-0.5 text-pink-600">Food, Drinks and others</span>
                         </div>
                         <div class="mt-4 grid grid-cols-1 sm:grid-cols-3 w-full gap-3">
                             <div class="rounded-lg bg-white border border-rose-100 p-4">
                                 <p class="text-xs text-gray-500">Drinks</p>
                                 <p class="mt-1 text-lg font-semibold text-rose-700">
-                                    {{ $selectedRecord['total_revenue'] }}</p>
+                                    {{ $selectedRecord['drinks_total'] }}</p>
                             </div>
                             <div class="rounded-lg bg-white border border-rose-100 p-4">
                                 <p class="text-xs text-gray-500">Food</p>
                                 <p class="mt-1 text-lg font-semibold text-rose-700">
                                     {{ $selectedRecord['food_total'] }}</p>
+                            </div>
+                            <div class="rounded-lg bg-white border border-rose-100 p-4">
+                                <p class="text-xs text-gray-500">Snooker</p>
+                                <p class="mt-1 text-lg font-semibold text-rose-700">
+                                    {{ $selectedRecord['snooker'] }}</p>
                             </div>
                         </div>
                     </div>

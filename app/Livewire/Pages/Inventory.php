@@ -39,6 +39,8 @@ public $stockErrors = [];
     // Form data
     public $onTheHouse = '';
 
+    public $snooker = '';
+
     public $cashAmount = '';
 
     public $momoAmount = '';
@@ -93,6 +95,7 @@ public $stockErrors = [];
         'hubtelAmount' => 'required|numeric|min:0',
         'foodTotal' => 'required|numeric|min:0',
         'onTheHouse' => 'required|numeric|min:0',
+        'snooker'=>'required|numeric|min:0'
     ];
 
     public function updatedCashAmount($value)
@@ -126,78 +129,7 @@ public $stockErrors = [];
             session()->flash('error', 'Sales date cannot be in the future');
         }
     }
-
-//     protected function validateStockInputs()
-// {
-//     $this->stockErrors = [];
-//     $hasErrors = false;
-
-//     Log::debug("validating stocks");
-
-//     foreach ($this->productStocks as $productId => $stockData) {
-//         $product = $this->allProducts[$productId] ?? null;
-//         if (!$product) continue;
-
-//         Log::debug("Validating product: {$product->name} (ID: {$productId})");
-
-//         $closingUnits = (float) ($stockData['closing_units'] ?? 0);
-        
-//         // Check if closing units is empty
-//         if (!filled($stockData['closing_units'])) {
-//             $this->stockErrors[$productId] = 'Please enter closing stock';
-//             $hasErrors = true;
-//             continue;
-//         }
-
-//         // Get opening stock based on edit mode - WITH BETTER NULL CHECKS
-//         if ($this->isEditing) {
-//             // Try to get original opening stock first
-//             Log::info("this is editing");
-//             if (isset($stockData['original_opening_stock']) && $stockData['original_opening_stock'] !== null) {
-//                 $openingStock = $stockData['original_opening_stock'];
-//                 Log::debug("Using original opening stock for product {$productId}: {$openingStock}");
-//             } else {
-//                 // Fallback to current stock if original not available
-//                 $currentStock = $this->allStocks[$productId] ?? null;
-//                 $openingStock = $currentStock ? $currentStock->total_units : 0;
-
-//                 Log::debug("Fallback to current stock for product {$productId}: {$openingStock}");
-                
-//                 // If we still don't have opening stock, skip validation for this product
-//                 if ($openingStock === 0 && !$currentStock) {
-//                     Log::warning("No opening stock found for product {$productId} during edit");
-//                     continue;
-//                 }
-//             }
-//         } else {
-//             $currentStock = $this->allStocks[$productId] ?? null;
-//             $openingStock = $currentStock ? $currentStock->total_units : 0;
-
-//             Log::debug("this is not editing");
-            
-//             // If no stock record exists for new entry, skip validation
-//             if (!$currentStock) {
-//                 Log::warning("No current stock found for product {$productId} during new entry");
-//                 continue;
-//             }
-//         }
-
-//         // Check if closing stock is greater than opening stock
-//         if ($closingUnits > $openingStock) {
-//             Log::debug("Closing stock exceeds opening stock for product {$productId}");
-//             $this->stockErrors[$productId] = "Closing stock ({$closingUnits}) cannot exceed opening stock ({$openingStock})";
-//             $hasErrors = true;
-//         }
-//     }
-
-//     Log::debug("Stock validation completed", ['hasErrors' => $hasErrors, 'errors' => $this->stockErrors]);
-
-//     return !$hasErrors;
-// }
-
-    
-
-    protected function validateStockInputs()
+protected function validateStockInputs()
 {
     $this->stockErrors = [];
     $hasErrors = false;
@@ -259,6 +191,16 @@ public function updatedHubtelAmount($value)
         $this->onTheHouse = $value;
     }
 
+    public function updateSnooker($value)
+    {
+        if ($value < 0) {
+            $this->snooker = 0;
+
+            return;
+        }
+        $this->onTheHouse = $value;
+    }
+
     public function openTakeInventoryModal()
     {
         $this->showTakeInventoryModal = true;
@@ -285,6 +227,7 @@ public function updatedHubtelAmount($value)
         $this->momoAmount = $this->editingOriginalRecord['total_momo'];
         $this->hubtelAmount = $this->editingOriginalRecord['total_hubtel'];
         $this->foodTotal = $this->editingOriginalRecord['food_total'];
+        $this->snooker = $this->editingOriginalRecord['snooker'];
         $this->onTheHouse = $this->editingOriginalRecord['on_the_house'] ?? 0;
 
         // Load existing product stocks
@@ -388,6 +331,7 @@ public function updatedHubtelAmount($value)
                 'momoAmount' => 'required|numeric|min:0',
                 'hubtelAmount' => 'required|numeric|min:0',
                 'foodTotal' => 'required|numeric|min:0',
+                'snooker' => 'required|numeric|min:0',
                 'onTheHouse' => 'required|numeric|min:0',
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
@@ -430,7 +374,7 @@ Log::debug('Product stocks before validation:', [
         // Delete old daily_sales records for this date
         DailySales::where('sales_date', $salesDate)->delete();
 
-        $totalRevenue = 0;
+        $drinksTotal = 0;
         $totalItemsSold = 0;
         $totalProfit = 0;
         $totalDamaged = 0;
@@ -501,7 +445,7 @@ Log::debug('Product stocks before validation:', [
 
             Log::debug("Product $product->name - Units Sold: $unitsSold, Profit: $unitProfit");
 
-            $totalRevenue += $productRevenue;
+            $drinksTotal += $productRevenue;
             $totalItemsSold += $unitsSold;
             $totalProfit += $unitProfit;
             $totalDamaged += $damagedUnits;
@@ -605,7 +549,7 @@ Log::debug('Product stocks before validation:', [
 
         // Update summary with correct calculations
         $updateData = [
-            'total_revenue' => $totalRevenue,
+            'drinks_total' => $drinksTotal,
             'items_sold' => $totalItemsSold,
             'total_profit' => $totalProfit,
             'total_damaged' => $totalDamaged,
@@ -616,6 +560,7 @@ Log::debug('Product stocks before validation:', [
             'total_momo' => (float) $this->momoAmount,
             'total_hubtel' => (float) $this->hubtelAmount,
             'food_total' => (float) $this->foodTotal,
+            'snooker'=>(float)$this->snooker,
             'on_the_house' => (float) $this->onTheHouse,
             'total_money' => $totalMoney, // This is correct now
             'sales_date' => $salesDate, // Update date if changed
@@ -637,7 +582,7 @@ Log::debug('Product stocks before validation:', [
             'entity_id' => $this->editingRecordId,
             'metadata' => json_encode([
                 'updated_fields' => array_keys($updateData),
-                'drink_sales' => $totalRevenue,
+                'drink_sales' => $drinksTotal,
                 'items_sold' => $totalItemsSold,
                 'total_profit' => $totalProfit,
             ]),
@@ -698,6 +643,7 @@ public function nextStep()
             'cashAmount' => 'required|numeric|min:0',
             'momoAmount' => 'required|numeric|min:0',
             'hubtelAmount' => 'required|numeric|min:0',
+            'snooker'=>'required|numeric|min:0',
             'foodTotal' => 'required|numeric|min:0',
             'onTheHouse' => 'required|numeric|min:0',
         ]);
@@ -777,6 +723,7 @@ public function previousStep()
             'cashAmount' => 'required|numeric|min:0',
             'momoAmount' => 'required|numeric|min:0',
             'hubtelAmount' => 'required|numeric|min:0',
+            'snooker' => 'required|numeric|min:0',
             'foodTotal' => 'required|numeric|min:0',
             'onTheHouse' => 'required|numeric|min:0',
         ]);
@@ -807,7 +754,7 @@ public function previousStep()
         // Log::debug('checked for existing record');
         DB::transaction(function () {
             $recordDate = $this->salesDate ?: now()->format('Y-m-d');
-            $totalRevenue = 0;
+            $drinksTotal = 0;
             $totalItemsSold = 0;
             $totalProfit = 0;
             $totalDamaged = 0;
@@ -888,7 +835,7 @@ public function previousStep()
 
                 Log::debug('unitProfit: '.$unitProfit);
 
-                $totalRevenue += $productRevenue;
+                $drinksTotal += $productRevenue;
                 $totalItemsSold += $unitsSold;
                 $totalProfit += $unitProfit;
                 $totalDamaged += $damagedUnits;
@@ -996,9 +943,9 @@ public function previousStep()
 
             Log::debug('updated all stocks');
             // Create daily sales summary only if we have sales data
-            if ($mostSoldProductId && $totalRevenue > 0) {
+            if ($mostSoldProductId && $drinksTotal > 0) {
                 DB::table('daily_sales_summaries')->insert([
-                    'total_revenue' => $totalRevenue,
+                    'drinks_total' => $drinksTotal,
                     'total_money' => $this->cashAmount + $this->momoAmount + $this->hubtelAmount,
                     'items_sold' => $totalItemsSold,
                     'total_profit' => $totalProfit,
@@ -1008,6 +955,7 @@ public function previousStep()
                     'total_hubtel' => (float) $this->hubtelAmount,
                     'food_total' => (float) $this->foodTotal,
                     'on_the_house' => (float) $this->onTheHouse,
+                    'snooker' => (float) $this->snooker,
                     'total_damaged' => $totalDamaged,
                     'total_credit_units' => $totalCredit,
                     'total_credit_amount' => $totalCreditAmount,
@@ -1024,7 +972,7 @@ public function previousStep()
                     'entity_type' => 'inventory',
                     'entity_id' => 'inventory',
                     'metadata' => json_encode([
-                        'total_revenue' => $totalRevenue,
+                        'drinks_total' => $drinksTotal,
                         'items_sold' => $totalItemsSold,
                         'total_profit' => $totalProfit,
                     ]),
@@ -1061,7 +1009,8 @@ public function previousStep()
                 'total_cash',
                 'total_momo',
                 'total_hubtel',
-                'total_revenue',
+                'snooker',
+                'drinks_total',
                 'food_total',
                 'on_the_house',
                 'total_money',
@@ -1113,7 +1062,8 @@ public function previousStep()
             'total_cash' => $summary->total_cash,
             'total_momo' => $summary->total_momo,
             'total_hubtel' => $summary->total_hubtel,
-            'total_revenue' => $summary->total_revenue,
+            'drinks_total' => $summary->drinks_total,
+            'snooker' => $summary->snooker,
             'total_money' => $summary->total_money,
             'on_the_house' => $summary->on_the_house,
             'food_total' => $summary->food_total,
