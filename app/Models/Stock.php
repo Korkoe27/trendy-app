@@ -29,4 +29,9 @@ class Stock extends Model
     public function sales(){
         return $this->hasMany(DailySales::class);
     }
+
+    public function supplier()
+    {
+        return $this->belongsTo(Supplier::class);
+    }
 }

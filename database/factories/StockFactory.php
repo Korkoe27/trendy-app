@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Models\Product;
+use App\Models\Supplier;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -35,7 +36,7 @@ class StockFactory extends Factory
             'product_id' => $product->id,
             'total_units' => $total_units,
             'free_units' => fake()->optional()->numberBetween(0, 100),
-            'supplier' => fake()->company(),
+            'supplier_id' => Supplier::inRandomOrder()->first()?->id,
             'total_cost' => $total_cost,
             'cost_price' => round($cost_price, 2),
             'cost_margin' => round($cost_margin, 2),

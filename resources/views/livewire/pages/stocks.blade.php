@@ -116,7 +116,7 @@
                                 <div class="text-base text-gray-900">{{ number_format($stock->total_units, 0) }}</div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
-                                <div class="text-base uppercase text-gray-900">{{ $stock->supplier ?? 'N/A' }}</div>
+                                <div class="text-base uppercase text-gray-900">{{ $stock->supplier->name ?? 'N/A' }}</div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <div class="text-base text-gray-900">
@@ -211,7 +211,7 @@
     <!-- Add New Stock Modal -->
     @if ($addNewStockModal)
         <div class="fixed inset-0 bg-black/50 bg-opacity-50 flex items-center justify-center z-50">
-            <div class="bg-white rounded-lg p-6 w-full max-w-7xl mx-4 max-h-[90vh] overflow-y-auto">
+            <div class="bg-white roundead-lg p-6 w-full max-w-9/12 mx-4 max-h-[90vh] overflow-y-auto">
                 <div class="flex justify-between items-center mb-6">
                     <h3 class="text-xl font-semibold text-gray-900">Add New Stock</h3>
 
@@ -289,7 +289,7 @@
                                                     @foreach ($products as $product)
                                                         <option value="{{ $product->id }}"
                                                             class="uppercase font-semibold">
-                                                            {{ $product->name }} - {{ $product->category->name }}
+                                                            {{ $product->name }}
                                                         </option>
                                                     @endforeach
                                                 </select>
@@ -337,14 +337,40 @@
                                                     <div class="text-red-500 text-xs mt-1">{{ $message }}</div>
                                                 @enderror
                                             </td>
+                                            <!-- Replace the existing Supplier column TD with this -->
                                             <td class="px-4 py-3">
-                                                <input type="text" placeholder="Supplier name"
-                                                    wire:model.live="newStockItems.{{ $index }}.supplier"
-                                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                                                    required />
-                                                @error('newStockItems.' . $index . '.supplier')
-                                                    <div class="text-red-500 text-xs mt-1">{{ $message }}</div>
-                                                @enderror
+                                                <div class="space-y-2">
+                                                    <!-- Existing Supplier Dropdown -->
+                                                    <select 
+                                                        wire:model.live="newStockItems.{{ $index }}.supplier_id"
+                                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                                                    >
+                                                        <option value="">Select Existing Supplier</option>
+                                                        @foreach ($suppliers as $supplier)
+                                                            <option value="{{ $supplier->id }}" class="uppercase">
+                                                                {{ $supplier->name }}
+                                                            </option>
+                                                        @endforeach
+                                                    </select>
+                                                    
+                                                    <!-- OR New Supplier Input -->
+                                                    <div class="relative">
+                                                        <input 
+                                                            type="text" 
+                                                            placeholder="Or enter new supplier name"
+                                                            wire:model.live="newStockItems.{{ $index }}.new_supplier_name"
+                                                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                                                            @if(!empty($item['supplier_id'])) disabled @endif
+                                                        />
+                                                    </div>
+                                                    
+                                                    @error('newStockItems.' . $index . '.supplier_id')
+                                                        <div class="text-red-500 text-xs mt-1">{{ $message }}</div>
+                                                    @enderror
+                                                    @error('newStockItems.' . $index . '.new_supplier_name')
+                                                        <div class="text-red-500 text-xs mt-1">{{ $message }}</div>
+                                                    @enderror
+                                                </div>
                                             </td>
                                             <td class="px-4 py-3">
                                                 <div class="text-sm text-gray-600 text-center">
@@ -481,7 +507,7 @@
                     <div class="space-y-4 capitalize text-gray-700">
                         <p><strong>Product:</strong> {{ $selectedStock->product->name }}</p>
                         <p><strong>Category:</strong> {{ $selectedStock->product->category->name }}</p>
-                        <p><strong>Supplier:</strong> {{ $selectedStock->supplier ?? 'N/A' }}</p>
+                        <p><strong>Supplier:</strong> {{ $selectedStock->supplier->name ?? 'N/A' }}</p>
                         <p><strong>Total Units:</strong> {{ number_format($selectedStock->total_units, 0) }}</p>
                         <p><strong>Cost Price:</strong> GH₵{{ number_format($selectedStock->cost_price, 2) }}</p>
                         <p><strong>Profit Margin:</strong> GH₵ {{ number_format($selectedStock->cost_margin, 2) }}</p>
@@ -527,19 +553,38 @@
                                     />
                                 </div>
 
-                                <!-- Supplier -->
                                 <div class="sm:col-span-2">
                                     <label class="block text-sm font-medium text-gray-700 mb-1">Supplier *</label>
-                                    <input 
-                                        type="text" 
-                                        wire:model.live="editStockItem.supplier"
-                                        class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg uppercase focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:px-4 sm:py-2"
-                                        placeholder="Supplier name" 
-                                        required 
-                                    />
-                                    @error('editStockItem.supplier')
-                                        <div class="mt-1 text-xs text-red-500">{{ $message }}</div>
-                                    @enderror
+                                    <div class="space-y-2">
+                                        <!-- Existing Supplier Dropdown -->
+                                        <select 
+                                            wire:model.live="editStockItem.supplier_id"
+                                            class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg uppercase focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:px-4 sm:py-2"
+                                        >
+                                            <option value="">Select Existing Supplier</option>
+                                            @foreach ($suppliers as $supplier)
+                                                <option value="{{ $supplier->id }}" class="uppercase">
+                                                    {{ $supplier->name }}
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                        
+                                        <!-- OR New Supplier Input -->
+                                        <input 
+                                            type="text" 
+                                            placeholder="Or enter new supplier name"
+                                            wire:model.live="editStockItem.new_supplier_name"
+                                            class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg uppercase focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:px-4 sm:py-2"
+                                            @if(!empty($editStockItem['supplier_id'])) disabled @endif
+                                        />
+                                        
+                                        @error('editStockItem.supplier_id')
+                                            <div class="mt-1 text-xs text-red-500">{{ $message }}</div>
+                                        @enderror
+                                        @error('editStockItem.new_supplier_name')
+                                            <div class="mt-1 text-xs text-red-500">{{ $message }}</div>
+                                        @enderror
+                                    </div>
                                 </div>
 
                                 <!-- Total Units -->

@@ -5,6 +5,7 @@ namespace App\Livewire\Pages;
 use App\Models\Categories;
 use App\Models\Expense;
 use App\Models\ExpenseCategory;
+use App\Models\User;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Illuminate\Support\Facades\DB;
@@ -169,7 +170,8 @@ class Spending extends Component
     public function editExpense($id)
     {
         $expense = Expense::findOrFail($id);
-        
+
+        $paid_by = User::find($expense->paid_by);
         $this->expenseId = $expense->id;
         $this->reference = $expense->reference;
         $this->amount = $expense->amount;
@@ -178,48 +180,89 @@ class Spending extends Component
         $this->payment_method = $expense->payment_method;
         $this->vendor = $expense->supplier;
         $this->status = strtoupper($expense->status);
-        $this->paid_by = $expense->paid_by;
-        // Load category and notes if columns exist
+        $this->paid_by = $paid_by->name;
+        $this->category = $expense->category;
+        $this->notes = $expense->notes;
         
         $this->showEditExpenseModal = true;
     }
 
-    public function updateExpense()
-    {
-        $this->validate();
+public function updateExpense()
+{
+    $this->validate([
+        'date' => 'required|date',
+        'category' => 'required|string',
+        'amount' => 'required|numeric|min:0',
+        'vendor' => 'required|string',
+        'payment_method' => 'required|string',
+        'status' => 'required|string',
+        'description' => 'required|string',
+    ]);
 
-        $expense = Expense::findOrFail($this->expenseId);
-        $expense->update([
-            'amount' => $this->amount,
-            'description' => $this->description,
-            'incurred_at' => $this->date,
-            'payment_method' => $this->payment_method,
-            'supplier' => $this->vendor,
-            'status' => strtolower($this->status),
-            'paid_by' => $this->paid_by,
-        ]);
+    $expense = Expense::findOrFail($this->expenseId);
+    
+    // Preserve existing items and metadata
+    $metadata = json_decode($expense->metadata, true) ?? [];
+    
+    // Update metadata with edit information
+    $metadata['last_updated'] = [
+        'timestamp' => now(),
+        'user_id' => Auth::id(),
+        'user_name' => Auth::user()->name ?? 'Unknown',
+    ];
 
-        session()->flash('message', 'Expense updated successfully!');
-        $this->closeEditModal();
-    }
+    $expense->update([
+        'incurred_at' => $this->date,
+        'category' => $this->category,
+        'amount' => $this->amount,
+        'supplier' => $this->vendor,
+        'payment_method' => $this->payment_method,
+        'status' => strtolower($this->status),
+        'description' => $this->description,
+        'notes' => $this->notes,
+        'paid_by' => $this->paid_by,
+        'metadata' => json_encode($metadata),
+    ]);
 
-    public function viewExpense($id)
-    {
-        $this->selectedExpense = Expense::findOrFail($id);
-        // Map database fields to UI expectations
-        $this->selectedExpense->vendor = $this->selectedExpense->supplier;
-        $this->selectedExpense->date = $this->selectedExpense->incurred_at;
-        $this->selectedExpense->status = strtoupper($this->selectedExpense->status);
-        // Add category if it exists, otherwise use a default
-        $this->selectedExpense->category = $this->selectedExpense->category ?? 'OPERATIONAL';
-        
-        $this->viewExpenseModal = true;
-    }
+    session()->flash('message', 'Expense updated successfully!');
+    $this->closeEditModal();
+}
+public function viewExpense($id)
+{
+    $this->selectedExpense = Expense::findOrFail($id);
+
+    $paid_by = User::find($this->selectedExpense->paid_by);
+
+    $this->selectedExpense->paid_by = $paid_by ? $paid_by->name : 'Unknown';
+    
+    // Map database fields to UI expectations
+    $this->selectedExpense->vendor = $this->selectedExpense->supplier;
+    $this->selectedExpense->date = $this->selectedExpense->incurred_at;
+    $this->selectedExpense->status = strtoupper($this->selectedExpense->status);
+    $this->selectedExpense->category = $this->selectedExpense->category ?? 'OPERATIONAL';
+    
+    // Decode JSON fields for display (important!)
+    $this->selectedExpense->items_decoded = json_decode($this->selectedExpense->items, true) ?? [];
+    $this->selectedExpense->metadata_decoded = json_decode($this->selectedExpense->metadata, true) ?? [];
+    
+    $this->viewExpenseModal = true;
+}
 
     public function confirmPendingTransaction($id)
     {
         $expense = Expense::findOrFail($id);
-        $expense->update(['status' => 'paid']);
+        
+        $metadata = json_decode($expense->metadata, true) ?? [];
+        $metadata['confirmed_at'] = [
+            'timestamp' => now(),
+            'user_id' => Auth::id(),
+            'user_name' => Auth::user()->name ?? 'Unknown',
+        ];
+        
+        $expense->update([
+            'status' => 'confirmed',
+            'metadata' => json_encode($metadata)
+        ]);
         
         session()->flash('message', 'Transaction confirmed successfully!');
         $this->closeViewModal();

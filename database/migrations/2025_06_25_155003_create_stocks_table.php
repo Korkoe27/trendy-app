@@ -24,7 +24,10 @@ return new class extends Migration
 
             $table->integer('total_units')->default(0); // total units in stock
             
-            $table->string('supplier')->nullable();
+                $table->foreignId('supplier_id')
+                        ->nullable()
+                        ->constrained('suppliers')
+                        ->onDelete('set null'); 
             
             $table->decimal('total_cost', 8, 2)->default(0); // total cost of all units purchased
             
