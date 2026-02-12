@@ -140,27 +140,27 @@ class Stocks extends Component
         $this->viewStockModal = true;
     }
 
-public function editStock($stockId)
-{
-    $this->selectedStock = Stock::with('product.category', 'supplier')->findOrFail($stockId);
+    public function editStock($stockId)
+    {
+        $this->selectedStock = Stock::with('product.category', 'supplier')->findOrFail($stockId);
 
-    $this->editStockItem = [
-        'product_id' => $this->selectedStock->product_id,
-        'input_units' => $this->selectedStock->total_units,
-        'calculated_total_units' => $this->selectedStock->total_units,
-        'free_units' => $this->selectedStock->free_units,
-        'total_cost' => $this->selectedStock->total_cost,
-        'supplier_id' => $this->selectedStock->supplier_id, // Changed
-        'new_supplier_name' => '', // Added
-        'calculated_cost_price' => $this->selectedStock->cost_price,
-        'calculated_profit_margin' => $this->selectedStock->cost_margin,
-    ];
+        $this->editStockItem = [
+            'product_id' => $this->selectedStock->product_id,
+            'input_units' => $this->selectedStock->total_units,
+            'calculated_total_units' => $this->selectedStock->total_units,
+            'free_units' => $this->selectedStock->free_units,
+            'total_cost' => $this->selectedStock->total_cost,
+            'supplier_id' => $this->selectedStock->supplier_id, // Changed
+            'new_supplier_name' => '', // Added
+            'calculated_cost_price' => $this->selectedStock->cost_price,
+            'calculated_profit_margin' => $this->selectedStock->cost_margin,
+        ];
 
-    $this->editRestockDate = $this->selectedStock->restock_date;
-    $this->editNotes = $this->selectedStock->notes;
+        $this->editRestockDate = $this->selectedStock->restock_date;
+        $this->editNotes = $this->selectedStock->notes;
 
-    $this->editStockModal = true;
-}
+        $this->editStockModal = true;
+    }
 
     public function closeViewStockModal()
     {
@@ -200,7 +200,7 @@ public function editStock($stockId)
                 'calculated_total_units' => 0,
                 'free_units' => 0,
                 'total_cost' => '',
-                'supplier_id' => '', 
+                'supplier_id' => '',
                 'new_supplier_name' => '',
                 'calculated_cost_price' => 0,
                 'calculated_profit_margin' => 0,
@@ -494,19 +494,19 @@ public function editStock($stockId)
         }
     }
 
-
     private function resolveSupplier($item)
     {
-        if (!empty($item['new_supplier_name'])) {
+        if (! empty($item['new_supplier_name'])) {
             $supplier = Supplier::firstOrCreate(
                 ['name' => trim($item['new_supplier_name'])],
                 ['name' => trim($item['new_supplier_name'])]
             );
+
             return $supplier->id;
-        } elseif (!empty($item['supplier_id'])) {
+        } elseif (! empty($item['supplier_id'])) {
             return $item['supplier_id'];
         }
-        
+
         return null;
     }
 
@@ -516,14 +516,14 @@ public function editStock($stockId)
     public function getExpenseDetailsForReceipt($expenseId)
     {
         $expense = Expense::findOrFail($expenseId);
-        
+
         $items = json_decode($expense->items, true) ?? [];
         $metadata = json_decode($expense->metadata, true) ?? [];
-        
+
         // Calculate subtotal and discounts
         $subtotal = array_sum(array_column($items, 'total_cost'));
         $discount = $subtotal - $expense->amount;
-        
+
         return [
             'expense' => $expense,
             'items' => $items,
@@ -566,15 +566,14 @@ public function editStock($stockId)
             'editNotes' => 'nullable|string|max:1000',
         ]);
 
-
         $supplierId = null;
-        if (!empty($this->editStockItem['new_supplier_name'])) {
+        if (! empty($this->editStockItem['new_supplier_name'])) {
             $supplier = Supplier::firstOrCreate(
                 ['name' => trim($this->editStockItem['new_supplier_name'])],
                 ['name' => trim($this->editStockItem['new_supplier_name'])]
             );
             $supplierId = $supplier->id;
-        } elseif (!empty($this->editStockItem['supplier_id'])) {
+        } elseif (! empty($this->editStockItem['supplier_id'])) {
             $supplierId = $this->editStockItem['supplier_id'];
         }
 
@@ -591,7 +590,6 @@ public function editStock($stockId)
         // Create activity log
         $productName = $this->selectedStock->product->name;
         // $product = $this->selectedStock->product->id;
-
 
         $supplierName = $supplierId ? Supplier::find($supplierId)->name : 'N/A';
         ActivityLogs::create([
@@ -676,16 +674,12 @@ public function editStock($stockId)
                 // Validate item
                 $this->validateStockItem($item, $index, $product);
 
-
-
                 $supplierId = $this->resolveSupplier($item);
-                $supplier = $supplierId ? Supplier::find($supplierId) : null; 
-                
-                
+                $supplier = $supplierId ? Supplier::find($supplierId) : null;
+
                 if ($supplier) {
                     $supplierNames[$supplier->id] = $supplier->name;
                 }
-
 
                 $freeUnits = (int) ($item['free_units'] ?? 0);
                 $totalUnitsToAdd = (int) $item['calculated_total_units'] + $freeUnits;
@@ -696,21 +690,20 @@ public function editStock($stockId)
 
                 $totalExpenseAmount += $totalCost;
 
-
-            $expenseItems[] = [
-                'product_id' => $product->id,
-                'product_name' => $product->name,
-                'sku' => $product->sku,
-                'barcode' => $product->barcode,
-                'category' => $product->category->name ?? null,
-                'quantity' => $totalUnitsToAdd,
-                'paid_quantity' => (int)$item['calculated_total_units'],
-                'free_quantity' => $freeUnits,
-                'unit_cost' => $costPrice,
-                'total_cost' => $totalCost,
-                'supplier_id' => $supplierId,
-                'supplier_name' => $supplier['name'] ?? null,
-            ];
+                $expenseItems[] = [
+                    'product_id' => $product->id,
+                    'product_name' => $product->name,
+                    'sku' => $product->sku,
+                    'barcode' => $product->barcode,
+                    'category' => $product->category->name ?? null,
+                    'quantity' => $totalUnitsToAdd,
+                    'paid_quantity' => (int) $item['calculated_total_units'],
+                    'free_quantity' => $freeUnits,
+                    'unit_cost' => $costPrice,
+                    'total_cost' => $totalCost,
+                    'supplier_id' => $supplierId,
+                    'supplier_name' => $supplier['name'] ?? null,
+                ];
 
                 $stockCreateRows[] = [
                     'product_id' => $product->id,
@@ -726,90 +719,90 @@ public function editStock($stockId)
                     'updated_at' => now(),
                 ];
 
-            $productDetails[] = [
-                'name' => $product->name,
-                'sku' => $product->sku,
-                'units_added' => $totalUnitsToAdd,
-                'free_units' => $freeUnits,
-                'cost' => $totalCost,
-                'supplier' => $supplier['name'],
-            ];
+                $productDetails[] = [
+                    'name' => $product->name,
+                    'sku' => $product->sku,
+                    'units_added' => $totalUnitsToAdd,
+                    'free_units' => $freeUnits,
+                    'cost' => $totalCost,
+                    'supplier' => $supplier['name'],
+                ];
 
                 $successCount++;
             }
 
-
-            Log::debug("prepared stock count");
+            Log::debug('prepared stock count');
             // Batch insert new stock records
             if (! empty($stockCreateRows)) {
                 DB::table('stocks')->insert($stockCreateRows);
                 Log::info('Created new stock entries', ['count' => count($stockCreateRows)]);
             }
 
-        $productNamesList = implode(', ', array_column($productDetails, 'name'));
-        $truncatedProductList = strlen($productNamesList) > 200
-            ? substr($productNamesList, 0, 197) . '...'
-            : $productNamesList;
+            $productNamesList = implode(', ', array_column($productDetails, 'name'));
+            $truncatedProductList = strlen($productNamesList) > 200
+                ? substr($productNamesList, 0, 197).'...'
+                : $productNamesList;
 
-            
+            // dd($expenseItems);
 
             $totalPaidQuantity = array_sum(array_column($expenseItems, 'paid_quantity'));
-$totalFreeQuantity = array_sum(array_column($expenseItems, 'free_quantity'));
-$totalQuantity = array_sum(array_column($expenseItems, 'quantity'));
-$expense = Expense::create([
-    'reference' => 'STK-' . strtoupper(uniqid()),
-    'amount' => $totalExpenseAmount,
-    'description' => "Stock replenishment for {$successCount} product(s): {$truncatedProductList}",
-    'incurred_at' => Carbon::parse($restockDate),
-    'payment_method' => 'inventory',
-    'paid_by' => Auth::id(),
-    'category' => 'inventory',
-    'notes' => $this->notes,
-    'status' => 'pending',
-    'supplier' => implode(', ', array_unique($supplierNames)),
-    'items' => json_encode($expenseItems), // Already contains all product details
-    'metadata' => json_encode([
-        'restock_date' => $restockDate,
-        'total_items' => $successCount,
-        'total_units' => $totalQuantity,
-        'total_paid_units' => $totalPaidQuantity,
-        'total_free_units' => $totalFreeQuantity,
-        'suppliers' => $supplierNames,
-        'created_by' => [
-            'id' => Auth::id(),
-            'name' => Auth::user()->name ?? 'Unknown',
-            'email' => Auth::user()->email ?? null,
-            'timestamp' => now()->toIso8601String(),
-        ],
-        'products_summary' => $productDetails,
-        'financial_summary' => [
-            'total_cost' => $totalExpenseAmount,
-            'average_unit_cost' => $totalQuantity > 0 ? round($totalExpenseAmount / $totalQuantity, 2) : 0,
-            'items_breakdown' => array_map(function($item) {
-                return [
-                    'product' => $item['product_name'],
-                    'cost' => $item['total_cost'],
-                ];
-            }, $expenseItems),
-        ],
-    ]),
-]);
+            $totalFreeQuantity = array_sum(array_column($expenseItems, 'free_quantity'));
+            $totalQuantity = array_sum(array_column($expenseItems, 'quantity'));
+            $expense = Expense::create([
+                'reference' => 'STK-'.strtoupper(uniqid()),
+                'amount' => $totalExpenseAmount,
+                'description' => "Stock replenishment for {$successCount} product(s): {$truncatedProductList}",
+                'incurred_at' => Carbon::parse($restockDate),
+                'payment_method' => 'inventory',
+                'paid_by' => Auth::id(),
+                'category' => 'inventory',
+                'notes' => $this->notes,
+                'status' => 'pending',
+                'supplier' => implode(', ', array_unique($supplierNames)),
+                // 'items' => json_encode($expenseItems), // Already contains all product details
+                'items' => $expenseItems,
+                'metadata' => json_encode([
+                    'restock_date' => $restockDate,
+                    'total_items' => $successCount,
+                    'total_units' => $totalQuantity,
+                    'total_paid_units' => $totalPaidQuantity,
+                    'total_free_units' => $totalFreeQuantity,
+                    'suppliers' => $supplierNames,
+                    'created_by' => [
+                        'id' => Auth::id(),
+                        'name' => Auth::user()->name ?? 'Unknown',
+                        'email' => Auth::user()->email ?? null,
+                        'timestamp' => now()->toIso8601String(),
+                    ],
+                    'products_summary' => $productDetails,
+                    'financial_summary' => [
+                        'total_cost' => $totalExpenseAmount,
+                        'average_unit_cost' => $totalQuantity > 0 ? round($totalExpenseAmount / $totalQuantity, 2) : 0,
+                        'items_breakdown' => array_map(function ($item) {
+                            return [
+                                'product' => $item['product_name'],
+                                'cost' => $item['total_cost'],
+                            ];
+                        }, $expenseItems),
+                    ],
+                ]),
+            ]);
 
-        ActivityLogs::create([
-            'user_id' => Auth::id(),
-            'action_type' => 'stock_update',
-            'description' => "Stock added for {$successCount} product(s): {$truncatedProductList}",
-            'entity_type' => 'stock_record',
-            'entity_id' => 'bulk_update',
-            'metadata' => json_encode([
-                'expense_id' => $expense->id,
-                'expense_reference' => $expense->reference,
-                'total_items_added' => $successCount,
-                'total_expense' => $totalExpenseAmount,
-                'restock_date' => $restockDate,
-                'timestamp' => now(),
-            ]),
-        ]);
+            ActivityLogs::create([
+                'user_id' => Auth::id(),
+                'action_type' => 'stock_update',
+                'description' => "Stock added for {$successCount} product(s): {$truncatedProductList}",
+                'entity_type' => 'stock_record',
+                'entity_id' => 'bulk_update',
+                'metadata' => json_encode([
+                    'expense_id' => $expense->id,
+                    'expense_reference' => $expense->reference,
+                    'total_items_added' => $successCount,
+                    'total_expense' => $totalExpenseAmount,
+                    'restock_date' => $restockDate,
+                    'timestamp' => now(),
+                ]),
+            ]);
 
             DB::commit();
 
@@ -895,32 +888,32 @@ $expense = Expense::create([
         session()->flash('message', 'Stock entry deleted successfully');
     }
 
-        private function validateStockItem($item, $index, $product)
-        {
-            $errors = [];
+    private function validateStockItem($item, $index, $product)
+    {
+        $errors = [];
 
-            // Updated supplier validation
-            if (empty($item['supplier_id']) && empty($item['new_supplier_name'])) {
-                $errors[] = 'Supplier is required (select existing or enter new)';
-            }
-
-            if (!isset($item['total_cost']) || $item['total_cost'] <= 0) {
-                $errors[] = 'Total cost must be greater than zero';
-            }
-
-            if (!isset($item['calculated_total_units']) || $item['calculated_total_units'] <= 0) {
-                $errors[] = 'Total units must be greater than zero';
-            }
-
-            if (!isset($item['calculated_cost_price']) || $item['calculated_cost_price'] <= 0) {
-                $errors[] = 'Invalid cost price calculation. Please check your inputs';
-            }
-
-            if (!empty($errors)) {
-                $productName = $product ? $product->name : 'Product at position ' . ($index + 1);
-                throw new \Exception("{$productName}: " . implode(', ', $errors));
-            }
+        // Updated supplier validation
+        if (empty($item['supplier_id']) && empty($item['new_supplier_name'])) {
+            $errors[] = 'Supplier is required (select existing or enter new)';
         }
+
+        if (! isset($item['total_cost']) || $item['total_cost'] <= 0) {
+            $errors[] = 'Total cost must be greater than zero';
+        }
+
+        if (! isset($item['calculated_total_units']) || $item['calculated_total_units'] <= 0) {
+            $errors[] = 'Total units must be greater than zero';
+        }
+
+        if (! isset($item['calculated_cost_price']) || $item['calculated_cost_price'] <= 0) {
+            $errors[] = 'Invalid cost price calculation. Please check your inputs';
+        }
+
+        if (! empty($errors)) {
+            $productName = $product ? $product->name : 'Product at position '.($index + 1);
+            throw new \Exception("{$productName}: ".implode(', ', $errors));
+        }
+    }
 
     public function render()
     {

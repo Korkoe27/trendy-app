@@ -17,7 +17,7 @@
 
             @haspermission('create', 'expenses')
                 <div class="flex space-x-3">
-                    <button wire:click="$set('showAddExpenseModal', true)"
+                    <button wire:click="openAddModal"
                         class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-800 transition-colors flex items-center space-x-2">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
@@ -141,7 +141,7 @@
                         </th>
                     </tr>
                 </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
+                <tbody class="bg-white divide-y capitalize divide-gray-200">
                     @forelse($expenses as $expense)
                         <tr wire:click="viewExpense({{ $expense->id }})"
                             class="hover:bg-gray-50 cursor-pointer transition-colors">
@@ -175,43 +175,58 @@
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium
                                     {{ $expense->payment_method === 'BANK TRANSFER' ? 'bg-indigo-100 text-indigo-700' :
-                                       ($expense->payment_method === 'CASH' ? 'bg-green-100 text-green-700' :
-                                       ($expense->payment_method === 'MOBILE MONEY' ? 'bg-yellow-100 text-yellow-700' :
-                                       ($expense->payment_method === 'CREDIT' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'))) }}">
+                                       ($expense->payment_method === 'cash' ? 'bg-green-100 text-green-700' :
+                                       ($expense->payment_method === 'momo' ? 'bg-yellow-100 text-yellow-700' :
+                                       ($expense->payment_method === 'credit' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'))) }}">
                                     {{ $expense->payment_method }}
                                 </span>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium
-                                    {{ $expense->status === 'PAID' ? 'bg-green-100 text-green-700' :
-                                       ($expense->status === 'PENDING' ? 'bg-yellow-100 text-yellow-700' :
-                                       ($expense->status === 'CANCELLED' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700')) }}">
+                                    {{ $expense->status === 'paid' ? 'bg-green-100 text-green-700' :
+                                       ($expense->status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+                                       ($expense->status === 'canceled' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700')) }}">
                                     {{ $expense->status }}
                                 </span>
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-base font-medium" onclick="event.stopPropagation();">
-                                <div class="flex space-x-2">
-                                    @haspermission('modify', 'expenses')
-                                        <button wire:click.stop="editExpense({{ $expense->id }})"
-                                            class="text-green-600 hover:text-green-800" title="Edit">
-                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                    d="M11 4h2m-6.586 9.414l8.586-8.586a2 2 0 112.828 2.828l-8.586 8.586H7v-2.828zM5 19h14" />
-                                            </svg>
-                                        </button>
-                                    @endhaspermission
-                                    @haspermission('delete', 'expenses')
-                                        <button wire:click.stop="deleteExpense({{ $expense->id }})"
-                                            wire:confirm="Are you sure you want to delete this expense?"
-                                            class="text-red-600 hover:text-red-900" title="Delete">
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                            </svg>
-                                        </button>
-                                    @endhaspermission
-                                </div>
-                            </td>
+<td class="px-6 py-4 whitespace-nowrap text-base font-medium" onclick="event.stopPropagation();">
+    <div class="flex space-x-2">
+        @haspermission('modify', 'expenses')
+            @php
+                $isStockRecord = str_starts_with($expense->reference, 'STK-') || 
+                                $expense->category === 'inventory';
+            @endphp
+            
+            @if(!$isStockRecord)
+                <button wire:click.stop="editExpense({{ $expense->id }})"
+                    class="text-green-600 hover:text-green-800" title="Edit">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M11 4h2m-6.586 9.414l8.586-8.586a2 2 0 112.828 2.828l-8.586 8.586H7v-2.828zM5 19h14" />
+                    </svg>
+                </button>
+            @else
+                <span class="text-gray-400" title="Stock records are edited from Stock page">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                </span>
+            @endif
+        @endhaspermission
+        
+        @haspermission('delete', 'expenses')
+            <button wire:click.stop="deleteExpense({{ $expense->id }})"
+                wire:confirm="Are you sure you want to delete this expense?"
+                class="text-red-600 hover:text-red-900" title="Delete">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+            </button>
+        @endhaspermission
+    </div>
+</td>
                         </tr>
                     @empty
                         <tr>
@@ -230,7 +245,7 @@
         </div>
     </div>
 
-    <!-- View Expense Modal -->
+
 @if ($viewExpenseModal && $selectedExpense)
     <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
         <div class="bg-white rounded-lg w-full max-w-4xl mx-auto max-h-[90vh] overflow-y-auto">
@@ -238,11 +253,15 @@
             <div class="p-6 border-b border-gray-200">
                 <div class="flex justify-between items-start">
                     <div>
-                        <h2 class="text-2xl font-bold text-gray-900">Expense Invoice</h2>
-                        <p class="text-sm text-gray-500 mt-1">{{ config('app.name', 'Your Business') }}</p>
+                        <h2 class="text-2xl font-bold text-gray-900">
+                            {{ $recordType === 'stock' ? 'Stock Purchase Invoice' : 'Expense Invoice' }}
+                        </h2>
+                        <p class="text-sm text-gray-500 mt-1">{{ config('app.name', 'Trendy') }}</p>
                     </div>
                     <div class="text-right">
-                        <div class="text-sm text-gray-500">Invoice Number</div>
+                        <div class="text-sm text-gray-500">
+                            {{ $recordType === 'stock' ? 'Stock Ref' : 'Invoice Number' }}
+                        </div>
                         <div class="text-lg font-semibold text-gray-900">#{{ $selectedExpense->reference }}</div>
                     </div>
                 </div>
@@ -254,7 +273,9 @@
                     {{-- Date Information --}}
                     <div>
                         <div class="mb-4">
-                            <div class="text-xs text-gray-500 uppercase tracking-wide mb-1">Issued</div>
+                            <div class="text-xs text-gray-500 uppercase tracking-wide mb-1">
+                                {{ $recordType === 'stock' ? 'Restock Date' : 'Issued' }}
+                            </div>
                             <div class="text-sm font-medium text-gray-900">
                                 {{ \Carbon\Carbon::parse($selectedExpense->date)->format('M d, Y') }}
                             </div>
@@ -262,21 +283,23 @@
                         <div class="mb-4">
                             <div class="text-xs text-gray-500 uppercase tracking-wide mb-1">Category</div>
                             <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium
-                                {{ $selectedExpense->category === 'STOCK PURCHASE' ? 'bg-blue-100 text-blue-800' :
+                                {{ $selectedExpense->category === 'STOCK PURCHASE' || $selectedExpense->category === 'inventory' ? 'bg-blue-100 text-blue-800' :
                                    ($selectedExpense->category === 'OPERATIONAL' ? 'bg-green-100 text-green-800' :
                                    ($selectedExpense->category === 'EQUIPMENT' ? 'bg-purple-100 text-purple-800' :
                                    ($selectedExpense->category === 'MAINTENANCE' ? 'bg-orange-100 text-orange-800' : 'bg-gray-100 text-gray-800'))) }}">
-                                {{ str_replace('_', ' ', $selectedExpense->category) }}
+                                {{ $recordType === 'stock' ? 'INVENTORY/STOCK' : str_replace('_', ' ', $selectedExpense->category) }}
                             </span>
                         </div>
                     </div>
 
                     {{-- Payment Information --}}
                     <div class="text-right">
+                        @if($recordType !== 'stock')
                         <div class="mb-4">
                             <div class="text-xs text-gray-500 uppercase tracking-wide mb-1">Payment Method</div>
                             <div class="text-sm font-medium text-gray-900">{{ $selectedExpense->payment_method }}</div>
                         </div>
+                        @endif
                         <div class="mb-4">
                             <div class="text-xs text-gray-500 uppercase tracking-wide mb-1">Status</div>
                             <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium
@@ -300,10 +323,12 @@
                             </div>
                         </div>
                         <div class="flex-1">
-                            <div class="text-xs text-gray-500 uppercase tracking-wide">Vendor/Supplier</div>
+                            <div class="text-xs text-gray-500 uppercase tracking-wide">
+                                {{ $recordType === 'stock' ? 'Suppliers' : 'Vendors/Suppliers' }}
+                            </div>
                             <div class="text-sm font-semibold text-gray-900 mt-1">{{ $selectedExpense->vendor }}</div>
                         </div>
-                        @if($selectedExpense->paid_by)
+                        @if($selectedExpense->paid_by && $recordType !== 'stock')
                         <div class="text-right">
                             <div class="text-xs text-gray-500 uppercase tracking-wide">Paid By</div>
                             <div class="text-sm font-medium text-gray-900 mt-1">{{ $selectedExpense->paid_by }}</div>
@@ -313,53 +338,67 @@
                 </div>
             </div>
 
-            {{-- Items Table (if available in metadata) --}}
+            {{-- Items Table --}}
             @php
-                $metadata = json_decode($selectedExpense->metadata, true) ?? [];
-                $items = json_decode($selectedExpense->items, true) ?? [];
+                $items = $selectedExpense->items ?? [];
+                $metadata = $selectedExpense->metadata ?? [];
             @endphp
 
             @if(!empty($items))
             <div class="p-6 border-b border-gray-200">
-                <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-4">Items</h3>
+                <h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-4">
+                    {{ $recordType === 'stock' ? 'Stock Items' : 'Expense Items' }}
+                </h3>
                 <div class="overflow-x-auto">
                     <table class="min-w-full divide-y divide-gray-200">
                         <thead class="bg-gray-50">
                             <tr>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    {{ $recordType === 'stock' ? 'Product' : 'Description' }}
+                                </th>
+                                @if($recordType === 'stock')
                                 <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Supplier</th>
-                                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Qty</th>
+                                <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Paid Qty</th>
                                 <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Free</th>
                                 <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Unit Cost</th>
+                                @else
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vendor</th>
+                                @endif
                                 <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
                             </tr>
                         </thead>
                         <tbody class="bg-white divide-y divide-gray-200">
                             @foreach($items as $item)
-                            <tr class="hover:bg-gray-50">
+                            <tr class="hover:bg-gray-50 capitalize">
                                 <td class="px-4 py-3">
-                                    <div class="text-sm font-medium text-gray-900">{{ $item['product_name'] ?? 'N/A' }}</div>
-                                    @if(isset($item['sku']) && $item['sku'])
-                                        <div class="text-xs text-gray-500">SKU: {{ $item['sku'] }}</div>
-                                    @endif
-                                    @if(isset($item['category']) && $item['category'])
-                                        <div class="text-xs text-gray-500">{{ $item['category'] }}</div>
+                                    @if($recordType === 'stock')
+                                        <div class="text-sm font-medium text-gray-900">{{ $item['product_name'] ?? 'N/A' }}</div>
+                                        @if(isset($item['sku']) && $item['sku'])
+                                            <div class="text-xs text-gray-500">SKU: {{ $item['sku'] }}</div>
+                                        @endif
+                                        @if(isset($item['category']) && $item['category'])
+                                            <div class="text-xs text-gray-500">{{ $item['category'] }}</div>
+                                        @endif
+                                    @else
+                                        <div class="text-sm font-medium text-gray-900">{{ $item['description'] ?? $item['category'] }}</div>
                                     @endif
                                 </td>
                                 <td class="px-4 py-3">
-                                    <div class="text-sm text-gray-900">{{ $item['supplier_name'] ?? 'N/A' }}</div>
+                                    <div class="text-sm text-gray-900">{{ $item['supplier_name'] ?? $item['vendor'] ?? 'N/A' }}</div>
                                 </td>
+                                @if($recordType === 'stock')
                                 <td class="px-4 py-3 text-right">
                                     <div class="text-sm text-gray-900">{{ number_format($item['paid_quantity'] ?? 0) }}</div>
                                 </td>
                                 <td class="px-4 py-3 text-right">
                                     <div class="text-sm text-green-600 font-medium">
-                                        {{ $item['free_quantity'] > 0 ? '+' . number_format($item['free_quantity']) : '-' }}
+                                        {{ isset($item['free_quantity']) && $item['free_quantity'] > 0 ? '+' . number_format($item['free_quantity']) : '-' }}
                                     </div>
                                 </td>
                                 <td class="px-4 py-3 text-right">
                                     <div class="text-sm text-gray-900">₵{{ number_format($item['unit_cost'] ?? 0, 2) }}</div>
                                 </td>
+                                @endif
                                 <td class="px-4 py-3 text-right">
                                     <div class="text-sm font-semibold text-gray-900">₵{{ number_format($item['total_cost'] ?? 0, 2) }}</div>
                                 </td>
@@ -369,8 +408,8 @@
                     </table>
                 </div>
 
-                {{-- Summary Stats --}}
-                @if(isset($metadata['total_units']) || isset($metadata['total_free_units']))
+                {{-- Summary Stats for Stock --}}
+                @if($recordType === 'stock' && (isset($metadata['total_units']) || isset($metadata['total_free_units'])))
                 <div class="mt-4 grid grid-cols-3 gap-4">
                     @if(isset($metadata['total_items']))
                     <div class="bg-blue-50 p-3 rounded-lg">
@@ -378,10 +417,10 @@
                         <div class="text-lg font-bold text-blue-900">{{ $metadata['total_items'] }}</div>
                     </div>
                     @endif
-                    @if(isset($metadata['total_units']))
+                    @if(isset($metadata['total_paid_units']))
                     <div class="bg-purple-50 p-3 rounded-lg">
-                        <div class="text-xs text-purple-600 uppercase tracking-wide">Total Units</div>
-                        <div class="text-lg font-bold text-purple-900">{{ number_format($metadata['total_units']) }}</div>
+                        <div class="text-xs text-purple-600 uppercase tracking-wide">Paid Units</div>
+                        <div class="text-lg font-bold text-purple-900">{{ number_format($metadata['total_paid_units']) }}</div>
                     </div>
                     @endif
                     @if(isset($metadata['total_free_units']) && $metadata['total_free_units'] > 0)
@@ -415,18 +454,6 @@
                     <span class="text-sm text-gray-600">Subtotal</span>
                     <span class="text-sm text-gray-900">₵{{ number_format($selectedExpense->amount, 2) }}</span>
                 </div>
-                @if(!empty($items))
-                    @php
-                        $subtotal = array_sum(array_column($items, 'total_cost'));
-                        $discount = $subtotal - $selectedExpense->amount;
-                    @endphp
-                    @if($discount > 0)
-                    <div class="flex justify-between items-center mb-2">
-                        <span class="text-sm text-green-600">Discount</span>
-                        <span class="text-sm text-green-600">-₵{{ number_format($discount, 2) }}</span>
-                    </div>
-                    @endif
-                @endif
                 <div class="border-t border-gray-300 pt-2 mt-2">
                     <div class="flex justify-between items-center">
                         <span class="text-lg font-semibold text-gray-900">Total Amount</span>
@@ -442,7 +469,7 @@
                         class="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">
                         Close
                     </button>
-                    @if($selectedExpense->status === 'PENDING')
+                    @if($selectedExpense->status === 'pending')
                     <button wire:click="confirmPendingTransaction({{ $selectedExpense->id }})"
                         class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -515,9 +542,9 @@
                         <select wire:model="exportFilters.status"
                             class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                             <option value="all">All Status</option>
-                            <option value="CONFIRMED">Confirmed</option>
-                            <option value="PENDING">Pending</option>
-                            <option value="CANCELLED">Cancelled</option>
+                            <option value="confirmed">Confirmed</option>
+                            <option value="pending">Pending</option>
+                            <option value="canceled">Cancelled</option>
                         </select>
                     </div>
                 </div>
@@ -564,130 +591,233 @@
             </div>
         </div>
     @endif
-    <!-- Add Expense Modal -->
-@if ($showAddExpenseModal)
+
+@if ($openAddExpenseModal)
     <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-        <div class="bg-white rounded-lg p-6 w-full max-w-2xl mx-auto max-h-[90vh] overflow-y-auto">
-            <div class="flex justify-between items-center mb-6">
-                <h3 class="text-xl font-semibold text-gray-900">Add New Expense</h3>
-                <button wire:click="closeAddModal" class="text-gray-400 hover:text-gray-600">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                    </svg>
-                </button>
+        <div class="bg-white rounded-lg w-full max-w-7xl mx-auto max-h-[90vh] overflow-y-auto">
+            {{-- Header --}}
+            <div class="p-6 border-b border-gray-200 bg-gradient-to-r from-green-50 to-emerald-50 sticky top-0 z-10">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h3 class="text-2xl font-bold text-gray-900">New Expense Invoice</h3>
+                        <p class="text-sm text-gray-600 mt-1">Add expense items and vendor details</p>
+                    </div>
+                    <button wire:click="closeAddModal" class="text-gray-400 hover:text-gray-600">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
             </div>
 
-            <form wire:submit.prevent="saveExpense" class="space-y-4">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <!-- Reference -->
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Reference</label>
-                        <input type="text" wire:model="reference" readonly
-                            class="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50">
-                        @error('reference') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
-                    </div>
+            <form wire:submit.prevent="saveExpense">
+                {{-- Invoice Info Section --}}
+                <div class="p-6 border-b border-gray-200 bg-gray-50">
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">
+                                Reference Number
+                            </label>
+                            <input type="text" wire:model="reference" readonly
+                                class="w-full px-4 py-2.5 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 font-mono text-sm">
+                        </div>
 
-                    <!-- Date -->
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Date *</label>
-                        <input type="date" wire:model="date"
-                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                        @error('date') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
-                    </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">
+                                Date <span class="text-red-500">*</span>
+                            </label>
+                            <input type="date" wire:model="expenseDate" max="{{ now()->format('Y-m-d') }}"
+                                class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                            @error('expenseDate') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
+                        </div>
 
-                    <!-- Category -->
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Category *</label>
-                        <select wire:model="category"
-                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                            <option value="">Select Category</option>
-                            @foreach ($categories as $cat)
-                                <option value="{{ $cat->category }}">{{ $cat->category }}</option>
-                            @endforeach
-                        </select>
-                        @error('category') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
-                    </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">
+                                Payment Method <span class="text-red-500">*</span>
+                            </label>
+                            <select wire:model="expensePaymentMethod"
+                                class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                                <option value="cash">Cash</option>
+                                <option value="bank_transfer">Bank Transfer</option>
+                                <option value="momo">Mobile Money</option>
+                                <option value="credit">Credit</option>
+                            </select>
+                        </div>
 
-                    <!-- Amount -->
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Amount (GH₵) *</label>
-                        <input type="number" wire:model="amount" step="0.01" min="0"
-                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                            placeholder="0.00">
-                        @error('amount') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
-                    </div>
-
-                    <!-- Vendor -->
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Vendor *</label>
-                        <input type="text" wire:model="vendor"
-                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                            placeholder="Enter vendor name">
-                        @error('vendor') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
-                    </div>
-
-                    <!-- Payment Method -->
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Payment Method *</label>
-                        <select wire:model="payment_method"
-                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                            <option value="CASH">Cash</option>
-                            <option value="BANK TRANSFER">Bank Transfer</option>
-                            <option value="MOBILE MONEY">Mobile Money</option>
-                            <option value="CREDIT">Credit</option>
-                        </select>
-                        @error('payment_method') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
-                    </div>
-
-                    <!-- Status -->
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Status *</label>
-                        <select wire:model="status"
-                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
-                            <option value="PENDING">Pending</option>
-                            <option value="CONFIRMED">Confirmed</option>
-                            <option value="CANCELLED">Cancelled</option>
-                        </select>
-                        @error('status') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
-                    </div>
-
-                    <!-- Paid By -->
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Paid By</label>
-                        <input type="text" wire:model="paid_by"
-                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                            placeholder="Person who made payment">
-                        @error('paid_by') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">
+                                Status <span class="text-red-500">*</span>
+                            </label>
+                            <select wire:model="expenseStatus"
+                                class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                                <option value="pending">Pending</option>
+                                <option value="paid">Confirmed</option>
+                                <option value="canceled">Cancelled</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Description -->
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Description *</label>
-                    <textarea wire:model="description" rows="3"
-                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                        placeholder="Enter expense description"></textarea>
-                    @error('description') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
+                {{-- Expense Items Section --}}
+                <div class="p-6 border-b border-gray-200">
+                    <div class="flex justify-between items-center mb-4">
+                        <h4 class="text-sm font-semibold text-gray-900 uppercase tracking-wide">Expense Line Items</h4>
+                        <button type="button" wire:click="addExpenseItem"
+                            class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2 text-sm">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                            </svg>
+                            <span>Add Item</span>
+                        </button>
+                    </div>
+
+                    @error('expenseItems') 
+                        <div class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                            {{ $message }}
+                        </div>
+                    @enderror
+
+                    <div class="space-y-4">
+                        @foreach($expenseItems as $index => $item)
+                            <div class="border border-gray-200 rounded-lg p-4 bg-white hover:shadow-md transition-shadow">
+                                <div class="flex justify-between items-start mb-4">
+                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                        Item #{{ $index + 1 }}
+                                    </span>
+                                    @if(count($expenseItems) > 1)
+                                        <button type="button" wire:click="removeExpenseItem({{ $index }})"
+                                            class="text-red-600 hover:text-red-800 transition-colors">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                            </svg>
+                                        </button>
+                                    @endif
+                                </div>
+
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {{-- Category Selection --}}
+                                    <div>
+                                        <label class="block text-xs font-medium text-gray-700 mb-2">
+                                            Category <span class="text-red-500">*</span>
+                                        </label>
+                                        <div class="space-y-2">
+                                            <select wire:model="expenseItems.{{ $index }}.category"
+                                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent uppercase">
+                                                <option value="">Select Category</option>
+                                                @foreach($expenseCategories as $cat)
+                                                    <option value="{{ $cat }}">{{ $cat }}</option>
+                                                @endforeach
+                                            </select>
+                                            <input type="text" wire:model="expenseItems.{{ $index }}.new_category"
+                                                placeholder="Or enter new category"
+                                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm uppercase">
+                                        </div>
+                                        @error("expenseItems.{$index}.category") 
+                                            <span class="text-red-500 text-xs mt-1">{{ $message }}</span> 
+                                        @enderror
+                                    </div>
+
+                                    {{-- Vendor --}}
+                                    <div>
+                                        <label class="block text-xs font-medium text-gray-700 mb-2">
+                                            Vendor/Supplier <span class="text-red-500">*</span>
+                                        </label>
+                                        <input type="text" wire:model="expenseItems.{{ $index }}.vendor"
+                                            placeholder="Enter vendor name"
+                                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent uppercase">
+                                        @error("expenseItems.{$index}.vendor") 
+                                            <span class="text-red-500 text-xs mt-1">{{ $message }}</span> 
+                                        @enderror
+                                    </div>
+
+                                    {{-- Description --}}
+                                    <div class="md:col-span-2">
+                                        <label class="block text-xs font-medium text-gray-700 mb-2">
+                                            Description
+                                        </label>
+                                        <textarea wire:model="expenseItems.{{ $index }}.description" rows="2"
+                                            placeholder="Enter detailed description of the expense"
+                                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"></textarea>
+                                        @error("expenseItems.{$index}.description") 
+                                            <span class="text-red-500 text-xs mt-1">{{ $message }}</span> 
+                                        @enderror
+                                    </div>
+
+                                    {{-- Amount --}}
+                                    <div>
+                                        <label class="block text-xs font-medium text-gray-700 mb-2">
+                                            Amount (GH₵) <span class="text-red-500">*</span>
+                                        </label>
+                                        <div class="relative">
+                                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                                <span class="text-gray-500">₵</span>
+                                            </div>
+                                            <input type="text" wire:model="expenseItems.{{ $index }}.amount" 
+                                                step="0.01" min="0"
+                                                oninput="this.value = this.value.replace(/[^0-9]/g, '');"
+                                                placeholder="0.00"
+                                                class="w-full pl-8 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent font-semibold">
+                                        </div>
+                                        @error("expenseItems.{$index}.amount") 
+                                            <span class="text-red-500 text-xs mt-1">{{ $message }}</span> 
+                                        @enderror
+                                    </div>
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+
+                    {{-- Total Calculation --}}
+                    <div class="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                        <div class="flex justify-between items-center">
+                            <span class="text-lg font-semibold text-gray-900">Total Invoice Amount</span>
+                            <span class="text-2xl font-bold text-green-600">
+                                ₵{{ number_format(
+                                    collect($expenseItems)
+                                        ->filter(fn($item) => !empty($item['amount']) && is_numeric($item['amount']))
+                                        ->sum(fn($item) => (float)$item['amount']), 
+                                    2
+                                ) }}
+                            </span>
+                        </div>
+                    </div>
                 </div>
 
-                <!-- Notes -->
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Notes (Optional)</label>
-                    <textarea wire:model="notes" rows="2"
-                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                        placeholder="Additional notes or comments"></textarea>
-                    @error('notes') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
+                {{-- Additional Information --}}
+                <div class="p-6 border-b border-gray-200 bg-gray-50">
+                    <div class="grid grid-cols-1 gap-4">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 mb-2">
+                                Paid By
+                            </label>
+                            <input type="text" wire:model="expensePaidBy"
+                                placeholder="Person who made the payment"
+                                class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 mb-2">
+                                Additional Notes
+                            </label>
+                            <textarea wire:model="expenseNotes" rows="3"
+                                placeholder="Any additional notes or comments about this expense"
+                                class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"></textarea>
+                        </div>
+                    </div>
                 </div>
 
-                <!-- Actions -->
-                <div class="flex justify-end space-x-3 pt-4 border-t">
+                {{-- Footer Actions --}}
+                <div class="p-6 bg-white flex justify-end space-x-3">
                     <button type="button" wire:click="closeAddModal"
-                        class="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+                        class="px-6 py-2.5 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">
                         Cancel
                     </button>
                     <button type="submit"
-                        class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
-                        Save Expense
+                        class="px-6 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                        <span>Create Expense Invoice</span>
                     </button>
                 </div>
             </form>
@@ -788,10 +918,10 @@
                             </label>
                             <select wire:model="payment_method"
                                 class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                                <option value="CASH">Cash</option>
-                                <option value="BANK TRANSFER">Bank Transfer</option>
-                                <option value="MOBILE MONEY">Mobile Money</option>
-                                <option value="CREDIT">Credit</option>
+                                <option value="cash">Cash</option>
+                                <option value="bank_transfer">Bank Transfer</option>
+                                <option value="momo">Mobile Money</option>
+                                <option value="credit">Credit</option>
                             </select>
                             @error('payment_method') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
                         </div>

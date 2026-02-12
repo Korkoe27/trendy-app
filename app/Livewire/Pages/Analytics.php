@@ -42,6 +42,8 @@ public $chartsLoaded = false;
     public $totalProfit = 0;
     public $averageProfitMargin = 0;
     public $profitGrowth = 0;
+
+    public $snooker = 0;
     public $grossProfitMargin = 0;
 
     // Loss Metrics - IMPROVED
@@ -56,6 +58,8 @@ public $chartsLoaded = false;
     // Inventory Metrics - IMPROVED
     public $totalInventoryValue = 0;
     public $lowStockProducts = 0;
+
+    public $averageDailySnookerSales = 0;
     public $outOfStockProducts = 0;
     public $inventoryTurnoverRate = 0;
     public $averageInventoryValue = 0; // NEW: For better turnover calculation

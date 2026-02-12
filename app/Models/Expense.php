@@ -22,10 +22,14 @@ class Expense extends Model
         'category',
         'notes',
         'status',
+        'items',
+        'metadata',
         'supplier',
     ];
     protected $casts = [
         'incurred_at' => 'datetime',
         'amount' => 'decimal:2',
+        'items'=>'json',
+        'metadata'=>'json',
     ];
 }
