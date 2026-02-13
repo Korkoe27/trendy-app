@@ -199,6 +199,52 @@
                     @endif
                 </div>
             </div>
+            {{-- Unpaid Credits Alert --}}
+@if(count($this->unpaidCredits) > 0)
+<div class="bg-white rounded-lg border border-gray-200 shadow-sm">
+    <div class="px-4 md:px-6 py-4 border-b border-gray-200">
+        <h3 class="text-lg font-semibold text-gray-900 flex items-center">
+            <svg class="w-5 h-5 text-yellow-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            Unpaid Credits
+        </h3>
+        <p class="text-sm text-gray-600 mt-1">Total Outstanding: GH₵ {{ number_format($this->totalUnpaidCreditAmount, 2) }}</p>
+    </div>
+    <div class="p-4 md:p-6">
+        <div class="space-y-3 max-h-96 overflow-y-auto">
+            @foreach($this->unpaidCredits as $credit)
+                <div class="border border-yellow-200 rounded-lg p-4 bg-yellow-50">
+                    <div class="flex justify-between items-start mb-2">
+                        <div class="flex-1">
+                            <h4 class="text-base font-medium text-gray-900">{{ $credit->customer_name }}</h4>
+                            <p class="text-sm text-gray-600">{{ $credit->customer_phone }}</p>
+                        </div>
+                        <span class="text-sm bg-yellow-100 text-yellow-800 px-2 py-1 rounded uppercase whitespace-nowrap">
+                            {{ $credit->product->name }}
+                        </span>
+                    </div>
+                    <div class="flex justify-between items-center mb-2">
+                        <div class="text-sm text-gray-600">
+                            <span>Units: {{ $credit->units_credited }}</span>
+                            <span class="mx-2">•</span>
+                            <span>Date: {{ $credit->credit_date->format('M j, Y') }}</span>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-lg font-bold text-yellow-700">GH₵ {{ number_format($credit->credit_amount, 2) }}</p>
+                        </div>
+                    </div>
+                    <button 
+                        wire:click="markCreditAsPaid({{ $credit->id }})"
+                        class="w-full mt-2 bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded text-sm font-medium transition-colors">
+                        Mark as Paid
+                    </button>
+                </div>
+            @endforeach
+        </div>
+    </div>
+</div>
+@endif
         </div>
     </section>
 </div>

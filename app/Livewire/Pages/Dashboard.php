@@ -2,8 +2,9 @@
 
 namespace App\Livewire\Pages;
 
-use App\Models\{Product,DailySales, DailySalesSummary, Stock};
+use App\Models\{ActivityLogs, CreditSales, Product,DailySales, DailySalesSummary, Stock};
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 use Illuminate\Support\Facades\DB;
 
@@ -31,6 +32,65 @@ class Dashboard extends Component
             $this->displayDate = $this->currentDate;
         }
     }
+
+    public function getUnpaidCreditsProperty()
+{
+    return CreditSales::with(['product'])
+        ->unpaid()
+        ->orderBy('credit_date', 'desc')
+        ->get();
+}
+
+public function getTotalUnpaidCreditAmountProperty()
+{
+    return CreditSales::unpaid()->sum('credit_amount');
+}
+
+public function markCreditAsPaid($creditId)
+{
+    DB::transaction(function () use ($creditId) {
+        $credit = CreditSales::find($creditId);
+        
+        if (!$credit) {
+            session()->flash('error', 'Credit not found.');
+            return;
+        }
+        
+        $credit->update([
+            'status' => 'paid',
+            'amount_paid' => $credit->credit_amount,
+            'payment_date' => now(),
+            'metadata' => json_encode([
+                'paid_by' => Auth::id(),
+                'payment_method' => 'manual_marking',
+                'original_amount' => $credit->credit_amount,
+            ]),
+        ]);
+
+        // Update the daily sales summary profit
+        $summary = DailySalesSummary::where('sales_date', $credit->credit_date)->first();
+        if ($summary) {
+            $summary->increment('total_profit', $credit->credit_amount);
+            $summary->decrement('total_credit_amount', $credit->credit_amount);
+        }
+
+        ActivityLogs::create([
+            'user_id' => Auth::id(),
+            'action_type' => 'credit_payment',
+            'description' => "Credit payment received from {$credit->customer_name}",
+            'entity_type' => 'credit_sale',
+            'entity_id' => $credit->id,
+            'metadata' => json_encode([
+                'amount_paid' => $credit->credit_amount,
+                'customer_phone' => $credit->customer_phone,
+                'customer_name' => $credit->customer_name,
+                'product_id' => $credit->product_id,
+            ]),
+        ]);
+    });
+
+    session()->flash('success', 'Credit marked as paid successfully!');
+}
 
     public function getTodayRevenueProperty()
     {
