@@ -373,27 +373,35 @@ class Stocks extends Component
         }
     }
 
-    public function updatedNewStockItems($value, $key)
-    {
-        $parts = explode('.', $key);
-        $index = $parts[0];
-        $field = $parts[1];
+public function updatedNewStockItems($value, $key)
+{
+    $parts = explode('.', $key);
+    $index = $parts[0];
+    $field = $parts[1];
 
-        if (! isset($this->newStockItems[$index]['product_id']) || empty($this->newStockItems[$index]['product_id'])) {
-            return;
-        }
-
-        // Recalculate when relevant fields change
-        if (in_array($field, ['input_units', 'total_cost'])) {
-            // For edit modal, input_units IS the total units (no boxes calculation needed)
-            if ($this->editStockModal) {
-                $this->newStockItems[$index]['calculated_total_units'] = (int) ($this->newStockItems[$index]['input_units'] ?? 0);
-            } else {
-                $this->calculateTotalUnits($index);
-            }
-            $this->calculateCostAndMargin($index);
-        }
+    // Mutual exclusion: picking from dropdown clears new name, and vice versa
+    if ($field === 'supplier_id' && ! empty($value)) {
+        $this->newStockItems[$index]['new_supplier_name'] = '';
+        return;
     }
+
+    if ($field === 'new_supplier_name' && ! empty($value)) {
+        $this->newStockItems[$index]['supplier_id'] = '';
+    }
+
+    if (! isset($this->newStockItems[$index]['product_id']) || empty($this->newStockItems[$index]['product_id'])) {
+        return;
+    }
+
+    if (in_array($field, ['input_units', 'total_cost'])) {
+        if ($this->editStockModal) {
+            $this->newStockItems[$index]['calculated_total_units'] = (int) ($this->newStockItems[$index]['input_units'] ?? 0);
+        } else {
+            $this->calculateTotalUnits($index);
+        }
+        $this->calculateCostAndMargin($index);
+    }
+}
 
     /**
      * Calculate total units based on boxes and individual units input
@@ -457,19 +465,24 @@ class Stocks extends Component
         }
     }
 
-    public function updatedEditStockItem($value, $key)
-    {
-        $field = str_replace('editStockItem.', '', $key);
+public function updatedEditStockItem($value, $key)
+{
+    $field = str_replace('editStockItem.', '', $key);
 
-        // Recalculate when relevant fields change
-        if (in_array($field, ['input_units', 'total_cost'])) {
-            // Update calculated_total_units
-            $this->editStockItem['calculated_total_units'] = (int) ($this->editStockItem['input_units'] ?? 0);
-
-            // Use existing calculateCostAndMargin method by passing a pseudo-index
-            $this->calculateEditItemCostAndMargin();
-        }
+    if ($field === 'supplier_id' && ! empty($value)) {
+        $this->editStockItem['new_supplier_name'] = '';
+        return;
     }
+
+    if ($field === 'new_supplier_name' && ! empty($value)) {
+        $this->editStockItem['supplier_id'] = '';
+    }
+
+    if (in_array($field, ['input_units', 'total_cost'])) {
+        $this->editStockItem['calculated_total_units'] = (int) ($this->editStockItem['input_units'] ?? 0);
+        $this->calculateEditItemCostAndMargin();
+    }
+}
 
     private function calculateEditItemCostAndMargin()
     {
@@ -705,13 +718,26 @@ class Stocks extends Component
                     'supplier_name' => $supplier['name'] ?? null,
                 ];
 
+                // Get the latest stock record for this product to carry forward the running total
+                $latestStock = Stock::where('product_id', $product->id)
+                    ->latest('created_at')
+                    ->first();
+
+                $previousUnits = $latestStock ? $latestStock->total_units : 0;
+                $cumulativeTotalUnits = $previousUnits + $totalUnitsToAdd;
+
+                // Recalculate cost price and margin based on units purchased this batch only
+                // (cost_price = this batch's cost / this batch's units, not cumulative)
+                $costPrice = $totalUnitsToAdd > 0 ? $totalCost / $totalUnitsToAdd : 0;
+                $costMargin = (float) $product->selling_price - $costPrice;
+
                 $stockCreateRows[] = [
                     'product_id' => $product->id,
-                    'total_units' => $totalUnitsToAdd,
+                    'total_units' => $cumulativeTotalUnits,   // running total becomes current stock
                     'supplier_id' => $supplierId,
-                    'total_cost' => $totalCost,
-                    'cost_price' => $costPrice,
-                    'cost_margin' => $costMargin,
+                    'total_cost' => $totalCost,               // cost of THIS purchase only
+                    'cost_price' => round($costPrice, 2),     // cost per unit of THIS purchase
+                    'cost_margin' => round($costMargin, 2),   // margin based on THIS purchase cost
                     'free_units' => $freeUnits,
                     'notes' => $this->notes,
                     'restock_date' => $restockDate,

@@ -356,12 +356,11 @@
                                                     <!-- OR New Supplier Input -->
                                                     <div class="relative">
                                                         <input 
-                                                            type="text" 
-                                                            placeholder="Or enter new supplier name"
-                                                            wire:model.live="newStockItems.{{ $index }}.new_supplier_name"
-                                                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                                                            @if(!empty($item['supplier_id'])) disabled @endif
-                                                        />
+    type="text" 
+    placeholder="Or enter new supplier name"
+    wire:model.live="newStockItems.{{ $index }}.new_supplier_name"
+    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm {{ !empty($item['supplier_id']) ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : '' }}"
+/>
                                                     </div>
                                                     
                                                     @error('newStockItems.' . $index . '.supplier_id')
@@ -571,12 +570,11 @@
                                         
                                         <!-- OR New Supplier Input -->
                                         <input 
-                                            type="text" 
-                                            placeholder="Or enter new supplier name"
-                                            wire:model.live="editStockItem.new_supplier_name"
-                                            class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg uppercase focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:px-4 sm:py-2"
-                                            @if(!empty($editStockItem['supplier_id'])) disabled @endif
-                                        />
+                                        type="text" 
+                                        placeholder="Or enter new supplier name"
+                                        wire:model.live="editStockItem.new_supplier_name"
+                                        class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg uppercase focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:px-4 sm:py-2 {{ !empty($editStockItem['supplier_id']) ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : '' }}"
+                                    />
                                         
                                         @error('editStockItem.supplier_id')
                                             <div class="mt-1 text-xs text-red-500">{{ $message }}</div>
