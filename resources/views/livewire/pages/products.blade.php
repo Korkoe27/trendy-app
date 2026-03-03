@@ -103,8 +103,10 @@
                             Cost Price</th>
                         <th class="px-6 py-3 text-left text-sm font-semibold text-gray-500 uppercase tracking-wider">
                             Selling Price</th>
+                                    @haspermission('modify','analytics')
                         <th class="px-6 py-3 text-left text-sm font-semibold text-gray-500 uppercase tracking-wider">
                             Margin</th>
+                            @endhaspermission
                         <th class="px-6 py-3 text-left text-sm font-semibold text-gray-500 uppercase tracking-wider">
                             Status</th>
                         <th class="px-6 py-3 text-left text-sm font-semibold text-gray-500 uppercase tracking-wider">
@@ -149,12 +151,15 @@
                                 <div class="text-base text-gray-900">GH₵
                                     {{ number_format($product->selling_price, 2) }}</div>
                             </td>
+                            
+                                    @haspermission('modify','analytics')
                             <td class="px-6 py-2 whitespace-nowrap">
                                 <div
                                     class="text-base font-medium {{ $margin > 50 ? 'text-green-600' : ($margin > 25 ? 'text-yellow-600' : 'text-red-600') }}">
                                     {{ $margin }}
                                 </div>
                             </td>
+                            @endhaspermission
 
                             {{-- Active/Inactive --}}
                             <td class="px-6 py-2 whitespace-nowrap">
