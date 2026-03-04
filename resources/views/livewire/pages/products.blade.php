@@ -304,6 +304,8 @@
                                     <p class="text-base text-gray-900">GH₵
                                         {{ number_format($latestStock->cost_price, 2) }}</p>
                                 </div>
+
+                                @haspermission('view','analytics')
                                 <div>
                                     <label class="block text-sm font-medium text-gray-600">Cost Margin</label>
                                     <p
@@ -311,6 +313,7 @@
                                         {{ $latestStock->cost_margin ?? 0 }}%
                                     </p>
                                 </div>
+                                @endhaspermission
                                 <div>
                                     <label class="block text-sm font-medium text-gray-600">Last Updated</label>
                                     <p class="text-sm text-gray-700">
@@ -338,9 +341,11 @@
                                             <th
                                                 class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
                                                 Cost Price</th>
+                                                @haspermission('view','analytics')
                                             <th
                                                 class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
                                                 Margin</th>
+                                                @endhaspermission
                                         </tr>
                                     </thead>
                                     <tbody class="bg-white divide-y divide-gray-200">
@@ -352,10 +357,12 @@
                                                     {{ $stock->total_units }}</td>
                                                 <td class="px-4 py-2 text-sm text-gray-900">GH₵
                                                     {{ number_format($stock->cost_price, 2) }}</td>
+                                                @haspermission('view','analytics')
                                                 <td
                                                     class="px-4 py-2 text-sm font-medium {{ $stock->cost_margin > 50 ? 'text-green-600' : ($stock->cost_margin > 25 ? 'text-yellow-600' : 'text-red-600') }}">
                                                     {{ $stock->cost_margin ?? 0 }}%
                                                 </td>
+                                                @endhaspermission
                                             </tr>
                                         @endforeach
                                     </tbody>
