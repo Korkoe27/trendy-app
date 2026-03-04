@@ -83,8 +83,10 @@
                             Supplier</th>
                         <th class="px-6 py-3 text-left text-sm font-semibold text-gray-500 uppercase tracking-wider">
                             Cost Price</th>
+                            @haspermission('modify','stocks')
                         <th class="px-6 py-3 text-left text-sm font-semibold text-gray-500 uppercase tracking-wider">
                             Profit Margin</th>
+                            @endhaspermission
                         <th class="px-6 py-3 text-left text-sm font-semibold text-gray-500 uppercase tracking-wider">
                             Restock Date</th>
                         <th class="px-6 py-3 text-left text-sm font-semibold text-gray-500 uppercase tracking-wider">
@@ -130,6 +132,7 @@
                                     @endif
                                 </div>
                             </td>
+                            @haspermission ('modify','stocks')
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <div class="text-base">
                                     @if ($stock->cost_margin)
@@ -142,6 +145,7 @@
                                     @endif
                                 </div>
                             </td>
+                            @endhaspermission
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <div class="text-base text-gray-900">
                                     {{ $stock->restock_date ? \Carbon\Carbon::parse($stock->restock_date)->format('M j, Y') : 'N/A' }}
@@ -273,10 +277,11 @@
                                         <th
                                             class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Cost Price</th>
-                                    @haspermission('modify','analytics')
+                                    @haspermission('modify','stocks')
                                         <th
                                             class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Profit Margin</th>
+                                            Profit Margin
+                                        </th>
                                     @endhaspermission
                                         <th
                                             class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -518,8 +523,8 @@
                         <p><strong>Total Units:</strong> {{ number_format($selectedStock->total_units, 0) }}</p>
                         <p><strong>Cost Price:</strong> GH₵{{ number_format($selectedStock->cost_price, 2) }}</p>
                         
-                                    @haspermission('modify','analytics')
-                        <p><strong>Profit Margin:</strong> GH₵ {{ number_format($selectedStock->cost_margin, 2) }}</p>
+                        @haspermission('modify','analytics')
+                            <p><strong>Profit Margin:</strong> GH₵ {{ number_format($selectedStock->cost_margin, 2) }}</p>
                         @endhaspermission
                         <p><strong>Restock Date:</strong>
                             {{ \Carbon\Carbon::parse($selectedStock->restock_date)->format('M j, Y') }}</p>
@@ -808,6 +813,7 @@
                 </div>
 
                 <!-- Profit Margin Range -->
+                @haspermission('modify','analytics')
                 <div class="md:col-span-2">
                     <label class="block text-sm font-medium text-gray-700 mb-2">Profit Margin Range (GH₵)</label>
                     <div class="grid grid-cols-2 gap-3">
@@ -819,6 +825,7 @@
                             class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
                     </div>
                 </div>
+                @endhaspermission
 
                 <!-- Restock Date Range -->
                 <div class="md:col-span-2">

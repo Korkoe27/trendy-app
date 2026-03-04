@@ -103,7 +103,7 @@
                             Cost Price</th>
                         <th class="px-6 py-3 text-left text-sm font-semibold text-gray-500 uppercase tracking-wider">
                             Selling Price</th>
-                                    @haspermission('modify','analytics')
+                            @haspermission('modify','analytics')
                         <th class="px-6 py-3 text-left text-sm font-semibold text-gray-500 uppercase tracking-wider">
                             Margin</th>
                             @endhaspermission

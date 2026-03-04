@@ -89,7 +89,7 @@ class Inventory extends Component
 
         // Get LATEST stock for each product (most recent created_at)
         $this->allStocks = DB::table('stocks as s1')
-            ->select('s1.id', 's1.product_id', 's1.total_units', 's1.cost_price', 's1.cost_margin','s1.supplier_id','s1.total_cost','s1.restock_date','s1.created_at')
+            ->select('s1.id', 's1.product_id', 's1.total_units', 's1.cost_price', 's1.cost_margin')
             ->whereIn('s1.product_id', $productIds)
             ->where('s1.total_units', '>', 0)
             ->whereRaw('s1.created_at = (SELECT MAX(s2.created_at) FROM stocks s2 WHERE s2.product_id = s1.product_id)')
@@ -969,11 +969,6 @@ if (! $newerStockExists) {
                 $product = $this->allProducts[$productId] ?? null;
                 $currentStock = $this->allStocks[$productId] ?? null;
 
-                Log::debug("log current stock for product", [
-                    'currentStock' => $currentStock,
-                    'product' => $product,
-                ]);
-
                 Log::debug('Current stock for product '.$productId.': '.($currentStock ? $currentStock->total_units : 'not found'));
 
                 if (! $currentStock || ! $product) {
@@ -1049,20 +1044,19 @@ if (! $newerStockExists) {
     'updated_at'    => now(),
 ];
 
-
 $newStockRows[] = [
     'product_id'   => $productId,
     'total_units'  => $closingUnits,
-    'supplier_id'  => $currentStock->supplier_id,
-    'total_cost'   => $currentStock->total_cost,
-    'cost_price'   => $currentStock->cost_price,
-    'cost_margin'  => $sellingPrice - ($currentStock->cost_price),
+    'supplier_id'  => $currentStock->supplier_id ?? null,
+    'total_cost'   => $currentStock->total_cost ?? 0,
+    'cost_price'   => $currentStock->cost_price ?? 0,
+    'cost_margin'  => $sellingPrice - ($currentStock->cost_price ?? 0),
     'free_units'   => 0,
     'notes'        => 'End of day inventory - ' . $recordDate,
-    'restock_date' => $currentStock->restock_date,
+    'restock_date' => null,
     'metadata'     => json_encode([
         'source'            => 'daily_inventory',
-        'previous_stock_date' => $currentStock->created_at,
+        'previous_stock_id' => $currentStock->id ?? null,
         'opening_stock'     => $openingStock,
         'units_sold'        => $unitsSold,
         'damaged_units'     => $damagedUnits,
@@ -1072,8 +1066,6 @@ $newStockRows[] = [
     'created_at'   => now(),
     'updated_at'   => now(),
 ];
-//log the entire array
-Log::debug('Prepared sales row for product '.$productId, $salesRows);
 
                 Log::debug('checked new sales for product: '.$productId);
             }
