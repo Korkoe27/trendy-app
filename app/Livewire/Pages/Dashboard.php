@@ -113,16 +113,22 @@ public function markCreditAsPaid($creditId)
 
 public function getLowStockProductsProperty()
 {
-    return Product::whereHas('stocks', function ($query) {
-            $query->whereRaw('stocks.total_units < products.stock_limit')
-                ->orWhere('stocks.total_units', '=', 0)
-                ->orWhereNull('stocks.total_units');
+    return Product::where(function ($query) {
+            $query->whereHas('stocks', function ($q) {
+                $q->whereRaw('stocks.total_units <= products.stock_limit');
+            })
+            ->orWhereDoesntHave('stocks');
         })
-        ->orWhereDoesntHave('stocks') // ✅ Include products with no stock records
-        ->with(['stocks', 'category'])
-        ->get();
+        ->with(['currentStock', 'category'])
+        ->get()
+        ->map(function ($product) {
+            $current = $product->currentStock?->total_units ?? 0;
+            $limit = $product->stock_limit ?? 1;
+            $percentage = $limit > 0 ? min(100, round(($current / $limit) * 100)) : 0;
+            $product['percentage'] = $percentage;
+            return $product;
+        });
 }
-
 
 
     public function getRecentSalesProperty()

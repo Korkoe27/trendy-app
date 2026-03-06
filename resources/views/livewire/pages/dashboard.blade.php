@@ -187,7 +187,7 @@
                                     <div class="w-full bg-red-200 rounded-full h-2">
                                         <div 
                                             class="bg-red-600 h-2 rounded-full transition-all duration-300"
-                                            style="width: {{ $item['percentage'] }}%"
+                                            style="width: {{ $item->percentage ?? 0 }}%"
                                         ></div>
                                     </div>
                                 </div>

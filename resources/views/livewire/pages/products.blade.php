@@ -115,26 +115,25 @@
                 </thead>
 
                 <tbody class="bg-white divide-y divide-gray-200">
-                    @forelse($products as $product)
-                        @php
-                            $stockStatus = $this->getStockStatus($product->id, $product->stock_limit);
-                            $margin = $product?->currentStock?->cost_margin ?? 0;
-                        @endphp
-
-                        <tr class="hover:bg-gray-50" wire:key="product-row-{{ $product->id }}">
+                    @forelse($products as $prod)
+    @php
+        $stockStatus = $this->getStockStatus($prod->id, $prod->stock_limit);
+        $margin = $prod?->currentStock?->cost_margin ?? 0;
+    @endphp
+                    <tr class="hover:bg-gray-50" wire:key="product-row-{{ $prod->id }}">
                             {{-- Product --}}
                             <td class="px-6 py-2 whitespace-nowrap">
-                                <div class="text-base font-medium uppercase text-gray-900">{{ $product->name }}</div>
-                                <div class="text-base uppercase text-gray-500">{{ $product->category->name }} •
-                                    {{ $product->barcode ?? 'N/A' }}</div>
+                                <div class="text-base font-medium uppercase text-gray-900">{{ $prod->name }}</div>
+                                <div class="text-base uppercase text-gray-500">{{ $prod->category->name }} •
+                                    {{ $prod->barcode ?? 'N/A' }}</div>
                             </td>
 
                             {{-- Stock --}}
                             <td class="px-6 py-2 whitespace-nowrap">
                                 <div class="text-base font-medium text-gray-900">{{ $stockStatus['current'] }} units
                                 </div>
-                                @if ($product->stock_limit)
-                                    <div class="text-xs text-gray-500 mb-1">Limit: {{ $product->stock_limit }}</div>
+                                @if ($prod->stock_limit)
+                                    <div class="text-xs text-gray-500 mb-1">Limit: {{ $prod->stock_limit }}</div>
                                 @endif
                                 <span
                                     class="inline-block px-2 py-1 text-xs font-medium rounded-full {{ $stockStatus['color'] }}">
@@ -145,11 +144,11 @@
                             {{-- Cost/Sell/Margin --}}
                             <td class="px-6 py-2 whitespace-nowrap">
                                 <div class="text-base text-gray-900">GH₵
-                                    {{ number_format($product->currentStock->cost_price ?? 0, 2) }}</div>
+                                    {{ number_format($prod->currentStock->cost_price ?? 0, 2) }}</div>
                             </td>
                             <td class="px-6 py-2 whitespace-nowrap">
                                 <div class="text-base text-gray-900">GH₵
-                                    {{ number_format($product->selling_price, 2) }}</div>
+                                    {{ number_format($prod->selling_price, 2) }}</div>
                             </td>
                             
                                     @haspermission('modify','analytics')
@@ -163,16 +162,16 @@
 
                             {{-- Active/Inactive --}}
                             <td class="px-6 py-2 whitespace-nowrap">
-                                <button wire:click="toggleProductStatus({{ $product->id }})"
-                                    class="inline-block px-2 py-1 text-xs font-medium rounded-full {{ $product->is_active ? 'text-green-600 bg-green-100 hover:bg-green-200' : 'text-gray-600 bg-gray-100 hover:bg-gray-200' }} transition-colors">
-                                    {{ $product->is_active ? 'Active' : 'Inactive' }}
+                                <button wire:click="toggleProductStatus({{ $prod->id }})"
+                                    class="inline-block px-2 py-1 text-xs font-medium rounded-full {{ $prod->is_active ? 'text-green-600 bg-green-100 hover:bg-green-200' : 'text-gray-600 bg-gray-100 hover:bg-gray-200' }} transition-colors">
+                                    {{ $prod->is_active ? 'Active' : 'Inactive' }}
                                 </button>
                             </td>
 
                             {{-- Actions --}}
                             <td class="px-6 py-4 whitespace-nowrap text-base font-medium">
                                 <div class="flex items-center space-x-3">
-                                    <button wire:click="viewProduct({{ $product->id }})"
+                                    <button wire:click="viewProduct({{ $prod->id }})"
                                         class="text-blue-600 hover:text-blue-900 flex items-center space-x-1"
                                         title="View">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -186,7 +185,7 @@
 
                                     
                                     @haspermission('modify','products')
-                                    <button wire:click="editProduct({{ $product->id }})"
+                                    <button wire:click="editProduct({{ $prod->id }})"
                                         class="text-green-600 hover:text-green-900" title="Edit">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -197,7 +196,7 @@
 
                                     
                                     @haspermission('delete','products')
-                                    <button wire:click="deleteProduct({{ $product->id }})"
+                                    <button wire:click="deleteProduct({{ $prod->id }})"
                                         wire:confirm="Are you sure you want to delete this product?"
                                         class="text-red-600 hover:text-red-900" title="Delete">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

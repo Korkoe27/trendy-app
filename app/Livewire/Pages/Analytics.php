@@ -100,7 +100,7 @@ public $chartsLoaded = false;
 public function loadMetrics()
 {
     $this->isLoading = true;
-    
+
     $this->calculateRevenueMetrics();
     $this->calculateSnookerMetrics();
     $this->calculateSalesMetrics();
@@ -110,7 +110,7 @@ public function loadMetrics()
     $this->calculateFoodSalesMetrics();
     $this->calculateInventoryMetrics();
     $this->calculateGrowthRates();
-    
+
     $this->metricsLoaded = true;
     $this->isLoading = false;
 }
@@ -263,180 +263,212 @@ public function updatedSelectedMonth()
         }
     }
 
-    private function calculateRevenueMetrics()
-    {
-        $summaries = $this->getCurrentPeriodSummaries();
+private function calculateRevenueMetrics()
+{
+    // Pull directly from daily_sales for accuracy
+    // total_amount = cash revenue (units_sold * selling_price)
+    // credit_amount = credit revenue
+    $salesData = DB::table('daily_sales')
+        ->whereBetween('sales_date', [$this->startDate, $this->endDate])
+        ->selectRaw('
+            SUM(total_amount) as cash_revenue,
+            SUM(COALESCE(credit_amount, 0)) as credit_revenue,
+            SUM(total_amount + COALESCE(credit_amount, 0)) as drinks_total
+        ')
+        ->first();
 
-        $this->drinksTotal = $summaries->sum('drinks_total');
-        $this->snooker = $summaries->sum('snooker');
-        $this->totalCashRevenue = $summaries->sum('total_cash');
-        $this->totalMomoRevenue = $summaries->sum('total_momo');
-        $this->totalHubtelRevenue = $summaries->sum('total_hubtel');
-        $this->totalCreditRevenue = $summaries->sum('total_credit_amount');
+    $this->drinksTotal        = (float) ($salesData->drinks_total ?? 0);
+    $this->totalCreditRevenue = (float) ($salesData->credit_revenue ?? 0);
 
-        $daysInPeriod = max(1, Carbon::parse($this->startDate)->diffInDays($this->endDate) + 1);
-        $this->averageDailyRevenue = $this->drinksTotal / $daysInPeriod;
-    }
+    // Payment method splits come from summaries (recorded by staff)
+    $summaries = $this->getCurrentPeriodSummaries();
+    $this->totalCashRevenue   = $summaries->sum('total_cash');
+    $this->totalMomoRevenue   = $summaries->sum('total_momo');
+    $this->totalHubtelRevenue = $summaries->sum('total_hubtel');
 
-    private function calculateSalesMetrics()
-    {
-        $summaries = $this->getCurrentPeriodSummaries();
-        $this->totalItemsSold = $summaries->sum('items_sold');
-    }
+    $daysInPeriod = max(1, \Carbon\Carbon::parse($this->startDate)->diffInDays($this->endDate) + 1);
+    $this->averageDailyRevenue = $this->drinksTotal / $daysInPeriod;
+}
+private function calculateSalesMetrics()
+{
+    // Sum units sold directly from daily_sales rows
+    $result = DB::table('daily_sales')
+        ->whereBetween('sales_date', [$this->startDate, $this->endDate])
+        ->selectRaw('
+            SUM(
+                opening_stock
+                - closing_stock
+                - COALESCE(damaged_units, 0)
+                - COALESCE(credit_units, 0)
+            ) as total_units_sold
+        ')
+        ->first();
 
-    private function calculateExpenseMetrics()
-    {
-        $this->totalExpenses = Stock::whereBetween('restock_date', [$this->startDate, $this->endDate])
-            ->sum('total_cost');
-    }
+    $this->totalItemsSold = (int) ($result->total_units_sold ?? 0);
+}
 
-    private function calculateProfitMetrics()
-    {
-        $summaries = $this->getCurrentPeriodSummaries();
-        $this->totalProfit = $summaries->sum('total_profit');
-        
-        $this->grossProfitMargin = $this->drinksTotal > 0 
-            ? ($this->totalProfit / $this->drinksTotal) * 100 
-            : 0;
+private function calculateExpenseMetrics()
+{
+    // Only count actual stock purchases (restock entries have a restock_date set)
+    // Inventory closing-stock entries have notes like 'End of day inventory - ...'
+    // and restock_date carried forward from the original restock — so we filter
+    // by excluding those auto-generated rows (they have notes starting with 'End of day')
+    $this->totalExpenses = DB::table('stocks')
+        ->whereBetween('restock_date', [$this->startDate, $this->endDate])
+        ->where(function ($q) {
+            $q->whereNull('notes')
+              ->orWhere('notes', 'NOT LIKE', 'End of day inventory%');
+        })
+        ->sum('total_cost');
+}
 
-        // Calculate average profit margin using actual sales data
-        $salesWithMargin = DailySales::whereBetween('sales_date', [$this->startDate, $this->endDate])
-            ->with(['stock', 'product'])
-            ->get();
+private function calculateProfitMetrics()
+{
+    // unit_profit is stored per daily_sales row — sum it directly
+    $result = DB::table('daily_sales')
+        ->whereBetween('sales_date', [$this->startDate, $this->endDate])
+        ->selectRaw('SUM(unit_profit) as total_profit')
+        ->first();
 
-        $totalMargin = 0;
-        $count = 0;
+    $this->totalProfit = (float) ($result->total_profit ?? 0);
 
-        foreach ($salesWithMargin as $sale) {
-            if ($sale->stock && $sale->product && $sale->product->selling_price > 0) {
-                $unitsSold = max(0, $sale->opening_stock - $sale->closing_stock - 
-                    ($sale->damaged_units ?? 0) - ($sale->credit_units ?? 0));
-                
-                if ($unitsSold > 0 && $sale->stock->cost_price > 0) {
-                    $margin = (($sale->product->selling_price - $sale->stock->cost_price) / 
-                        $sale->product->selling_price) * 100;
-                    $totalMargin += $margin;
-                    $count++;
-                }
-            }
-        }
+    $this->grossProfitMargin = $this->drinksTotal > 0
+        ? ($this->totalProfit / $this->drinksTotal) * 100
+        : 0;
 
-        $this->averageProfitMargin = $count > 0 ? $totalMargin / $count : 0;
-    }
+    // Average profit margin: weighted average across all sold units
+    $marginData = DB::table('daily_sales as ds')
+        ->join('stocks as s', 'ds.stock_id', '=', 's.id')
+        ->join('products as p', 'ds.product_id', '=', 'p.id')
+        ->whereBetween('ds.sales_date', [$this->startDate, $this->endDate])
+        ->where('p.selling_price', '>', 0)
+        ->where('s.cost_price', '>', 0)
+        ->selectRaw('
+            SUM(
+                ((p.selling_price - s.cost_price) / p.selling_price) * 100
+                * (ds.opening_stock - ds.closing_stock - COALESCE(ds.damaged_units,0) - COALESCE(ds.credit_units,0))
+            ) as weighted_margin,
+            SUM(ds.opening_stock - ds.closing_stock - COALESCE(ds.damaged_units,0) - COALESCE(ds.credit_units,0)) as total_units
+        ')
+        ->first();
 
+    $this->averageProfitMargin = ($marginData && $marginData->total_units > 0)
+        ? (float) $marginData->weighted_margin / (float) $marginData->total_units
+        : 0;
+}
 private function calculateLossMetrics()
 {
+    // Damaged units & value from daily_sales directly
+    $lossData = DB::table('daily_sales')
+        ->join('products as p', 'daily_sales.product_id', '=', 'p.id')
+        ->whereBetween('daily_sales.sales_date', [$this->startDate, $this->endDate])
+        ->selectRaw('
+            SUM(COALESCE(daily_sales.damaged_units, 0)) as total_damaged_units,
+            SUM(COALESCE(daily_sales.loss_amount, 0)) as total_damaged_value,
+            SUM(COALESCE(daily_sales.credit_units, 0)) as total_credit_units
+        ')
+        ->first();
+
+    $this->totalDamagedUnits = (float) ($lossData->total_damaged_units ?? 0);
+    $this->totalDamagedValue = (float) ($lossData->total_damaged_value ?? 0);
+    $this->totalCreditUnits  = (float) ($lossData->total_credit_units ?? 0);
+    $this->totalLossAmount   = $this->totalDamagedValue;
+
+    // on_the_house: straight sum from summaries
     $summaries = $this->getCurrentPeriodSummaries();
+    $this->totalOnTheHouse = $summaries->sum('on_the_house');
 
-    $this->totalDamagedUnits = $summaries->sum('total_damaged');
-    $this->totalDamagedValue = $summaries->sum('total_loss_amount');
-    $this->totalCreditUnits = $summaries->sum('total_credit_units');
-    $this->totalLossAmount = $this->totalDamagedValue;
-
-    // Calculate accumulated losses (collection discrepancies) - CORRECTED
+    // Collection discrepancy:
+    // What was expected to be collected = drinks_total + food_total + snooker - on_the_house
+    // (on_the_house is given away, so staff should NOT have collected it)
+    // What was actually collected = total_cash + total_momo + total_hubtel
     $this->accumulatedLosses = 0;
-    $this->totalOnTheHouse = $summaries->sum('on_the_house'); // Simple sum
-
     foreach ($summaries as $summary) {
-        $collected = ($summary->total_cash ?? 0) + 
-                    ($summary->total_momo ?? 0) + 
-                    ($summary->total_hubtel ?? 0);
-        
-        $expectedVal = ($summary->drinks_total ?? 0) + ($summary->food_total ?? 0) + ($summary->snooker ?? 0);
-        $onTheHouse = $summary->on_the_house ?? 0;
-        
-        $difference = $collected - $expectedVal + $onTheHouse;
-        
-        // Only accumulate if it's a loss (negative difference)
-        // if ($difference < 0) {
-            $this->accumulatedLosses += $difference; // Store as positive for display
-        // }
-    }
+        $collected = ($summary->total_cash    ?? 0)
+                   + ($summary->total_momo    ?? 0)
+                   + ($summary->total_hubtel  ?? 0);
 
-    // Calculate damage rate
+        // Expected = all revenue streams minus what was given away for free
+        $expected  = ($summary->drinks_total  ?? 0)
+                   + ($summary->food_total    ?? 0)
+                   + ($summary->snooker       ?? 0)
+                   - ($summary->on_the_house  ?? 0);
+
+        $this->accumulatedLosses += ($collected - $expected);
+    }
+    // Negative = shortfall (staff collected less than expected)
+    // Positive = overage
+
+    // Damage rate
     $totalUnitsHandled = $this->totalItemsSold + $this->totalDamagedUnits;
-    $this->damageRate = $totalUnitsHandled > 0 
-        ? ($this->totalDamagedUnits / $totalUnitsHandled) * 100 
+    $this->damageRate  = $totalUnitsHandled > 0
+        ? ($this->totalDamagedUnits / $totalUnitsHandled) * 100
         : 0;
 }
 
-    private function calculateFoodSalesMetrics()
-    {
-        $summaries = $this->getCurrentPeriodSummaries();
-        
-        $this->totalFoodSales = $summaries->sum('food_total');
+private function calculateFoodSalesMetrics()
+{
+    $summaries = $this->getCurrentPeriodSummaries();
 
-        Log::info('Total Food Sales', ['total_food_sales' => $this->totalFoodSales]);
-        
-        $daysInPeriod = max(1, Carbon::parse($this->startDate)->diffInDays($this->endDate) + 1);
-        $this->averageDailyFoodSales = $this->totalFoodSales / $daysInPeriod;
-    }
+    $this->totalFoodSales = $summaries->sum('food_total');
 
-    private function calculateSnookerMetrics()
-    {
-        $summaries = $this->getCurrentPeriodSummaries();
-        
-        $this->totalSnooker = $summaries->sum('snooker');
-        Log::info('Total Snooker Sales', ['total_snooker_sales' => $this->totalSnooker]);
-        
-        $daysInPeriod = max(1, Carbon::parse($this->startDate)->diffInDays($this->endDate) + 1);
-        $this->averageDailySnookerSales = $this->totalSnooker / $daysInPeriod;
-    }
+    $daysInPeriod = max(1, \Carbon\Carbon::parse($this->startDate)->diffInDays($this->endDate) + 1);
+    $this->averageDailyFoodSales = $this->totalFoodSales / $daysInPeriod;
+}
 
-    private function calculateInventoryMetrics()
-    {
-        // Get latest stock for each product using subquery
-        $latestStocks = Stock::select('stocks.*')
-            ->whereIn('id', function ($query) {
-                $query->select(DB::raw('MAX(id)'))
-                    ->from('stocks')
-                    ->groupBy('product_id');
-            })
-            ->where('total_units', '>', 0)
-            ->with('product')
-            ->get();
+private function calculateSnookerMetrics()
+{
+    $summaries = $this->getCurrentPeriodSummaries();
 
-        // Current inventory value using cost_price
-        $this->totalInventoryValue = $latestStocks->sum(function ($stock) {
-            return $stock->total_units * ($stock->cost_price ?? 0);
-        });
+    $this->totalSnooker = $summaries->sum('snooker');
 
-        // Low stock products
-        $this->lowStockProducts = Product::where('is_active', true)
-            ->whereHas('stocks', function ($query) {
-                $query->where('total_units', '>', 0);
-            })
-            ->get()
-            ->filter(function ($product) use ($latestStocks) {
-                $stock = $latestStocks->firstWhere('product_id', $product->id);
-                if ($stock && $product->stock_limit && $product->stock_limit > 0) {
-                    return $stock->total_units <= ($product->stock_limit * 0.2);
-                }
-                return false;
-            })
-            ->count();
+    $daysInPeriod = max(1, \Carbon\Carbon::parse($this->startDate)->diffInDays($this->endDate) + 1);
+    $this->averageDailySnookerSales = $this->totalSnooker / $daysInPeriod;
+}
 
-        // Out of stock products
-        $this->outOfStockProducts = Product::where('is_active', true)
-            ->whereDoesntHave('stocks', function ($query) {
-                $query->where('total_units', '>', 0);
-            })
-            ->count();
+private function calculateInventoryMetrics()
+{
+    // Latest stock per product (highest id per product_id)
+    $latestStocks = DB::table('stocks as s1')
+        ->whereRaw('s1.id = (SELECT MAX(s2.id) FROM stocks s2 WHERE s2.product_id = s1.product_id)')
+        ->where('s1.total_units', '>', 0)
+        ->select('s1.*')
+        ->get();
 
-        // Improved inventory turnover calculation
-        // COGS = Revenue - Profit
-        $cogs = $this->drinksTotal - $this->totalProfit;
-        
-        // Calculate average inventory value during period
-        $startInventory = $this->getInventoryValueAtDate($this->startDate);
-        $endInventory = $this->totalInventoryValue;
-        $this->averageInventoryValue = ($startInventory + $endInventory) / 2;
-        
-        // Inventory Turnover = COGS / Average Inventory
-        $this->inventoryTurnoverRate = $this->averageInventoryValue > 0 
-            ? $cogs / $this->averageInventoryValue 
-            : 0;
-    }
+    $this->totalInventoryValue = $latestStocks->sum(fn($s) => $s->total_units * ($s->cost_price ?? 0));
+
+    // Low stock: current units <= 20% of stock_limit
+    $this->lowStockProducts = DB::table('products as p')
+        ->join('stocks as s', function ($join) {
+            $join->on('s.product_id', '=', 'p.id')
+                 ->whereRaw('s.id = (SELECT MAX(s2.id) FROM stocks s2 WHERE s2.product_id = p.id)');
+        })
+        ->where('p.is_active', true)
+        ->where('s.total_units', '>', 0)
+        ->whereNotNull('p.stock_limit')
+        ->where('p.stock_limit', '>', 0)
+        ->whereRaw('s.total_units <= p.stock_limit * 0.2')
+        ->count();
+
+    // Out of stock: no stock row with total_units > 0
+    $this->outOfStockProducts = DB::table('products as p')
+        ->where('p.is_active', true)
+        ->whereNotExists(function ($q) {
+            $q->select(DB::raw(1))
+              ->from('stocks')
+              ->whereColumn('stocks.product_id', 'p.id')
+              ->where('stocks.total_units', '>', 0);
+        })
+        ->count();
+
+    // Inventory turnover = COGS / average inventory value
+    $cogs = $this->drinksTotal - $this->totalProfit;
+    $startInventory = $this->getInventoryValueAtDate($this->startDate);
+    $this->averageInventoryValue = ($startInventory + $this->totalInventoryValue) / 2;
+    $this->inventoryTurnoverRate = $this->averageInventoryValue > 0
+        ? $cogs / $this->averageInventoryValue
+        : 0;
+}
 
     private function getInventoryValueAtDate($date)
     {
@@ -698,29 +730,52 @@ $this->dailyLossesData = $dailyData->map(function ($day) {
         ];
     }
 
-    private function calculateGrowthRates()
-    {
-        $currentDays = Carbon::parse($this->startDate)->diffInDays($this->endDate) + 1;
-        $previousStartDate = Carbon::parse($this->startDate)->subDays($currentDays)->format('Y-m-d');
-        $previousEndDate = Carbon::parse($this->startDate)->subDay()->format('Y-m-d');
+private function calculateGrowthRates()
+{
+    $currentDays       = \Carbon\Carbon::parse($this->startDate)->diffInDays($this->endDate) + 1;
+    $previousStartDate = \Carbon\Carbon::parse($this->startDate)->subDays($currentDays)->format('Y-m-d');
+    $previousEndDate   = \Carbon\Carbon::parse($this->startDate)->subDay()->format('Y-m-d');
 
-        $previousSummaries = DailySalesSummary::whereBetween('sales_date', [$previousStartDate, $previousEndDate])->get();
+    $prevSummaries = DB::table('daily_sales_summaries')
+        ->whereBetween('sales_date', [$previousStartDate, $previousEndDate])
+        ->selectRaw('
+            SUM(food_total) as food_total,
+            SUM(snooker) as snooker,
+            SUM(total_profit) as total_profit
+        ')
+        ->first();
 
-        $previousRevenue = $previousSummaries->sum('drinks_total');
-        $previousRevenue = $previousSummaries->sum('drinks_total');
-        $previousItemsSold = $previousSummaries->sum('items_sold');
-        $previousProfit = $previousSummaries->sum('total_profit');
-        $previousFoodSales = $previousSummaries->sum('food_total');
-        
-        $previousExpenses = Stock::whereBetween('restock_date', [$previousStartDate, $previousEndDate])
-            ->sum('total_cost');
+    // Previous drinks total from daily_sales
+    $prevDrinksRow = DB::table('daily_sales')
+        ->whereBetween('sales_date', [$previousStartDate, $previousEndDate])
+        ->selectRaw('SUM(total_amount + COALESCE(credit_amount, 0)) as drinks_total')
+        ->first();
 
-        $this->revenueGrowth = $this->calculateGrowthPercentage($this->drinksTotal, $previousRevenue);
-        $this->itemsSoldGrowth = $this->calculateGrowthPercentage($this->totalItemsSold, $previousItemsSold);
-        $this->profitGrowth = $this->calculateGrowthPercentage($this->totalProfit, $previousProfit);
-        $this->expensesGrowth = $this->calculateGrowthPercentage($this->totalExpenses, $previousExpenses);
-        $this->foodSalesGrowth = $this->calculateGrowthPercentage($this->totalFoodSales, $previousFoodSales);
-    }
+    $prevItemsRow = DB::table('daily_sales')
+        ->whereBetween('sales_date', [$previousStartDate, $previousEndDate])
+        ->selectRaw('SUM(opening_stock - closing_stock - COALESCE(damaged_units,0) - COALESCE(credit_units,0)) as units_sold')
+        ->first();
+
+    $previousRevenue   = (float) ($prevDrinksRow->drinks_total ?? 0);
+    $previousItemsSold = (float) ($prevItemsRow->units_sold ?? 0);
+    $previousProfit    = (float) ($prevSummaries->total_profit ?? 0);
+    $previousFoodSales = (float) ($prevSummaries->food_total ?? 0);
+
+    $previousExpenses = DB::table('stocks')
+        ->whereBetween('restock_date', [$previousStartDate, $previousEndDate])
+        ->where(function ($q) {
+            $q->whereNull('notes')
+              ->orWhere('notes', 'NOT LIKE', 'End of day inventory%');
+        })
+        ->sum('total_cost');
+
+    $this->revenueGrowth   = $this->calculateGrowthPercentage($this->drinksTotal,    $previousRevenue);
+    $this->itemsSoldGrowth = $this->calculateGrowthPercentage($this->totalItemsSold, $previousItemsSold);
+    $this->profitGrowth    = $this->calculateGrowthPercentage($this->totalProfit,    $previousProfit);
+    $this->expensesGrowth  = $this->calculateGrowthPercentage($this->totalExpenses,  $previousExpenses);
+    $this->foodSalesGrowth = $this->calculateGrowthPercentage($this->totalFoodSales, $previousFoodSales);
+}
+
 
     private function calculateGrowthPercentage($current, $previous)
     {
