@@ -124,8 +124,7 @@
                             {{-- Product --}}
                             <td class="px-6 py-2 whitespace-nowrap">
                                 <div class="text-base font-medium uppercase text-gray-900">{{ $prod->name }}</div>
-                                <div class="text-base uppercase text-gray-500">{{ $prod->category->name }} •
-                                    {{ $prod->barcode ?? 'N/A' }}</div>
+                                <div class="text-base uppercase text-gray-500">{{ $prod->category->name }}</div>
                             </td>
 
                             {{-- Stock --}}
@@ -254,7 +253,7 @@
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-600">Category</label>
-                                <p class="text-base text-gray-900">{{ $product->category->name }}</p>
+                                <p class="text-base text-gray-900 capitalize">{{ $product->category->name }}</p>
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-600">Barcode</label>

@@ -288,8 +288,8 @@
                             {{ $i + 1 }}
                         </div>
                         <div class="flex-1 min-w-0">
-                            <p class="text-sm font-medium text-gray-900 truncate">{{ $p['product_name'] }}</p>
-                            <p class="text-sm text-gray-500">{{ $p['category'] }}</p>
+                            <p class="text-sm font-medium uppercase text-gray-900 truncate">{{ $p['product_name'] }}</p>
+                            <p class="text-sm text-gray-500 ">{{ $p['category'] }}</p>
                         </div>
                         <div class="text-right">
                             <p class="text-sm font-semibold text-gray-900">{{ number_format($p['units_sold']) }} units</p>

@@ -76,9 +76,9 @@
                         <th class="px-6 py-3 text-left text-sm font-semibold text-gray-500 uppercase tracking-wider">
                             Product</th>
                         <th class="px-6 py-3 text-left text-sm font-semibold text-gray-500 uppercase tracking-wider">
-                            Boxes</th>
-                        <th class="px-6 py-3 text-left text-sm font-semibold text-gray-500 uppercase tracking-wider">
-                            Units</th>
+                            Stock Status</th>
+                        {{-- <th class="px-6 py-3 text-left text-sm font-semibold text-gray-500 uppercase tracking-wider">
+                            Units</th> --}}
                         <th class="px-6 py-3 text-left text-sm font-semibold text-gray-500 uppercase tracking-wider">
                             Supplier</th>
                         <th class="px-6 py-3 text-left text-sm font-semibold text-gray-500 uppercase tracking-wider">
@@ -107,19 +107,40 @@
                                         <div class="text-base font-medium uppercase text-gray-900">
                                             {{ $stock->product->name }}</div>
                                         <div class="text-base uppercase text-gray-500">
-                                            {{ $stock->product->category->name }} • {{ $stock->product->sku ?? 'N/A' }}
+                                            {{ $stock->product->category->name }}
                                         </div>
                                     </div>
                                 </div>
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                <div class="text-base text-gray-900">
-                                    {{ $stock->product->units_per_box > 0 ? number_format($stock->total_units / $stock->product->units_per_box, 1) : 'N/A' }}
-                                </div>
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap">
+                            {{-- <td class="px-6 py-4 whitespace-nowrap">
                                 <div class="text-base text-gray-900">{{ number_format($stock->total_units, 0) }}</div>
-                            </td>
+                            </td> --}}
+@php
+    $currentUnits = $stock->total_units ?? 0;
+    $stockLimit = $stock->product->stock_limit ?? null;
+//or null
+    if  ($stockLimit !== null && $currentUnits <= 0) {
+        $statusText  = 'No Stock';
+        $statusColor = 'text-red-600 bg-red-100';
+    } elseif ($stockLimit && $currentUnits <= $stockLimit) {
+        $statusText  = 'Low Stock';
+        $statusColor = 'text-yellow-600 bg-yellow-100';
+    } else {
+        $statusText  = 'Good Stock';
+        $statusColor = 'text-green-600 bg-green-100';
+    }
+@endphp
+
+<td class="px-6 py-2 whitespace-nowrap">
+    <div class="text-base font-medium text-gray-900">{{ number_format($currentUnits, 0) }} units</div>
+    @if ($stockLimit)
+        <div class="text-xs text-gray-500 mb-1">Limit: {{ number_format($stockLimit, 0) }}</div>
+    @endif
+    <span class="inline-block px-2 py-1 text-xs font-medium rounded-full {{ $statusColor }}">
+        {{ $statusText }}
+    </span>
+</td>
+
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <div class="text-base uppercase text-gray-900">{{ $stock->supplier->name ?? 'N/A' }}</div>
                             </td>
