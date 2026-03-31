@@ -59,6 +59,12 @@
                             Mobile Money</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Hubtel</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Difference</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            On the House</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Snooker</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Drink
                             Sales</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Items
@@ -105,13 +111,29 @@
                                     </div>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="text-sm font-medium text-blue-600">
+                                        GH₵ {{ number_format($record->total_momo + $record->total_cash+$record->total_hubtel-($record->drinks_total+$record->food_total+$record->snooker)+$record->on_the_house, 2) }}
+                                    </div>
+                                </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="text-sm font-medium text-blue-600">
+                                            GH₵ {{ number_format($record->on_the_house, 2) }}
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="text-sm font-medium text-blue-600">
+                                            GH₵ {{ number_format($record->snooker, 2) }}
+                                        </div>
+                                    </td>
+
+                                <td class="px-6 py-4 whitespace-nowrap">
                                     <div class="text-sm font-bold text-gray-900">
                                         GH₵ {{ number_format($record->drinks_total, 2) }}
                                     </div>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <div class="text-sm text-gray-900">
-                                        {{ $record->total_products }} items
+                                        {{ number_format($record->total_products,2) }}
                                     </div>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
