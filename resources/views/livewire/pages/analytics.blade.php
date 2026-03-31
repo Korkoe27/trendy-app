@@ -150,6 +150,7 @@
                 </div>
             </div>
 
+
             {{-- Profit Card --}}
             <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
                 <div class="flex items-start justify-between">
@@ -212,6 +213,23 @@
                             @endif
                         </svg>
                         {{ abs($foodSalesGrowth) }}%
+                    </div>
+                </div>
+            </div>
+
+                        {{-- Snooker Card --}}
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
+                <div class="flex items-start justify-between">
+                    <div class="flex-1">
+                        <p class="text-sm font-medium text-gray-600">Snooker Sales</p>
+                        <p class="text-3xl font-bold text-gray-900 mt-2">GH₵ {{ number_format($totalSnooker, 2) }}</p>
+                        <p class="text-xs text-gray-500 mt-1">Avg daily: GH₵ {{ number_format($averageDailySnookerSales, 2) }}</p>
+                    </div>
+                    <div class="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <circle cx="12" cy="12" r="10" stroke-width="2"/>
+                            <circle cx="12" cy="12" r="3" stroke-width="2"/>
+                        </svg>
                     </div>
                 </div>
             </div>
