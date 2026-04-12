@@ -59,8 +59,10 @@
                             Mobile Money</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Hubtel</th>
+                            @haspermission('modify','inventory')
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Difference</th>
+                            @endhaspermission
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             On the House</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -110,11 +112,14 @@
                                         GH₵ {{ number_format($record->total_hubtel, 2) }}
                                     </div>
                                 </td>
+                                
+                            @haspermission('modify','inventory')
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <div class="text-sm font-medium text-blue-600">
                                         GH₵ {{ number_format($record->total_momo + $record->total_cash+$record->total_hubtel-($record->drinks_total+$record->food_total+$record->snooker)+$record->on_the_house, 2) }}
                                     </div>
                                 </td>
+                                @endhaspermission
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         <div class="text-sm font-medium text-blue-600">
                                             GH₵ {{ number_format($record->on_the_house, 2) }}
