@@ -66,6 +66,8 @@
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             On the House</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Food</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Snooker</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Drink
                             Sales</th>
@@ -124,6 +126,11 @@
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         <div class="text-sm font-medium text-blue-600">
                                             GH₵ {{ number_format($record->on_the_house, 2) }}
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="text-sm font-medium text-blue-600">
+                                            GH₵ {{ number_format($record->food_total, 2) }}
                                         </div>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
