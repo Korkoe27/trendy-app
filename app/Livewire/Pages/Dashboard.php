@@ -7,6 +7,7 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class Dashboard extends Component
 {
@@ -33,16 +34,24 @@ class Dashboard extends Component
         }
     }
 
+
     public function getLowStockProductsProperty()
 {
     return Product::where(function ($query) {
-            $query->whereHas('stocks', function ($q) {
-                $q->whereRaw('stocks.total_units <= products.stock_limit');
-            })
-            ->orWhereDoesntHave('stocks');
+            $query->whereDoesntHave('stocks')
+                  ->orWhereHas('stocks', function ($q) {
+                      $q->whereColumn('stocks.total_units', '<=', 'products.stock_limit');
+                  });
         })
         ->with(['currentStock', 'category'])
         ->get()
+        ->filter(function ($product) {
+            // Extra safety: ensure "good stock" is removed at collection level
+            $current = $product->currentStock?->total_units ?? 0;
+            $limit   = $product->stock_limit ?? null;
+
+            return $limit === null || $current <= $limit;
+        })
         ->map(function ($product) {
             $current = $product->currentStock?->total_units ?? 0;
             $limit = $product->stock_limit ?? null;
@@ -58,22 +67,69 @@ class Dashboard extends Component
                 $statusColor  = 'text-yellow-600 bg-yellow-100';
                 $statusBorder = 'border-yellow-200';
                 $statusBg     = 'bg-yellow-50';
-            } 
-            else {
-                $statusText   = 'Good Stock';
-                $statusColor  = 'text-green-600 bg-green-100';
-                $statusBorder = 'border-green-200';
-                $statusBg     = 'bg-green-50';
+            } else {
+                // This should no longer appear
+                return null;
             }
+
             $product['percentage']   = $percentage;
-$product['statusText']   = $statusText;
-$product['statusColor']  = $statusColor;
-$product['statusBorder'] = $statusBorder;
-$product['statusBg']     = $statusBg;
+            $product['statusText']   = $statusText;
+            $product['statusColor']  = $statusColor;
+            $product['statusBorder'] = $statusBorder;
+            $product['statusBg']     = $statusBg;
 
             return $product;
-        });
+        })
+        ->filter(); // removes nulls (good stock)
 }
+
+//     public function getLowStockProductsProperty()
+// {
+//     return Product::where(function ($query) {
+//             $query->whereHas('stocks', function ($q) {
+//                 $q->whereRaw('stocks.total_units <= products.stock_limit');
+//             })
+//             ->orWhere(function ($q) {
+//                 $q->whereDoesntHave('stocks')
+//                 ->whereNotNull('stock_limit');
+//             });
+//         })
+//         ->whereNotNull('stock_limit')
+//         ->with(['currentStock', 'category'])
+//         ->get()
+//         ->map(function ($product) {
+//             $current = $product->currentStock?->total_units ?? 0;
+//             $limit = $product->stock_limit ?? null;
+//             $percentage = $limit > 0 ? min(100, round(($current / $limit) * 100)) : 0;
+
+//             if ($limit !== null && $current <= 0) {
+//                 $statusText   = 'No Stock';
+//                 $statusColor  = 'text-red-600 bg-red-100';
+//                 $statusBorder = 'border-red-200';
+//                 $statusBg     = 'bg-red-50';
+//             } elseif ($limit && $current <= $limit) {
+//                 $statusText   = 'Low Stock';
+//                 $statusColor  = 'text-yellow-600 bg-yellow-100';
+//                 $statusBorder = 'border-yellow-200';
+//                 $statusBg     = 'bg-yellow-50';
+//             } 
+//             else {
+//                 $statusText   = 'Good Stock';
+//                 $statusColor  = 'text-green-600 bg-green-100';
+//                 $statusBorder = 'border-green-200';
+//                 $statusBg     = 'bg-green-50';
+//             }
+//             $product['percentage']   = $percentage;
+// $product['statusText']   = $statusText;
+// $product['statusColor']  = $statusColor;
+// $product['statusBorder'] = $statusBorder;
+// $product['statusBg']     = $statusBg;
+
+// Log::info("Product: {$product->name}, Current: {$current}, Limit: {$limit}, Status: {$statusText}");
+
+//             return $product;
+//         });
+// }
 
     public function getUnpaidCreditsProperty()
 {
