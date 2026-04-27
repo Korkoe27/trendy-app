@@ -172,26 +172,26 @@
                 <div class="p-4 md:p-6">
                     @if($lowStockItems->count() > 0)
                         <div class="space-y-4 max-h-96 overflow-y-auto">
-                            @foreach($lowStockItems as $item)
-                                <div class="border border-red-200 rounded-lg p-3 bg-red-50">
-                                    <div class="flex justify-between items-start mb-2">
-                                        <h4 class="text-base font-medium uppercase text-gray-900 truncate pr-2">{{ $item->name }}</h4>
-                                        <span class="text-sm bg-red-100 text-red-800 px-2 py-1 rounded uppercase whitespace-nowrap">
-                                            {{ $item->category->name }}
-                                        </span>
-                                    </div>
-                                    <div class="flex justify-between text-xs text-gray-600 mb-2">
-                                        <spa    n>Current: {{ $item->currentStock?->total_units ?? 0 }}</spa>
-                                        <span>Min: {{ $item->stock_limit }}</span>
-                                    </div>
-                                    <div class="w-full bg-red-200 rounded-full h-2">
-                                        <div 
-                                            class="bg-red-600 h-2 rounded-full transition-all duration-300"
-                                            style="width: {{ $item->percentage ?? 0 }}%"
-                                        ></div>
-                                    </div>
-                                </div>
-                            @endforeach
+                           @foreach($lowStockItems as $item)
+                           <div class="border {{ $item->statusBorder }} {{ $item->statusBg }} rounded-lg p-3">
+        <div class="flex justify-between items-start mb-2">
+            <h4 class="text-base font-medium uppercase text-gray-900 truncate pr-2">{{ $item->name }}</h4>
+            <span class="text-sm px-2 py-1 rounded uppercase whitespace-nowrap {{ $item->statusColor }}">
+                {{ $item->statusText }}
+            </span>
+        </div>
+        <div class="flex justify-between text-xs text-gray-600 mb-2">
+            <span>Current: {{ $item->currentStock?->total_units ?? 0 }}</span>
+            <span>Min: {{ $item->stock_limit }}</span>
+        </div>
+        <div class="w-full bg-red-200 rounded-full h-2">
+            <div 
+                class="bg-red-600 h-2 rounded-full transition-all duration-300"
+                style="width: {{ $item->percentage ?? 0 }}%"
+            ></div>
+        </div>
+    </div>
+@endforeach
                         </div>
                     @else
                         <div class="text-center py-8">

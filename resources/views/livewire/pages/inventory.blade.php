@@ -116,7 +116,8 @@
                             @haspermission('modify','inventory')
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <div class="text-sm font-medium text-blue-600">
-                                        GH₵ {{ number_format($record->total_momo + $record->total_cash+$record->total_hubtel-($record->drinks_total+$record->food_total+$record->snooker)+$record->on_the_house, 2) }}
+                                        GH₵ {{ number_format($record->total_momo + $record->total_cash+$record->total_hubtel-($record->drinks_total+$record->food_total)+$record->on_the_house, 2) }}
+                                        {{-- GH₵ {{ number_format($record->total_momo + $record->total_cash+$record->total_hubtel-($record->drinks_total+$record->food_total+$record->snooker)+$record->on_the_house, 2) }} --}}
                                     </div>
                                 </td>
                                 @endhaspermission
@@ -301,20 +302,20 @@
                 </svg> --}}
 
                 <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 text-green-600 mx-auto mb-2" viewBox="0 0 100 100" width="100" height="100">
-  <!-- Vertical stroke -->
-  <line x1="50" y1="15" x2="50" y2="85" stroke="currentColor" stroke-width="8" />
+                <!-- Vertical stroke -->
+                <line x1="50" y1="15" x2="50" y2="85" stroke="currentColor" stroke-width="8" />
 
-  <!-- Curved "c" -->
-  <path
-    d="M65 30
-       C55 20, 30 25, 30 50
-       C30 75, 55 80, 65 70"
-    fill="none"
-    stroke="currentColor"
-    stroke-width="8"
-    stroke-linecap="round"
-  />
-</svg>
+                <!-- Curved "c" -->
+                <path
+                    d="M65 30
+                    C55 20, 30 25, 30 50
+                    C30 75, 55 80, 65 70"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="8"
+                    stroke-linecap="round"
+                />
+                </svg>
                 <h3 class="text-lg font-semibold text-gray-900">Money Collection</h3>
                 <p class="text-sm text-gray-600">Enter all payment amounts collected today</p>
             </div>
@@ -329,19 +330,19 @@
                                     d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"></path>
                             </svg> --}}
                             <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 mr-1 text-green-600" viewBox="0 0 100 100" width="100" height="100">
-  <!-- Vertical stroke -->
-  <line x1="50" y1="15" x2="50" y2="85" stroke="currentColor" stroke-width="8" />
+                            <!-- Vertical stroke -->
+                            <line x1="50" y1="15" x2="50" y2="85" stroke="currentColor" stroke-width="8" />
 
-  <!-- Curved "c" -->
-  <path
-    d="M65 30
-       C55 20, 30 25, 30 50
-       C30 75, 55 80, 65 70"
-    fill="none"
-    stroke="currentColor"
-    stroke-width="8"
-    stroke-linecap="round"
-  />
+                            <!-- Curved "c" -->
+                            <path
+                                d="M65 30
+                                C55 20, 30 25, 30 50
+                                C30 75, 55 80, 65 70"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="8"
+                                stroke-linecap="round"
+                            />
 </svg>
 
                             Cash Amount (GH₵)
@@ -429,27 +430,27 @@
                                     d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"></path>
                             </svg> --}}
                             <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 mr-1 text-red-600" viewBox="0 0 100 100" width="100" height="100">
-  <!-- Outer ball -->
-  <circle cx="50" cy="50" r="48" fill="#000000"/>
+                            <!-- Outer ball -->
+                            <circle cx="50" cy="50" r="48" fill="#000000"/>
 
-  <!-- Highlight -->
-  <ellipse cx="35" cy="30" rx="10" ry="14" fill="rgba(255,255,255,0.15)"/>
+                            <!-- Highlight -->
+                            <ellipse cx="35" cy="30" rx="10" ry="14" fill="rgba(255,255,255,0.15)"/>
 
-  <!-- Inner white circle -->
-  <circle cx="50" cy="58" r="18" fill="#ffffff"/>
+                            <!-- Inner white circle -->
+                            <circle cx="50" cy="58" r="18" fill="#ffffff"/>
 
-  <!-- Number 8 -->
-  <text
-    x="50"
-    y="65"
-    text-anchor="middle"
-    font-size="24"
-    font-weight="bold"
-    fill="#000000"
-    font-family="Arial, Helvetica, sans-serif">
-    8
-  </text>
-</svg>
+                            <!-- Number 8 -->
+                            <text
+                                x="50"
+                                y="65"
+                                text-anchor="middle"
+                                font-size="24"
+                                font-weight="bold"
+                                fill="#000000"
+                                font-family="Arial, Helvetica, sans-serif">
+                                8
+                            </text>
+                            </svg>
 
                             Snooker (GH₵)
                         </span>
@@ -464,7 +465,7 @@
     @elseif($currentStep == 2)
         {{-- Keep your existing stock count step here (step 6 content) --}}
         {{-- Just change wire:key="stock-step" --}}
-         <div wire:key="stock-step" class="space-y-4">
+        <div wire:key="stock-step" class="space-y-4">
                             <div class="text-center mb-6">
                                 <svg class="w-12 h-12 text-orange-600 mx-auto mb-2" fill="none"
                                     stroke="currentColor" viewBox="0 0 24 24">
@@ -751,7 +752,8 @@
                         ($selectedRecord['total_momo'] ?? 0) +
                         ($selectedRecord['total_hubtel'] ?? 0);
 
-                    $expectedVal = ($selectedRecord['drinks_total'] ?? 0) + ($selectedRecord['food_total'] ?? 0) + ($selectedRecord['snooker']);
+                    $expectedVal = ($selectedRecord['drinks_total'] ?? 0) + ($selectedRecord['food_total'] ?? 0);
+                    // $expectedVal = ($selectedRecord['drinks_total'] ?? 0) + ($selectedRecord['food_total'] ?? 0) + ($selectedRecord['snooker']);
                     $difference = $collected - $expectedVal + $onTheHouse;
                     $diffFormatted = number_format($difference, 2);
 
@@ -839,11 +841,11 @@
                                 <p class="mt-1 text-lg font-semibold text-rose-700">
                                     {{ $selectedRecord['food_total'] }}</p>
                             </div>
-                            <div class="rounded-lg bg-white border border-rose-100 p-4">
+                            {{-- <div class="rounded-lg bg-white border border-rose-100 p-4">
                                 <p class="text-xs text-gray-500">Snooker</p>
                                 <p class="mt-1 text-lg font-semibold text-rose-700">
                                     {{ $selectedRecord['snooker'] }}</p>
-                            </div>
+                            </div> --}}
                         </div>
                     </div>
 
@@ -861,6 +863,29 @@
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                         d="M9 14l2-2 4 4m0 0l4-4m-4 4V7" />
                                 </svg>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="rounded-xl border border-slate-400 bg-slate-50 p-5">
+                        <div class="flex items-start justify-between">
+                            <div>
+                                <p class="text-xs font-medium text-slate-600 uppercase tracking-wider">Snooker
+                                </p>
+                                <p class="mt-2 text-2xl font-bold text-slate-900">GH₵ {{ $snooker }}</p>
+                            </div>
+                            <div class="shrink-0 rounded-lg bg-slate-100 p-2">
+                                <svg class="w-6 h-6 text-slate-700" viewBox="0 0 24 24" fill="currentColor">
+                                <!-- Outer circle (ball) -->
+                                <circle cx="12" cy="12" r="10" class="text-slate-700" fill="currentColor"/>
+                                
+                                <!-- Inner white circle -->
+                                <circle cx="12" cy="12" r="5" fill="white"/>
+                                
+                                <!-- Number 8 -->
+                                <text x="12" y="15" text-anchor="middle" font-size="10" font-weight="bold" fill="currentColor">
+                                    8
+                                </text>
+                            </svg>
                             </div>
                         </div>
                     </div>

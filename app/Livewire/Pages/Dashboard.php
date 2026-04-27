@@ -33,6 +33,48 @@ class Dashboard extends Component
         }
     }
 
+    public function getLowStockProductsProperty()
+{
+    return Product::where(function ($query) {
+            $query->whereHas('stocks', function ($q) {
+                $q->whereRaw('stocks.total_units <= products.stock_limit');
+            })
+            ->orWhereDoesntHave('stocks');
+        })
+        ->with(['currentStock', 'category'])
+        ->get()
+        ->map(function ($product) {
+            $current = $product->currentStock?->total_units ?? 0;
+            $limit = $product->stock_limit ?? null;
+            $percentage = $limit > 0 ? min(100, round(($current / $limit) * 100)) : 0;
+
+            if ($limit !== null && $current <= 0) {
+                $statusText   = 'No Stock';
+                $statusColor  = 'text-red-600 bg-red-100';
+                $statusBorder = 'border-red-200';
+                $statusBg     = 'bg-red-50';
+            } elseif ($limit && $current <= $limit) {
+                $statusText   = 'Low Stock';
+                $statusColor  = 'text-yellow-600 bg-yellow-100';
+                $statusBorder = 'border-yellow-200';
+                $statusBg     = 'bg-yellow-50';
+            } 
+            else {
+                $statusText   = 'Good Stock';
+                $statusColor  = 'text-green-600 bg-green-100';
+                $statusBorder = 'border-green-200';
+                $statusBg     = 'bg-green-50';
+            }
+            $product['percentage']   = $percentage;
+$product['statusText']   = $statusText;
+$product['statusColor']  = $statusColor;
+$product['statusBorder'] = $statusBorder;
+$product['statusBg']     = $statusBg;
+
+            return $product;
+        });
+}
+
     public function getUnpaidCreditsProperty()
 {
     return CreditSales::with(['product'])
@@ -111,24 +153,24 @@ public function markCreditAsPaid($creditId)
         return Product::where('is_active', true)->count();
     }
 
-public function getLowStockProductsProperty()
-{
-    return Product::where(function ($query) {
-            $query->whereHas('stocks', function ($q) {
-                $q->whereRaw('stocks.total_units <= products.stock_limit');
-            })
-            ->orWhereDoesntHave('stocks');
-        })
-        ->with(['currentStock', 'category'])
-        ->get()
-        ->map(function ($product) {
-            $current = $product->currentStock?->total_units ?? 0;
-            $limit = $product->stock_limit ?? 1;
-            $percentage = $limit > 0 ? min(100, round(($current / $limit) * 100)) : 0;
-            $product['percentage'] = $percentage;
-            return $product;
-        });
-}
+// public function getLowStockProductsProperty()
+// {
+//     return Product::where(function ($query) {
+//             $query->whereHas('stocks', function ($q) {
+//                 $q->whereRaw('stocks.total_units <= products.stock_limit');
+//             })
+//             ->orWhereDoesntHave('stocks');
+//         })
+//         ->with(['currentStock', 'category'])
+//         ->get()
+//         ->map(function ($product) {
+//             $current = $product->currentStock?->total_units ?? 0;
+//             $limit = $product->stock_limit ?? 1;
+//             $percentage = $limit > 0 ? min(100, round(($current / $limit) * 100)) : 0;
+//             $product['percentage'] = $percentage;
+//             return $product;
+//         });
+// }
 
 
     public function getRecentSalesProperty()
