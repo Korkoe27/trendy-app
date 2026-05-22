@@ -391,8 +391,8 @@ private function calculateLossMetrics()
         // Expected = all revenue streams minus what was given away for free
         $expected  = ($summary->drinks_total  ?? 0)
                    + ($summary->food_total    ?? 0)
-                   + ($summary->snooker       ?? 0)
                    - ($summary->on_the_house  ?? 0);
+                //    + ($summary->snooker       ?? 0)
 
         $this->accumulatedLosses += ($collected - $expected);
     }
