@@ -751,7 +751,7 @@ private function calculateGrowthRates()
         ->selectRaw('SUM(total_amount + COALESCE(credit_amount, 0)) as drinks_total')
         ->first();
 
-    $prevItemsRow = DB::table('daily_sales')
+    $prevItemsRow = DB::table('daily_sales') 
         ->whereBetween('sales_date', [$previousStartDate, $previousEndDate])
         ->selectRaw('SUM(opening_stock - closing_stock - COALESCE(damaged_units,0) - COALESCE(credit_units,0)) as units_sold')
         ->first();
@@ -800,6 +800,152 @@ private function calculateGrowthRates()
             ->toArray();
 
         return $months;
+    }
+
+    public function exportCsv()
+    {
+        $filename = 'analytics_export_' . now()->format('Y-m-d_His') . '.csv';
+        $handle = fopen('php://temp', 'w');
+
+        $this->writeCsv($handle);
+
+        rewind($handle);
+        $csv = stream_get_contents($handle);
+        fclose($handle);
+
+        return response()->streamDownload(function () use ($csv) {
+            echo $csv;
+        }, $filename, [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => "attachment; filename=\"$filename\"",
+        ]);
+    }
+
+    private function writeCsv($handle)
+    {
+        $dailyData = $this->getCsvDailyData();
+        $productsPerDay = $this->getCsvProductsPerDay();
+        $employeePerf = $this->getEmployeePerformance();
+
+        fprintf($handle, chr(0xEF) . chr(0xBB) . chr(0xBF));
+
+        fputcsv($handle, [
+            'Date', 'Drink Sales (GH₵)', 'Gross Profit (GH₵)', 'Units Sold',
+            'Food Sales (GH₵)', 'Snooker Sales (GH₵)', 'Cash (GH₵)',
+            'Momo (GH₵)', 'Hubtel (GH₵)', 'Least Performing Product',
+            'Most Profitable Product', 'Top Selling Product',
+        ]);
+
+        foreach ($dailyData as $day) {
+            $this->writeCsvDayRow($handle, $day, $productsPerDay);
+        }
+
+        fputcsv($handle, []);
+        fputcsv($handle, ['Employee Performance Summary']);
+        fputcsv($handle, ['Metric', 'Employee', 'Difference (GH₵)']);
+        fputcsv($handle, ['Best (Negative Difference)', $employeePerf['negative']['name'], number_format($employeePerf['negative']['difference'], 2)]);
+        fputcsv($handle, ['Best (Positive Difference)', $employeePerf['positive']['name'], number_format($employeePerf['positive']['difference'], 2)]);
+    }
+
+    private function writeCsvDayRow($handle, $day, $productsPerDay)
+    {
+        $dayProducts = $productsPerDay->get($day->sales_date, collect());
+
+        $topSelling = $dayProducts->sortByDesc('units_sold')->first();
+        $mostProfitable = $dayProducts->sortByDesc('profit')->first();
+        $leastPerforming = $dayProducts->filter(fn($p) => $p->units_sold > 0)->sortBy('revenue')->first();
+
+        fputcsv($handle, [
+            Carbon::parse($day->sales_date)->format('Y-m-d'),
+            number_format($day->drink_sales, 2),
+            number_format($day->gross_profit, 2),
+            $day->units_sold,
+            number_format($day->food_sales, 2),
+            number_format($day->snooker_sales, 2),
+            number_format($day->cash, 2),
+            number_format($day->momo, 2),
+            number_format($day->hubtel, 2),
+            $leastPerforming->product_name ?? 'N/A',
+            $mostProfitable->product_name ?? 'N/A',
+            $topSelling->product_name ?? 'N/A',
+        ]);
+    }
+
+    private function getCsvDailyData()
+    {
+        return DB::table('daily_sales_summaries')
+            ->whereBetween('sales_date', [$this->startDate, $this->endDate])
+            ->select(
+                'sales_date',
+                DB::raw('SUM(drinks_total) as drink_sales'),
+                DB::raw('SUM(total_profit) as gross_profit'),
+                DB::raw('SUM(items_sold) as units_sold'),
+                DB::raw('SUM(food_total) as food_sales'),
+                DB::raw('SUM(snooker) as snooker_sales'),
+                DB::raw('SUM(total_cash) as cash'),
+                DB::raw('SUM(total_momo) as momo'),
+                DB::raw('SUM(total_hubtel) as hubtel')
+            )
+            ->groupBy('sales_date')
+            ->orderBy('sales_date')
+            ->get();
+    }
+
+    private function getCsvProductsPerDay()
+    {
+        return DB::table('daily_sales as ds')
+            ->join('products as p', 'ds.product_id', '=', 'p.id')
+            ->whereBetween('ds.sales_date', [$this->startDate, $this->endDate])
+            ->select(
+                'ds.sales_date',
+                'p.name as product_name',
+                DB::raw('SUM(ds.opening_stock - ds.closing_stock - COALESCE(ds.damaged_units,0) - COALESCE(ds.credit_units,0)) as units_sold'),
+                DB::raw('SUM(ds.total_amount + COALESCE(ds.credit_amount,0)) as revenue'),
+                DB::raw('SUM(ds.unit_profit) as profit')
+            )
+            ->groupBy('ds.sales_date', 'ds.product_id', 'p.name')
+            ->orderBy('ds.sales_date')
+            ->get()
+            ->groupBy('sales_date');
+    }
+
+    private function getEmployeePerformance()
+    {
+        $rows = DB::select("
+            SELECT
+                dss.metadata->>'recorded_by' as user_id,
+                u.name as user_name,
+                COALESCE(SUM(COALESCE(dss.total_cash,0) + COALESCE(dss.total_momo,0) + COALESCE(dss.total_hubtel,0)), 0) as total_collected,
+                COALESCE(SUM(COALESCE(dss.drinks_total,0) + COALESCE(dss.food_total,0)), 0) as expected,
+                COALESCE(SUM(COALESCE(dss.on_the_house,0)), 0) as on_the_house
+            FROM daily_sales_summaries dss
+            LEFT JOIN users u ON u.id::text = dss.metadata->>'recorded_by'
+            WHERE dss.sales_date BETWEEN ? AND ?
+                AND dss.metadata IS NOT NULL
+                AND dss.metadata->>'recorded_by' IS NOT NULL
+            GROUP BY dss.metadata->>'recorded_by', u.name
+        ", [$this->startDate, $this->endDate]);
+
+        $bestNegative = ['name' => 'N/A', 'difference' => 0.0];
+        $bestPositive = ['name' => 'N/A', 'difference' => 0.0];
+        $negDiff = -INF;
+        $posDiff = -INF;
+
+        foreach ($rows as $emp) {
+            $diff = (float)$emp->total_collected - ((float)$emp->expected - (float)$emp->on_the_house);
+            $name = $emp->user_name ?? "Staff #{$emp->user_id}";
+
+            if ($diff < 0 && $diff > $negDiff) {
+                $negDiff = $diff;
+                $bestNegative = ['name' => $name, 'difference' => $diff];
+            }
+            if ($diff >= 0 && $diff > $posDiff) {
+                $posDiff = $diff;
+                $bestPositive = ['name' => $name, 'difference' => $diff];
+            }
+        }
+
+        return ['negative' => $bestNegative, 'positive' => $bestPositive];
     }
 
     public function render()
