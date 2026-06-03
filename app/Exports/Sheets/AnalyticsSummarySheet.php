@@ -33,7 +33,10 @@ class AnalyticsSummarySheet implements FromCollection, WithHeadings, WithTitle, 
                 DB::raw('SUM(snooker) as snooker_sales'),
                 DB::raw('SUM(total_cash) as cash'),
                 DB::raw('SUM(total_momo) as momo'),
-                DB::raw('SUM(total_hubtel) as hubtel')
+                DB::raw('SUM(total_hubtel) as hubtel'),
+                DB::raw('SUM(total_cash + total_momo + total_hubtel) as total_collected'),
+                DB::raw('SUM(drinks_total + food_total) as expected'),
+                DB::raw('SUM(on_the_house) as on_the_house')
             )
             ->groupBy('sales_date')
             ->orderBy('sales_date')
@@ -45,12 +48,14 @@ class AnalyticsSummarySheet implements FromCollection, WithHeadings, WithTitle, 
         return [
             'Date', 'Drink Sales (GH₵)', 'Gross Profit (GH₵)', 'Units Sold',
             'Food Sales (GH₵)', 'Snooker Sales (GH₵)', 'Cash (GH₵)',
-            'Momo (GH₵)', 'Hubtel (GH₵)',
+            'Momo (GH₵)', 'Hubtel (GH₵)', 'Difference (GH₵)', 'On The House (GH₵)',
         ];
     }
 
     public function map($row): array
     {
+        $difference = $row->total_collected - ($row->expected - $row->on_the_house);
+
         return [
             $row->sales_date,
             number_format($row->drink_sales, 2),
@@ -61,6 +66,8 @@ class AnalyticsSummarySheet implements FromCollection, WithHeadings, WithTitle, 
             number_format($row->cash, 2),
             number_format($row->momo, 2),
             number_format($row->hubtel, 2),
+            number_format($difference, 2),
+            number_format($row->on_the_house, 2),
         ];
     }
 
