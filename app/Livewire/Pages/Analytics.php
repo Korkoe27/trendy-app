@@ -161,6 +161,7 @@ private function resetLoadedData()
         $this->customDateRange = false;
         $this->selectedMonth = '';
         $this->setDateRange();
+        $this->resetLoadedData();
         $this->loadMetrics();
     } elseif ($this->timeframe === 'custom') {
         $this->customDateRange = true;
@@ -806,6 +807,11 @@ private function calculateGrowthRates()
 
     public function exportCsv()
     {
+        Log::info('Exporting analytics to Excel', [
+            'start_date' => $this->startDate,
+            'end_date' => $this->endDate,
+        ]);
+        
         return Excel::download(
             new AnalyticsMultiSheetExport($this->startDate, $this->endDate),
             'analytics_export_' . now()->format('Y-m-d_His') . '.xlsx'
