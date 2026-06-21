@@ -26,6 +26,8 @@ class Spending extends Component
 
     // Form Properties
     public $expenseId;
+
+    public $selectedExpenseRawStatus = '';
     public $reference;
     public $amount;
     public $description;
@@ -183,12 +185,13 @@ private function resetExpenseForm()
         $this->resetValidation();
     }
 
-    public function closeViewModal()
-    {
-        $this->viewExpenseModal = false;
-        $this->selectedExpense = null;
-        $this->recordType = 'expense';
-    }
+public function closeViewModal()
+{
+    $this->viewExpenseModal = false;
+    $this->selectedExpense = null;
+    $this->selectedExpenseRawStatus = '';
+    $this->recordType = 'expense';
+}
 
 private function generateReferenceFromLastRecord()
 {
@@ -483,42 +486,57 @@ public function updateExpense()
 public function viewExpense($id)
 {
     $this->selectedExpense = Expense::findOrFail($id);
-    
-    // Determine record type based on category or reference prefix
-    $this->recordType = (str_starts_with($this->selectedExpense->reference, 'STK-') || 
-                        $this->selectedExpense->category === 'inventory') 
+
+    $this->recordType = (str_starts_with($this->selectedExpense->reference, 'STK-') ||
+                        $this->selectedExpense->category === 'inventory')
                         ? 'stock' : 'expense';
 
     $paid_by = User::find($this->selectedExpense->paid_by);
     $this->selectedExpense->paid_by = $paid_by ? $paid_by->name : 'Unknown';
-    
     $this->selectedExpense->vendor = $this->selectedExpense->supplier;
     $this->selectedExpense->date = $this->selectedExpense->incurred_at;
+    $this->selectedExpenseRawStatus = strtolower($this->selectedExpense->status); // capture before transform
     $this->selectedExpense->status = strtoupper($this->selectedExpense->status);
     $this->selectedExpense->category = $this->selectedExpense->category ?? 'OPERATIONAL';
-    
+
     $this->viewExpenseModal = true;
 }
 
-    public function confirmPendingTransaction($id)
-    {
-        $expense = Expense::findOrFail($id);
-        
-        $metadata = json_decode($expense->metadata, true) ?? [];
-        $metadata['confirmed_at'] = [
-            'timestamp' => now(),
-            'user_id' => Auth::id(),
-            'user_name' => Auth::user()->name ?? 'Unknown',
-        ];
-        
-        $expense->update([
-            'status' => 'confirmed',
-            'metadata' => json_encode($metadata)
-        ]);
-        
-        session()->flash('message', 'Transaction confirmed successfully!');
-        $this->closeViewModal();
-    }
+public function confirmPendingTransaction($id)
+{
+    $expense = Expense::findOrFail($id);
+
+    $metadata = is_array($expense->metadata) 
+        ? $expense->metadata 
+        : (json_decode($expense->metadata, true) ?? []);
+
+    $metadata['confirmed_at'] = [
+        'timestamp' => now()->toIso8601String(),
+        'user_id' => Auth::id(),
+        'user_name' => Auth::user()->name ?? 'Unknown',
+    ];
+
+    $expense->update([
+        'status' => 'confirmed',
+        'metadata' => $metadata,
+    ]);
+
+    ActivityLogs::create([
+        'user_id' => Auth::id(),
+        'action_type' => 'expense_confirm',
+        'description' => "Confirmed transaction: {$expense->reference}",
+        'entity_type' => 'expense',
+        'entity_id' => $expense->id,
+        'metadata' => json_encode([
+            'expense_reference' => $expense->reference,
+            'record_type' => str_starts_with($expense->reference, 'STK-') ? 'stock' : 'expense',
+            'confirmed_at' => now()->toIso8601String(),
+        ]),
+    ]);
+
+    session()->flash('message', 'Transaction confirmed successfully!');
+    $this->closeViewModal();
+}
 
     public function deleteExpense($id)
     {

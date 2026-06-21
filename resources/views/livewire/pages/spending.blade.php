@@ -980,20 +980,26 @@
                     </div>
                 </div>
 
-                {{-- Footer Actions --}}
-                <div class="p-6 bg-white flex justify-end space-x-3">
-                    <button type="button" wire:click="closeEditModal"
-                        class="px-6 py-2.5 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">
-                        Cancel
-                    </button>
-                    <button type="submit"
-                        class="px-6 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                        </svg>
-                        <span>Update Expense</span>
-                    </button>
-                </div>
+{{-- Footer Actions --}}
+<div class="p-6 bg-white border-t border-gray-200">
+    <div class="flex justify-between items-center">
+        <button wire:click="closeViewModal"
+            class="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">
+            Close
+        </button>
+        @if($selectedExpenseRawStatus === 'pending')
+            <button wire:click="confirmPendingTransaction({{ $selectedExpense->id }})"
+                class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                </svg>
+                <span>
+                    {{ $recordType === 'stock' ? 'Confirm Stock Purchase' : 'Confirm Transaction' }}
+                </span>
+            </button>
+        @endif
+    </div>
+</div>
             </form>
         </div>
     </div>

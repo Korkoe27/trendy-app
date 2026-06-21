@@ -99,9 +99,35 @@ public $chartsLoaded = false;
 
     // Add these methods to your Analytics class
 
+// public function loadMetrics()
+// {
+//     $this->isLoading = true;
+
+//     $this->calculateRevenueMetrics();
+//     $this->calculateSnookerMetrics();
+//     $this->calculateSalesMetrics();
+//     $this->calculateExpenseMetrics();
+//     $this->calculateProfitMetrics();
+//     $this->calculateLossMetrics();
+//     $this->calculateFoodSalesMetrics();
+//     $this->calculateInventoryMetrics();
+//     $this->calculateGrowthRates();
+
+//     $this->metricsLoaded = true;
+//     $this->isLoading = false;
+// }
+
+// At the top of loadMetrics() - ensure fresh date range
 public function loadMetrics()
 {
     $this->isLoading = true;
+
+    // Force refresh dates in case of any Livewire binding quirks
+    if ($this->timeframe === 'custom' || $this->timeframe === 'specific_month') {
+        // dates already set by user
+    } else {
+        $this->setDateRange();
+    }
 
     $this->calculateRevenueMetrics();
     $this->calculateSnookerMetrics();
@@ -266,35 +292,66 @@ public function updatedSelectedMonth()
         }
     }
 
-private function calculateRevenueMetrics()
+    private function calculateRevenueMetrics()
 {
-    // Pull directly from daily_sales for accuracy
-    // total_amount = cash revenue (units_sold * selling_price)
-    // credit_amount = credit revenue
-    $salesData = DB::table('daily_sales')
-        ->whereBetween('sales_date', [$this->startDate, $this->endDate])
-        ->selectRaw('
-            SUM(total_amount) as cash_revenue,
-            SUM(COALESCE(credit_amount, 0)) as credit_revenue,
-            SUM(total_amount + COALESCE(credit_amount, 0)) as drinks_total
-        ')
-        ->first();
-
-    $this->drinksTotal        = (float) ($salesData->drinks_total ?? 0);
-    $this->totalCreditRevenue = (float) ($salesData->credit_revenue ?? 0);
-
-    // Payment method splits come from summaries (recorded by staff)
     $summaries = $this->getCurrentPeriodSummaries();
+
+    // Use summaries as primary source for consistency
     $this->totalCashRevenue   = $summaries->sum('total_cash');
     $this->totalMomoRevenue   = $summaries->sum('total_momo');
     $this->totalHubtelRevenue = $summaries->sum('total_hubtel');
+    $this->totalCreditRevenue = $summaries->sum('total_credit_amount'); // ensure this column exists
 
-    $daysInPeriod = max(1, \Carbon\Carbon::parse($this->startDate)->diffInDays($this->endDate) + 1);
+    $this->drinksTotal = $summaries->sum('drinks_total');
+
+    $daysInPeriod = max(1, Carbon::parse($this->startDate)->diffInDays($this->endDate) + 1);
     $this->averageDailyRevenue = $this->drinksTotal / $daysInPeriod;
+
+    Log::info('Analytics: Revenue calculated (using summaries)', [
+        'drinks_total' => $this->drinksTotal,
+        'cash' => $this->totalCashRevenue,
+        'momo' => $this->totalMomoRevenue,
+        'hubtel' => $this->totalHubtelRevenue,
+        'credit' => $this->totalCreditRevenue,
+        'avg_daily' => $this->averageDailyRevenue,
+        'days' => $daysInPeriod,
+    ]);
 }
+
+// private function calculateRevenueMetrics()
+// {
+//     $salesData = DB::table('daily_sales')
+//         ->whereBetween('sales_date', [$this->startDate, $this->endDate])
+//         ->selectRaw('
+//             SUM(total_amount) as cash_revenue,
+//             SUM(COALESCE(credit_amount, 0)) as credit_revenue,
+//             SUM(total_amount + COALESCE(credit_amount, 0)) as drinks_total
+//         ')
+//         ->first();
+
+//     $this->drinksTotal        = (float) ($salesData->drinks_total ?? 0);
+//     $this->totalCreditRevenue = (float) ($salesData->credit_revenue ?? 0);
+
+//     $summaries = $this->getCurrentPeriodSummaries();
+//     $this->totalCashRevenue   = $summaries->sum('total_cash');
+//     $this->totalMomoRevenue   = $summaries->sum('total_momo');
+//     $this->totalHubtelRevenue = $summaries->sum('total_hubtel');
+
+//     $daysInPeriod = max(1, \Carbon\Carbon::parse($this->startDate)->diffInDays($this->endDate) + 1);
+//     $this->averageDailyRevenue = $this->drinksTotal / $daysInPeriod;
+
+//     Log::info('Analytics: Revenue calculated', [
+//         'drinks_total' => $this->drinksTotal,
+//         'cash' => $this->totalCashRevenue,
+//         'momo' => $this->totalMomoRevenue,
+//         'hubtel' => $this->totalHubtelRevenue,
+//         'credit' => $this->totalCreditRevenue,
+//         'avg_daily' => $this->averageDailyRevenue,
+//         'days' => $daysInPeriod,
+//     ]);
+// }
 private function calculateSalesMetrics()
 {
-    // Sum units sold directly from daily_sales rows
     $result = DB::table('daily_sales')
         ->whereBetween('sales_date', [$this->startDate, $this->endDate])
         ->selectRaw('
@@ -308,14 +365,14 @@ private function calculateSalesMetrics()
         ->first();
 
     $this->totalItemsSold = (int) ($result->total_units_sold ?? 0);
+
+    Log::info('Analytics: Sales calculated', [
+        'total_units_sold' => $this->totalItemsSold,
+    ]);
 }
 
 private function calculateExpenseMetrics()
 {
-    // Only count actual stock purchases (restock entries have a restock_date set)
-    // Inventory closing-stock entries have notes like 'End of day inventory - ...'
-    // and restock_date carried forward from the original restock — so we filter
-    // by excluding those auto-generated rows (they have notes starting with 'End of day')
     $this->totalExpenses = DB::table('stocks')
         ->whereBetween('restock_date', [$this->startDate, $this->endDate])
         ->where(function ($q) {
@@ -323,15 +380,23 @@ private function calculateExpenseMetrics()
               ->orWhere('notes', 'NOT LIKE', 'End of day inventory%');
         })
         ->sum('total_cost');
+
+    Log::info('Analytics: Expenses calculated', [
+        'total_expenses' => $this->totalExpenses,
+    ]);
 }
 
 private function calculateProfitMetrics()
 {
-    // unit_profit is stored per daily_sales row — sum it directly
     $result = DB::table('daily_sales')
         ->whereBetween('sales_date', [$this->startDate, $this->endDate])
         ->selectRaw('SUM(unit_profit) as total_profit')
         ->first();
+
+
+    Log::info('Analytics: Profit raw data', [
+        'total_profit_raw' => $result->total_profit,
+    ]);
 
     $this->totalProfit = (float) ($result->total_profit ?? 0);
 
@@ -339,7 +404,8 @@ private function calculateProfitMetrics()
         ? ($this->totalProfit / $this->drinksTotal) * 100
         : 0;
 
-    // Average profit margin: weighted average across all sold units
+
+
     $marginData = DB::table('daily_sales as ds')
         ->join('stocks as s', 'ds.stock_id', '=', 's.id')
         ->join('products as p', 'ds.product_id', '=', 'p.id')
@@ -355,20 +421,49 @@ private function calculateProfitMetrics()
         ')
         ->first();
 
+        Log::info('Analytics: Margin data', [
+            'weighted_margin' => $marginData->weighted_margin ?? 0,
+            'total_units' => $marginData->total_units ?? 0,
+        ]);
+
     $this->averageProfitMargin = ($marginData && $marginData->total_units > 0)
         ? (float) $marginData->weighted_margin / (float) $marginData->total_units
         : 0;
+
+    Log::info('Analytics: Profit calculated', [
+        'total_profit' => $this->totalProfit,
+        'gross_margin_pct' => round($this->grossProfitMargin, 2),
+        'avg_profit_margin_pct' => round($this->averageProfitMargin, 2),
+    ]);
 }
+
 private function calculateLossMetrics()
 {
-    // Damaged units & value from daily_sales directly
+    $summaries = $this->getCurrentPeriodSummaries();
+
+    $this->totalOnTheHouse = $summaries->sum('on_the_house');
+
+    // Accumulated collection discrepancies
+    $this->accumulatedLosses = 0;
+    foreach ($summaries as $summary) {
+        $collected = ($summary->total_cash ?? 0) 
+                   + ($summary->total_momo ?? 0) 
+                   + ($summary->total_hubtel ?? 0);
+
+        $expected = ($summary->drinks_total ?? 0) 
+                  + ($summary->food_total ?? 0) 
+                  - ($summary->on_the_house ?? 0);
+
+        $this->accumulatedLosses += ($collected - $expected);
+    }
+
+    // Damaged / credit from daily_sales (per-product detail)
     $lossData = DB::table('daily_sales')
-        ->join('products as p', 'daily_sales.product_id', '=', 'p.id')
-        ->whereBetween('daily_sales.sales_date', [$this->startDate, $this->endDate])
+        ->whereBetween('sales_date', [$this->startDate, $this->endDate])
         ->selectRaw('
-            SUM(COALESCE(daily_sales.damaged_units, 0)) as total_damaged_units,
-            SUM(COALESCE(daily_sales.loss_amount, 0)) as total_damaged_value,
-            SUM(COALESCE(daily_sales.credit_units, 0)) as total_credit_units
+            SUM(COALESCE(damaged_units, 0)) as total_damaged_units,
+            SUM(COALESCE(loss_amount, 0)) as total_damaged_value,
+            SUM(COALESCE(credit_units, 0)) as total_credit_units
         ')
         ->first();
 
@@ -377,37 +472,67 @@ private function calculateLossMetrics()
     $this->totalCreditUnits  = (float) ($lossData->total_credit_units ?? 0);
     $this->totalLossAmount   = $this->totalDamagedValue;
 
-    // on_the_house: straight sum from summaries
-    $summaries = $this->getCurrentPeriodSummaries();
-    $this->totalOnTheHouse = $summaries->sum('on_the_house');
-
-    // Collection discrepancy:
-    // What was expected to be collected = drinks_total + food_total + snooker - on_the_house
-    // (on_the_house is given away, so staff should NOT have collected it)
-    // What was actually collected = total_cash + total_momo + total_hubtel
-    $this->accumulatedLosses = 0;
-    foreach ($summaries as $summary) {
-        $collected = ($summary->total_cash    ?? 0)
-                   + ($summary->total_momo    ?? 0)
-                   + ($summary->total_hubtel  ?? 0);
-
-        // Expected = all revenue streams minus what was given away for free
-        $expected  = ($summary->drinks_total  ?? 0)
-                   + ($summary->food_total    ?? 0)
-                   - ($summary->on_the_house  ?? 0);
-                //    + ($summary->snooker       ?? 0)
-
-        $this->accumulatedLosses += ($collected - $expected);
-    }
-    // Negative = shortfall (staff collected less than expected)
-    // Positive = overage
-
-    // Damage rate
     $totalUnitsHandled = $this->totalItemsSold + $this->totalDamagedUnits;
-    $this->damageRate  = $totalUnitsHandled > 0
-        ? ($this->totalDamagedUnits / $totalUnitsHandled) * 100
+    $this->damageRate = $totalUnitsHandled > 0 
+        ? ($this->totalDamagedUnits / $totalUnitsHandled) * 100 
         : 0;
+
+    Log::info('Analytics: Loss calculated', [
+        'accumulated_losses' => $this->accumulatedLosses,
+        'on_the_house' => $this->totalOnTheHouse,
+        'damaged_units' => $this->totalDamagedUnits,
+        'damaged_value' => $this->totalDamagedValue,
+        'damage_rate_pct' => round($this->damageRate, 2),
+    ]);
 }
+
+// private function calculateLossMetrics()
+// {
+//     $lossData = DB::table('daily_sales')
+//         ->join('products as p', 'daily_sales.product_id', '=', 'p.id')
+//         ->whereBetween('daily_sales.sales_date', [$this->startDate, $this->endDate])
+//         ->selectRaw('
+//             SUM(COALESCE(daily_sales.damaged_units, 0)) as total_damaged_units,
+//             SUM(COALESCE(daily_sales.loss_amount, 0)) as total_damaged_value,
+//             SUM(COALESCE(daily_sales.credit_units, 0)) as total_credit_units
+//         ')
+//         ->first();
+
+//     $this->totalDamagedUnits = (float) ($lossData->total_damaged_units ?? 0);
+//     $this->totalDamagedValue = (float) ($lossData->total_damaged_value ?? 0);
+//     $this->totalCreditUnits  = (float) ($lossData->total_credit_units ?? 0);
+//     $this->totalLossAmount   = $this->totalDamagedValue;
+
+//     $summaries = $this->getCurrentPeriodSummaries();
+//     $this->totalOnTheHouse = $summaries->sum('on_the_house');
+
+//     $this->accumulatedLosses = 0;
+//     foreach ($summaries as $summary) {
+//         $collected = ($summary->total_cash    ?? 0)
+//                 + ($summary->total_momo    ?? 0)
+//                 + ($summary->total_hubtel  ?? 0);
+
+//         $expected  = ($summary->drinks_total  ?? 0)
+//                 + ($summary->food_total    ?? 0)
+//                 - ($summary->on_the_house  ?? 0);
+
+//         $this->accumulatedLosses += ($collected - $expected);
+//     }
+
+//     $totalUnitsHandled = $this->totalItemsSold + $this->totalDamagedUnits;
+//     $this->damageRate  = $totalUnitsHandled > 0
+//         ? ($this->totalDamagedUnits / $totalUnitsHandled) * 100
+//         : 0;
+
+//     Log::info('Analytics: Loss calculated', [
+//         'damaged_units' => $this->totalDamagedUnits,
+//         'damaged_value' => $this->totalDamagedValue,
+//         'credit_units' => $this->totalCreditUnits,
+//         'on_the_house' => $this->totalOnTheHouse,
+//         'accumulated_losses' => $this->accumulatedLosses,
+//         'damage_rate_pct' => round($this->damageRate, 2),
+//     ]);
+// }
 
 private function calculateFoodSalesMetrics()
 {
@@ -417,6 +542,11 @@ private function calculateFoodSalesMetrics()
 
     $daysInPeriod = max(1, \Carbon\Carbon::parse($this->startDate)->diffInDays($this->endDate) + 1);
     $this->averageDailyFoodSales = $this->totalFoodSales / $daysInPeriod;
+
+    Log::info('Analytics: Food sales calculated', [
+        'total_food_sales' => $this->totalFoodSales,
+        'avg_daily_food' => round($this->averageDailyFoodSales, 2),
+    ]);
 }
 
 private function calculateSnookerMetrics()
@@ -427,11 +557,15 @@ private function calculateSnookerMetrics()
 
     $daysInPeriod = max(1, \Carbon\Carbon::parse($this->startDate)->diffInDays($this->endDate) + 1);
     $this->averageDailySnookerSales = $this->totalSnooker / $daysInPeriod;
+
+    Log::info('Analytics: Snooker calculated', [
+        'total_snooker' => $this->totalSnooker,
+        'avg_daily_snooker' => round($this->averageDailySnookerSales, 2),
+    ]);
 }
 
 private function calculateInventoryMetrics()
 {
-    // Latest stock per product (highest id per product_id)
     $latestStocks = DB::table('stocks as s1')
         ->whereRaw('s1.id = (SELECT MAX(s2.id) FROM stocks s2 WHERE s2.product_id = s1.product_id)')
         ->where('s1.total_units', '>', 0)
@@ -440,7 +574,6 @@ private function calculateInventoryMetrics()
 
     $this->totalInventoryValue = $latestStocks->sum(fn($s) => $s->total_units * ($s->cost_price ?? 0));
 
-    // Low stock: current units <= 20% of stock_limit
     $this->lowStockProducts = DB::table('products as p')
         ->join('stocks as s', function ($join) {
             $join->on('s.product_id', '=', 'p.id')
@@ -453,7 +586,6 @@ private function calculateInventoryMetrics()
         ->whereRaw('s.total_units <= p.stock_limit * 0.2')
         ->count();
 
-    // Out of stock: no stock row with total_units > 0
     $this->outOfStockProducts = DB::table('products as p')
         ->where('p.is_active', true)
         ->whereNotExists(function ($q) {
@@ -464,13 +596,20 @@ private function calculateInventoryMetrics()
         })
         ->count();
 
-    // Inventory turnover = COGS / average inventory value
     $cogs = $this->drinksTotal - $this->totalProfit;
     $startInventory = $this->getInventoryValueAtDate($this->startDate);
     $this->averageInventoryValue = ($startInventory + $this->totalInventoryValue) / 2;
     $this->inventoryTurnoverRate = $this->averageInventoryValue > 0
         ? $cogs / $this->averageInventoryValue
         : 0;
+
+    Log::info('Analytics: Inventory calculated', [
+        'inventory_value' => $this->totalInventoryValue,
+        'low_stock' => $this->lowStockProducts,
+        'out_of_stock' => $this->outOfStockProducts,
+        'turnover_rate' => round($this->inventoryTurnoverRate, 2),
+        'avg_inventory_value' => round($this->averageInventoryValue, 2),
+    ]);
 }
 
     private function getInventoryValueAtDate($date)
@@ -595,6 +734,15 @@ $leastPerforming = DailySales::whereBetween('sales_date', [$this->startDate, $th
     });
 
 $this->leastPerformingProducts = $leastPerforming->toArray();
+
+    $top3 = array_slice($topSelling->toArray(), 0, 3);
+    $bottom3 = array_slice($leastSelling->toArray(), 0, 3);
+    Log::info('Analytics: Product performance calculated', [
+        'top_products' => collect($top3)->pluck('product_name')->implode(', '),
+        'top_units_sold' => collect($top3)->sum('units_sold'),
+        'bottom_products' => collect($bottom3)->pluck('product_name')->implode(', '),
+        'bottom_units_sold' => collect($bottom3)->sum('units_sold'),
+    ]);
     }
 
     private function calculateCategoryPerformance()
@@ -632,71 +780,143 @@ $this->leastPerformingProducts = $leastPerforming->toArray();
 
         $this->categoryPerformance = $categoryData->toArray();
         $this->topCategory = $categoryData->first();
+
+    $topCat = $this->topCategory;
+    Log::info('Analytics: Category performance calculated', [
+        'categories_count' => count($categoryData),
+        'top_category' => $topCat['category_name'] ?? 'N/A',
+        'top_revenue' => $topCat['revenue'] ?? 0,
+        'top_units_sold' => $topCat['units_sold'] ?? 0,
+    ]);
     }
 
     private function calculateDailyData()
-    {
-        $dailyData = DailySalesSummary::whereBetween('sales_date', [$this->startDate, $this->endDate])
-            ->select(
-                'sales_date',
-                DB::raw('SUM(drinks_total) as revenue'),
-                DB::raw('SUM(snooker) as snooker'),
-                DB::raw('SUM(total_profit) as profit'),
-                DB::raw('SUM(items_sold) as items'),
-                DB::raw('SUM(total_damaged) as damaged'),
-                DB::raw('SUM(total_money) as money_collected'),
-                DB::raw('SUM(food_total) as food_sales'),
-                DB::raw('SUM(on_the_house) as on_the_house'),
-                DB::raw('SUM(total_cash + total_momo + total_hubtel) as total_collected'),
-                DB::raw('SUM(drinks_total + food_total + snooker) as expected_total'),
-                // DB::raw('SUM(drinks_total + food_total) as expected_total')
-            )
-            ->groupBy('sales_date')
-            ->orderBy('sales_date')
-            ->get();
+{
+    $dailyData = DailySalesSummary::whereBetween('sales_date', [$this->startDate, $this->endDate])
+        ->select(
+            'sales_date',
+            DB::raw('SUM(drinks_total) as revenue'),
+            DB::raw('SUM(snooker) as snooker'),
+            DB::raw('SUM(total_profit) as profit'),
+            DB::raw('SUM(items_sold) as items'),
+            DB::raw('SUM(total_damaged) as damaged'),
+            DB::raw('SUM(total_cash + total_momo + total_hubtel) as total_collected'),
+            DB::raw('SUM(drinks_total + food_total + snooker) as expected_total'),
+            DB::raw('SUM(food_total) as food_sales'),
+            DB::raw('SUM(on_the_house) as on_the_house')
+        )
+        ->groupBy('sales_date')
+        ->orderBy('sales_date')
+        ->get();
 
-$this->dailyLossesData = $dailyData->map(function ($day) {
-    $difference = $day->total_collected - $day->expected_total + $day->on_the_house;
+    $this->dailyProfitData = $dailyData->map(function ($day) {
+        return [
+            'date' => Carbon::parse($day->sales_date)->format('M d'),
+            'profit' => round($day->profit ?? 0, 2),
+            'profit_margin' => ($day->revenue ?? 0) > 0 
+                ? round(($day->profit / $day->revenue) * 100, 2) 
+                : 0,
+        ];
+    })->toArray();
+
+    $this->dailyFoodSalesData = $dailyData->map(function ($day) {
+        return [
+            'date' => Carbon::parse($day->sales_date)->format('M d'),
+            'full_date' => $day->sales_date,
+            'amount' => round($day->food_sales ?? 0, 2),
+        ];
+    })->toArray();
+
+    // Collection discrepancies (signed difference)
+    $this->dailyLossesData = $dailyData->map(function ($day) {
+        $collected = $day->total_collected ?? 0;
+        $expected  = $day->expected_total ?? 0;
+        $onHouse   = $day->on_the_house ?? 0;
+
+        $difference = $collected - $expected + $onHouse;
+
+        return [
+            'date' => Carbon::parse($day->sales_date)->format('M d'),
+            'full_date' => $day->sales_date,
+            'loss' => round($difference, 2),
+            'on_the_house' => round($onHouse, 2),
+        ];
+    })->toArray();
+
+    Log::info('Analytics: Daily data calculated', [
+        'days_count' => $dailyData->count(),
+        'date_range' => $this->startDate . ' → ' . $this->endDate,
+    ]);
+}
+
+//     private function calculateDailyData()
+//     {
+//         $dailyData = DailySalesSummary::whereBetween('sales_date', [$this->startDate, $this->endDate])
+//             ->select(
+//                 'sales_date',
+//                 DB::raw('SUM(drinks_total) as revenue'),
+//                 DB::raw('SUM(snooker) as snooker'),
+//                 DB::raw('SUM(total_profit) as profit'),
+//                 DB::raw('SUM(items_sold) as items'),
+//                 DB::raw('SUM(total_damaged) as damaged'),
+//                 DB::raw('SUM(total_money) as money_collected'),
+//                 DB::raw('SUM(food_total) as food_sales'),
+//                 DB::raw('SUM(on_the_house) as on_the_house'),
+//                 DB::raw('SUM(total_cash + total_momo + total_hubtel) as total_collected'),
+//                 DB::raw('SUM(drinks_total + food_total + snooker) as expected_total'),
+//                 // DB::raw('SUM(drinks_total + food_total) as expected_total')
+//             )
+//             ->groupBy('sales_date')
+//             ->orderBy('sales_date')
+//             ->get();
+
+// $this->dailyLossesData = $dailyData->map(function ($day) {
+//     $difference = $day->total_collected - $day->expected_total + $day->on_the_house;
     
-    // Only show as loss if negative
-    $lossAmount = $difference < 0 ? abs($difference) : 0;
+//     // Only show as loss if negative
+//     $lossAmount = $difference < 0 ? abs($difference) : 0;
     
-    return [
-        'date' => Carbon::parse($day->sales_date)->format('M d'),
-        'full_date' => $day->sales_date,
-        'loss' => round($lossAmount, 2), // Always positive or zero
-        'on_the_house' => round($day->on_the_house, 2),
-    ];
-})->toArray();
+//     return [
+//         'date' => Carbon::parse($day->sales_date)->format('M d'),
+//         'full_date' => $day->sales_date,
+//         'loss' => round($lossAmount, 2), // Always positive or zero
+//         'on_the_house' => round($day->on_the_house, 2),
+//     ];
+// })->toArray();
 
-        $this->dailyProfitData = $dailyData->map(function ($day) {
-            return [
-                'date' => Carbon::parse($day->sales_date)->format('M d'),
-                'profit' => round($day->profit, 2),
-                'profit_margin' => $day->revenue > 0 ? round(($day->profit / $day->revenue) * 100, 2) : 0,
-            ];
-        })->toArray();
+//         $this->dailyProfitData = $dailyData->map(function ($day) {
+//             return [
+//                 'date' => Carbon::parse($day->sales_date)->format('M d'),
+//                 'profit' => round($day->profit, 2),
+//                 'profit_margin' => $day->revenue > 0 ? round(($day->profit / $day->revenue) * 100, 2) : 0,
+//             ];
+//         })->toArray();
 
-        // NEW: Food sales data
-        $this->dailyFoodSalesData = $dailyData->map(function ($day) {
-            return [
-                'date' => Carbon::parse($day->sales_date)->format('M d'),
-                'full_date' => $day->sales_date,
-                'amount' => round($day->food_sales, 2),
-            ];
-        })->toArray();
+//         // NEW: Food sales data
+//         $this->dailyFoodSalesData = $dailyData->map(function ($day) {
+//             return [
+//                 'date' => Carbon::parse($day->sales_date)->format('M d'),
+//                 'full_date' => $day->sales_date,
+//                 'amount' => round($day->food_sales, 2),
+//             ];
+//         })->toArray();
 
-        // NEW: Daily losses data (collection discrepancies)
-        $this->dailyLossesData = $dailyData->map(function ($day) {
-            $difference = $day->total_collected - $day->expected_total + $day->on_the_house;
-            return [
-                'date' => Carbon::parse($day->sales_date)->format('M d'),
-                'full_date' => $day->sales_date,
-                'loss' => round($difference, 2),
-                'on_the_house' => round($day->on_the_house, 2),
-            ];
-        })->toArray();
-    }
+//         // NEW: Daily losses data (collection discrepancies)
+//         $this->dailyLossesData = $dailyData->map(function ($day) {
+//             $difference = $day->total_collected - $day->expected_total + $day->on_the_house;
+//             return [
+//                 'date' => Carbon::parse($day->sales_date)->format('M d'),
+//                 'full_date' => $day->sales_date,
+//                 'loss' => round($difference, 2),
+//                 'on_the_house' => round($day->on_the_house, 2),
+//             ];
+//         })->toArray();
+
+//     Log::info('Analytics: Daily data calculated', [
+//         'days_count' => $dailyData->count(),
+//         'date_range' => $this->startDate . ' to ' . $this->endDate,
+//     ]);
+//     }
 
     private function calculatePaymentMethodDistribution()
     {
@@ -731,6 +951,14 @@ $this->dailyLossesData = $dailyData->map(function ($day) {
                 'is_credit' => true,
             ],
         ];
+
+        Log::info('Analytics: Payment distribution calculated', [
+            'cash' => $totalCash,
+            'momo' => $totalMomo,
+            'hubtel' => $totalHubtel,
+            'credit' => $totalCredit,
+            'total' => $total,
+        ]);
     }
 
 private function calculateGrowthRates()
@@ -777,6 +1005,19 @@ private function calculateGrowthRates()
     $this->profitGrowth    = $this->calculateGrowthPercentage($this->totalProfit,    $previousProfit);
     $this->expensesGrowth  = $this->calculateGrowthPercentage($this->totalExpenses,  $previousExpenses);
     $this->foodSalesGrowth = $this->calculateGrowthPercentage($this->totalFoodSales, $previousFoodSales);
+
+    Log::info('Analytics: Growth rates calculated', [
+        'revenue_growth_pct' => round($this->revenueGrowth, 2),
+        'items_sold_growth_pct' => round($this->itemsSoldGrowth, 2),
+        'profit_growth_pct' => round($this->profitGrowth, 2),
+        'expenses_growth_pct' => round($this->expensesGrowth, 2),
+        'food_sales_growth_pct' => round($this->foodSalesGrowth, 2),
+        'previous_revenue' => $previousRevenue,
+        'previous_items_sold' => $previousItemsSold,
+        'previous_profit' => $previousProfit,
+        'previous_expenses' => $previousExpenses,
+        'previous_food_sales' => $previousFoodSales,
+    ]);
 }
 
 
@@ -792,6 +1033,7 @@ private function calculateGrowthRates()
     {
         return DailySalesSummary::whereBetween('sales_date', [$this->startDate, $this->endDate])->get();
     }
+
 
     // Helper method to get available months for dropdown
     public function getAvailableMonths()
