@@ -197,7 +197,7 @@
                                 $expense->category === 'inventory';
             @endphp
             
-            @if(!$isStockRecord)
+            @if(!$isStockRecord && $expense->status !== 'paid')
                 <button wire:click.stop="editExpense({{ $expense->id }})"
                     class="text-green-600 hover:text-green-800" title="Edit">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -205,13 +205,6 @@
                             d="M11 4h2m-6.586 9.414l8.586-8.586a2 2 0 112.828 2.828l-8.586 8.586H7v-2.828zM5 19h14" />
                     </svg>
                 </button>
-            @else
-                <span class="text-gray-400" title="Stock records are edited from Stock page">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                    </svg>
-                </span>
             @endif
         @endhaspermission
         
@@ -462,24 +455,26 @@
                 </div>
             </div>
 
-            {{-- Footer Actions --}}
-            <div class="p-6 bg-white border-t border-gray-200">
-                <div class="flex justify-between items-center">
-                    <button wire:click="closeViewModal" 
-                        class="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">
-                        Close
-                    </button>
-                    @if($selectedExpense->status === 'pending')
-                    <button wire:click="confirmPendingTransaction({{ $selectedExpense->id }})"
-                        class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                        </svg>
-                        <span>Confirm Transaction</span>
-                    </button>
-                    @endif
-                </div>
-            </div>
+{{-- Footer Actions --}}
+<div class="p-6 bg-white border-t border-gray-200">
+    <div class="flex justify-between items-center">
+        <button wire:click="closeViewModal"
+            class="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">
+            Close
+        </button>
+        @if($selectedExpenseRawStatus === 'pending')
+            <button wire:click="confirmPendingTransaction({{ $selectedExpense->id }})"
+                class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                </svg>
+                <span>
+                    {{ $recordType === 'stock' ? 'Confirm Stock Purchase' : 'Confirm Transaction' }}
+                </span>
+            </button>
+        @endif
+    </div>
+</div>
         </div>
     </div>
 @endif
@@ -987,7 +982,7 @@
             class="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">
             Close
         </button>
-        @if($selectedExpenseRawStatus === 'pending')
+        {{-- @if($selectedExpenseRawStatus === 'pending') --}}
             <button wire:click="confirmPendingTransaction({{ $selectedExpense->id }})"
                 class="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -997,7 +992,7 @@
                     {{ $recordType === 'stock' ? 'Confirm Stock Purchase' : 'Confirm Transaction' }}
                 </span>
             </button>
-        @endif
+        {{-- @endif --}}
     </div>
 </div>
             </form>

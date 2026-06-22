@@ -413,6 +413,7 @@
                 </div>
 
                 {{-- On the House --}}
+                @haspermission('modify', 'inventory')
                 <div class="">
                     <label class="block text-base font-medium text-gray-700 mb-2">
                         <span class="flex items-center">
@@ -428,6 +429,7 @@
                         class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
                     @error('onTheHouse') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
                 </div>
+                @endhaspermission
                 {{-- Snooker --}}
                 <div class="">
                     <label class="block text-basw font-medium text-gray-700 mb-2">

@@ -107,7 +107,7 @@ class Inventory extends Component
         'momoAmount' => 'required|numeric|min:0',
         'hubtelAmount' => 'required|numeric|min:0',
         'foodTotal' => 'required|numeric|min:0',
-        'onTheHouse' => 'required|numeric|min:0',
+        'onTheHouse' => 'nullable|numeric|min:0',
         'snooker' => 'required|numeric|min:0',
     ];
 
@@ -432,7 +432,7 @@ class Inventory extends Component
                     'hubtelAmount' => 'required|numeric|min:0',
                     'foodTotal' => 'required|numeric|min:0',
                     'snooker' => 'required|numeric|min:0',
-                    'onTheHouse' => 'required|numeric|min:0',
+                    'onTheHouse' => 'nullable|numeric|min:0',
                 ]);
             } catch (\Illuminate\Validation\ValidationException $e) {
                 Log::debug('Validation failed', $e->errors());
@@ -815,7 +815,7 @@ if (! $newerStockExists) {
                 'hubtelAmount' => 'required|numeric|min:0',
                 'snooker' => 'required|numeric|min:0',
                 'foodTotal' => 'required|numeric|min:0',
-                'onTheHouse' => 'required|numeric|min:0',
+                'onTheHouse' => 'nullable|numeric|min:0',
             ]);
         }
 
@@ -894,7 +894,7 @@ if (! $newerStockExists) {
             'hubtelAmount' => 'required|numeric|min:0',
             'snooker' => 'required|numeric|min:0',
             'foodTotal' => 'required|numeric|min:0',
-            'onTheHouse' => 'required|numeric|min:0',
+            'onTheHouse' => 'nullable|numeric|min:0',
         ]);
 
         Log::debug('validated');

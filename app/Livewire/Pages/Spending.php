@@ -517,7 +517,7 @@ public function confirmPendingTransaction($id)
     ];
 
     $expense->update([
-        'status' => 'confirmed',
+        'status' => 'paid   ',
         'metadata' => $metadata,
     ]);
 
