@@ -2,8 +2,18 @@
 
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\UserAuthController;
-use App\Livewire\Pages\{Analytics,Dashboard,Inventory,Logs,Products,Settings, Spending, Stocks, Users};
-use Illuminate\Support\Facades\{Log,Route};
+use App\Livewire\Pages\Analytics;
+use App\Livewire\Pages\Dashboard;
+use App\Livewire\Pages\Inventory;
+use App\Livewire\Pages\Logs;
+use App\Livewire\Pages\Products;
+use App\Livewire\Pages\Settings;
+use App\Livewire\Pages\Spending;
+use App\Livewire\Pages\StockMovements;
+use App\Livewire\Pages\Stocks;
+use App\Livewire\Pages\Users;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Route;
 
 // Route::get('/', function () {
 //     return view('index');
@@ -22,7 +32,6 @@ Route::middleware(['auth'])->group(function () {
 
 Route::middleware(['auth', 'must.change.password'])->group(function () {
 
-
     // Log::info("Accessing protected routes");
     Route::get('/', Dashboard::class)->name('dashboard');
 
@@ -30,15 +39,16 @@ Route::middleware(['auth', 'must.change.password'])->group(function () {
 
     Route::get('stocks', Stocks::class)->name('stocks')->middleware('permission:stocks,view');
 
+    Route::get('stock-movements', StockMovements::class)->name('stock-movements')->middleware('permission:stocks,view');
+
     Route::get('inventory', Inventory::class)->name('inventory')->middleware('permission:inventory,create');
 
     Route::get('settings', Settings::class)->name('settings')->middleware('permission:settings,view');
 
     Route::get('logs', Logs::class)->name('logs')->middleware('permission:logs,view');
-    
 
     Route::get('expenses', Spending::class)->name('spending')->middleware('permission:expenses,view');
-    
+
     Route::get('users', Users::class)->name('users')->middleware('permission:users,view');
 
     Route::get('analytics', Analytics::class)->name('analytics')->middleware('permission:analytics,view');

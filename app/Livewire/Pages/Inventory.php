@@ -16,6 +16,8 @@ class Inventory extends Component
 {
     public $showTakeInventoryModal = false;
 
+    public $inventoryRestricted = false;
+
     public $showDetailsModal = false;
 
     public $selectedRecord = null;
@@ -78,6 +80,8 @@ class Inventory extends Component
             $this->salesDate = now()->format('Y-m-d');
         }
 
+        $this->inventoryRestricted = $this->isInventoryRestricted();
+
         // OPTIMIZATION: Preload ALL data in 2 queries instead of N queries
         $this->allProducts = DB::table('products')
             ->select('id', 'name', 'units_per_box', 'selling_price', 'is_active')
@@ -89,7 +93,7 @@ class Inventory extends Component
 
         // Get LATEST stock for each product (most recent created_at)
         $this->allStocks = DB::table('stocks as s1')
-            ->select('s1.id', 's1.product_id', 's1.total_units', 's1.cost_price', 's1.cost_margin','s1.supplier_id','s1.total_cost','s1.restock_date','s1.created_at')
+            ->select('s1.id', 's1.product_id', 's1.total_units', 's1.cost_price', 's1.cost_margin', 's1.supplier_id', 's1.total_cost', 's1.restock_date', 's1.created_at')
             ->whereIn('s1.product_id', $productIds)
             ->where('s1.total_units', '>', 0)
             ->whereRaw('s1.created_at = (SELECT MAX(s2.created_at) FROM stocks s2 WHERE s2.product_id = s1.product_id)')
@@ -100,6 +104,15 @@ class Inventory extends Component
         foreach ($this->allStocks as $stock) {
             $this->productStockMap[$stock->product_id] = $stock->id;
         }
+    }
+
+    private function isInventoryRestricted(): bool
+    {
+        $currentHour = (int) now()->format('H');
+        Log::debug('Checking inventory restriction - Current Hour: '.$currentHour);
+        $isSuperAdmin = Auth::user()?->role?->name === 'Super Admin';
+
+        return $currentHour < 3 && ! $isSuperAdmin;
     }
 
     protected $rules = [
@@ -276,6 +289,12 @@ class Inventory extends Component
 
     public function proceedWithInventory()
     {
+        if ($this->isInventoryRestricted()) {
+            session()->flash('error', 'Inventory can only be taken after 3:00 AM.');
+
+            return;
+        }
+
         // Validate credit customer data
         foreach ($this->pendingCreditProducts as $productId => $creditInfo) {
             $customerData = $this->creditCustomerData[$productId] ?? null;
@@ -298,6 +317,24 @@ class Inventory extends Component
 
     public function openTakeInventoryModal()
     {
+        if ($this->isInventoryRestricted()) {
+            ActivityLogs::create([
+                'user_id' => Auth::id(),
+                'action_type' => 'inventory_restricted',
+                'description' => 'Attempted to take inventory before 3:00 AM',
+                'entity_type' => 'inventory',
+                'entity_id' => null,
+                'metadata' => json_encode([
+                    'hour' => (int) now()->format('H'),
+                    'reason' => 'Time restriction: inventory not allowed before 3:00 AM',
+                ]),
+            ]);
+
+            session()->flash('error', 'Inventory can only be taken after 3:00 AM. Please try again later.');
+
+            return;
+        }
+
         $this->showTakeInventoryModal = true;
         $this->resetForm();
         $this->loadProductStocks();
@@ -414,6 +451,11 @@ class Inventory extends Component
 
     public function updateInventory()
     {
+        if ($this->isInventoryRestricted()) {
+            session()->flash('error', 'Inventory can only be edited after 3:00 AM.');
+
+            return;
+        }
 
         if (! $this->isEditing || ! $this->editingRecordId) {
             session()->flash('error', 'Invalid edit operation');
@@ -562,57 +604,57 @@ class Inventory extends Component
 
                 // Check if we need to create a NEW stock entry or reuse existing
                 // We need a new stock ONLY if the closing units changed
-$stockIdToUse = $originalStockId;
+                $stockIdToUse = $originalStockId;
 
-// Only update stock if the original inventory stock record is STILL the latest
-// one for this product (i.e. no restock or later inventory has happened since)
-$newerStockExists = $originalStock
-    ? DB::table('stocks')
-        ->where('product_id', $productId)
-        ->where('created_at', '>', $originalStock->created_at)
-        ->exists()
-    : false;
+                // Only update stock if the original inventory stock record is STILL the latest
+                // one for this product (i.e. no restock or later inventory has happened since)
+                $newerStockExists = $originalStock
+                    ? DB::table('stocks')
+                        ->where('product_id', $productId)
+                        ->where('created_at', '>', $originalStock->created_at)
+                        ->exists()
+                    : false;
 
-if (! $newerStockExists) {
-    // Safe to update: this is still the current stock, correct it
-    if ($originalStock && $originalStock->total_units != $closingUnits) {
-        // Update the existing stock record in place — no new row needed,
-        // we just fix the value that was wrong
-        DB::table('stocks')
-            ->where('id', $originalStock->id)
-            ->update([
-                'total_units' => $closingUnits,
-                'cost_margin' => $sellingPrice - ($originalStock->cost_price ?? 0),
-                'notes'       => 'Corrected via inventory edit - ' . $salesDate,
-                'updated_at'  => now(),
-            ]);
-    } elseif (! $originalStock) {
-        // Original sale had no stock record at all — create one
-        $newStockRows[] = [
-            'product_id'   => $productId,
-            'total_units'  => $closingUnits,
-            'supplier_id'  => null,
-            'total_cost'   => 0,
-            'cost_price'   => 0,
-            'cost_margin'  => $sellingPrice,
-            'free_units'   => 0,
-            'notes'        => 'Created via inventory edit - ' . $salesDate,
-            'restock_date' => null,
-            'metadata'     => json_encode([
-                'source'     => 'inventory_edit',
-                'sales_date' => $salesDate,
-                'created_by' => Auth::id(),
-            ]),
-            'created_at'   => now(),
-            'updated_at'   => now(),
-        ];
-        $stockIdToUse = null;
-    }
-    // else: stock unchanged, keep $stockIdToUse = $originalStockId
-} else {
-    // Newer stock exists — do not touch stocks table, only fix sales numbers
-    Log::debug("Skipping stock update for product $productId — newer stock exists after $salesDate");
-}
+                if (! $newerStockExists) {
+                    // Safe to update: this is still the current stock, correct it
+                    if ($originalStock && $originalStock->total_units != $closingUnits) {
+                        // Update the existing stock record in place — no new row needed,
+                        // we just fix the value that was wrong
+                        DB::table('stocks')
+                            ->where('id', $originalStock->id)
+                            ->update([
+                                'total_units' => $closingUnits,
+                                'cost_margin' => $sellingPrice - ($originalStock->cost_price ?? 0),
+                                'notes' => 'Corrected via inventory edit - '.$salesDate,
+                                'updated_at' => now(),
+                            ]);
+                    } elseif (! $originalStock) {
+                        // Original sale had no stock record at all — create one
+                        $newStockRows[] = [
+                            'product_id' => $productId,
+                            'total_units' => $closingUnits,
+                            'supplier_id' => null,
+                            'total_cost' => 0,
+                            'cost_price' => 0,
+                            'cost_margin' => $sellingPrice,
+                            'free_units' => 0,
+                            'notes' => 'Created via inventory edit - '.$salesDate,
+                            'restock_date' => null,
+                            'metadata' => json_encode([
+                                'source' => 'inventory_edit',
+                                'sales_date' => $salesDate,
+                                'created_by' => Auth::id(),
+                            ]),
+                            'created_at' => now(),
+                            'updated_at' => now(),
+                        ];
+                        $stockIdToUse = null;
+                    }
+                    // else: stock unchanged, keep $stockIdToUse = $originalStockId
+                } else {
+                    // Newer stock exists — do not touch stocks table, only fix sales numbers
+                    Log::debug("Skipping stock update for product $productId — newer stock exists after $salesDate");
+                }
 
                 $salesRows[$productId] = [
                     'product_id' => $productId,
@@ -665,53 +707,53 @@ if (! $newerStockExists) {
                 DB::table('daily_sales')->insert(array_values($salesRows));
                 Log::debug('Inserted updated sales records', ['count' => count($salesRows)]);
 
-    // Delete old credit sales then re-insert
-    DB::table('credit_sales')
-        ->whereIn('daily_sale_id', function ($query) use ($salesDate) {
-            $query->select('id')->from('daily_sales')->where('sales_date', $salesDate);
-        })
-        ->delete();
+                // Delete old credit sales then re-insert
+                DB::table('credit_sales')
+                    ->whereIn('daily_sale_id', function ($query) use ($salesDate) {
+                        $query->select('id')->from('daily_sales')->where('sales_date', $salesDate);
+                    })
+                    ->delete();
 
-    $insertedSales = DB::table('daily_sales')
-        ->where('sales_date', $salesDate)
-        ->whereIn('product_id', array_keys($salesRows))
-        ->where('created_at', '>=', now()->subSeconds(5))
-        ->get()
-        ->keyBy('product_id');
+                $insertedSales = DB::table('daily_sales')
+                    ->where('sales_date', $salesDate)
+                    ->whereIn('product_id', array_keys($salesRows))
+                    ->where('created_at', '>=', now()->subSeconds(5))
+                    ->get()
+                    ->keyBy('product_id');
 
-    $creditSalesRows = [];
-    foreach ($this->productStocks as $productId => $stockData) {
-        $creditUnits = (float) ($stockData['credit_units'] ?? 0);
-        if ($creditUnits > 0 && isset($insertedSales[$productId])) {
-            $product  = $this->allProducts[$productId] ?? null;
-            $customer = $this->creditCustomerData[$productId] ?? null;
-            if ($product && $customer) {
-                $creditSalesRows[] = [
-                    'daily_sale_id'  => $insertedSales[$productId]->id,
-                    'product_id'     => $productId,
-                    'customer_name'  => $customer['name'],
-                    'customer_phone' => $customer['phone'],
-                    'units_credited' => $creditUnits,
-                    'credit_amount'  => $creditUnits * ($product->selling_price ?? 0),
-                    'credit_date'    => $salesDate,
-                    'status'         => 'unpaid',
-                    'metadata'       => json_encode([
-                        'edited_by'     => Auth::id(),
-                        'selling_price' => $product->selling_price ?? 0,
-                        'product_name'  => $product->name,
-                        'is_edited'     => true,
-                    ]),
-                    'created_at'     => now(),
-                    'updated_at'     => now(),
-                ];
+                $creditSalesRows = [];
+                foreach ($this->productStocks as $productId => $stockData) {
+                    $creditUnits = (float) ($stockData['credit_units'] ?? 0);
+                    if ($creditUnits > 0 && isset($insertedSales[$productId])) {
+                        $product = $this->allProducts[$productId] ?? null;
+                        $customer = $this->creditCustomerData[$productId] ?? null;
+                        if ($product && $customer) {
+                            $creditSalesRows[] = [
+                                'daily_sale_id' => $insertedSales[$productId]->id,
+                                'product_id' => $productId,
+                                'customer_name' => $customer['name'],
+                                'customer_phone' => $customer['phone'],
+                                'units_credited' => $creditUnits,
+                                'credit_amount' => $creditUnits * ($product->selling_price ?? 0),
+                                'credit_date' => $salesDate,
+                                'status' => 'unpaid',
+                                'metadata' => json_encode([
+                                    'edited_by' => Auth::id(),
+                                    'selling_price' => $product->selling_price ?? 0,
+                                    'product_name' => $product->name,
+                                    'is_edited' => true,
+                                ]),
+                                'created_at' => now(),
+                                'updated_at' => now(),
+                            ];
+                        }
+                    }
+                }
+
+                if (! empty($creditSalesRows)) {
+                    DB::table('credit_sales')->insert($creditSalesRows);
+                }
             }
-        }
-    }
-
-    if (! empty($creditSalesRows)) {
-        DB::table('credit_sales')->insert($creditSalesRows);
-    }
-}
             // Calculate total_money correctly: sum of all payment methods
             $totalMoney = $this->cashAmount + $this->momoAmount + $this->hubtelAmount;
 
@@ -910,6 +952,12 @@ if (! $newerStockExists) {
 
     public function actuallySubmitInventory()
     {
+        if ($this->isInventoryRestricted()) {
+            session()->flash('error', 'Inventory can only be taken after 3:00 AM.');
+
+            return;
+        }
+
         $recordDate = $this->salesDate ?: now()->format('Y-m-d');
 
         Log::debug('fetched record date: '.$recordDate);
@@ -969,7 +1017,7 @@ if (! $newerStockExists) {
                 $product = $this->allProducts[$productId] ?? null;
                 $currentStock = $this->allStocks[$productId] ?? null;
 
-                Log::debug("log current stock for product", [
+                Log::debug('log current stock for product', [
                     'currentStock' => $currentStock,
                     'product' => $product,
                 ]);
@@ -1027,125 +1075,124 @@ if (! $newerStockExists) {
                 Log::info('calculated sales');
 
                 // Replace the existing $newStockRows[] assignment with:
-               $salesRows[$productId] = [
-    'product_id'    => $productId,
-    'stock_id'      => $currentStock->id ?? null,  // will be overwritten after stock insert
-    'sales_date'    => $recordDate,                 // $recordDate not $salesDate
-    'opening_stock' => $openingStock,
-    'closing_stock' => $closingUnits,
-    'opening_boxes' => $openingBoxes,
-    'closing_boxes' => $closingBoxes,
-    'damaged_units' => $damagedUnits,
-    'credit_units'  => $creditUnits,
-    'credit_amount' => $creditAmount,
-    'loss_amount'   => $lossAmount,
-    'total_amount'  => $cashRevenue,
-    'unit_profit'   => $unitProfit,
-    'metadata'      => json_encode([
-        'selling_price' => $sellingPrice,
-        'cost_margin'   => $currentStock->cost_margin,
-    ]),
-    'created_at'    => now(),
-    'updated_at'    => now(),
-];
+                $salesRows[$productId] = [
+                    'product_id' => $productId,
+                    'stock_id' => $currentStock->id ?? null,  // will be overwritten after stock insert
+                    'sales_date' => $recordDate,                 // $recordDate not $salesDate
+                    'opening_stock' => $openingStock,
+                    'closing_stock' => $closingUnits,
+                    'opening_boxes' => $openingBoxes,
+                    'closing_boxes' => $closingBoxes,
+                    'damaged_units' => $damagedUnits,
+                    'credit_units' => $creditUnits,
+                    'credit_amount' => $creditAmount,
+                    'loss_amount' => $lossAmount,
+                    'total_amount' => $cashRevenue,
+                    'unit_profit' => $unitProfit,
+                    'metadata' => json_encode([
+                        'selling_price' => $sellingPrice,
+                        'cost_margin' => $currentStock->cost_margin,
+                    ]),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
 
-
-$newStockRows[] = [
-    'product_id'   => $productId,
-    'total_units'  => $closingUnits,
-    'supplier_id'  => $currentStock->supplier_id,
-    'total_cost'   => $currentStock->total_cost,
-    'cost_price'   => $currentStock->cost_price,
-    'cost_margin'  => $sellingPrice - ($currentStock->cost_price),
-    'free_units'   => 0,
-    'notes'        => 'End of day inventory - ' . $recordDate,
-    'restock_date' => $currentStock->restock_date,
-    'metadata'     => json_encode([
-        'source'            => 'daily_inventory',
-        'previous_stock_date' => $currentStock->created_at,
-        'opening_stock'     => $openingStock,
-        'units_sold'        => $unitsSold,
-        'damaged_units'     => $damagedUnits,
-        'credit_units'      => $creditUnits,
-        'created_by'        => Auth::id(),
-    ]),
-    'created_at'   => now(),
-    'updated_at'   => now(),
-];
-//log the entire array
-Log::debug('Prepared sales row for product '.$productId, $salesRows);
+                $newStockRows[] = [
+                    'product_id' => $productId,
+                    'total_units' => $closingUnits,
+                    'supplier_id' => $currentStock->supplier_id,
+                    'total_cost' => $currentStock->total_cost,
+                    'cost_price' => $currentStock->cost_price,
+                    'cost_margin' => $sellingPrice - ($currentStock->cost_price),
+                    'free_units' => 0,
+                    'notes' => 'End of day inventory - '.$recordDate,
+                    'restock_date' => $currentStock->restock_date,
+                    'metadata' => json_encode([
+                        'source' => 'daily_inventory',
+                        'previous_stock_date' => $currentStock->created_at,
+                        'opening_stock' => $openingStock,
+                        'units_sold' => $unitsSold,
+                        'damaged_units' => $damagedUnits,
+                        'credit_units' => $creditUnits,
+                        'created_by' => Auth::id(),
+                    ]),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
+                // log the entire array
+                Log::debug('Prepared sales row for product '.$productId, $salesRows);
 
                 Log::debug('checked new sales for product: '.$productId);
             }
-Log::debug('prepared all sales rows');
+            Log::debug('prepared all sales rows');
 
-// 1. Insert closing-stock records and link their IDs back to salesRows
-if (! empty($newStockRows)) {
-    DB::table('stocks')->insert($newStockRows);
+            // 1. Insert closing-stock records and link their IDs back to salesRows
+            if (! empty($newStockRows)) {
+                DB::table('stocks')->insert($newStockRows);
 
-    $insertedStocks = DB::table('stocks')
-        ->whereIn('product_id', array_column($newStockRows, 'product_id'))
-        ->where('created_at', '>=', now()->subSeconds(5))
-        ->orderBy('created_at', 'desc')
-        ->get()
-        ->keyBy('product_id');
+                $insertedStocks = DB::table('stocks')
+                    ->whereIn('product_id', array_column($newStockRows, 'product_id'))
+                    ->where('created_at', '>=', now()->subSeconds(5))
+                    ->orderBy('created_at', 'desc')
+                    ->get()
+                    ->keyBy('product_id');
 
-    foreach ($salesRows as $productId => &$row) {
-        if (isset($insertedStocks[$productId])) {
-            $row['stock_id'] = $insertedStocks[$productId]->id;
-        }
-    }
-    unset($row);
-}
-
-// 2. Insert daily sales — ONCE
-if (! empty($salesRows)) {
-    DB::table('daily_sales')->insert(array_values($salesRows));
-    Log::debug('Submitted new sales', ['count' => count($salesRows)]);
-
-    // 3. Handle credit sales
-    $insertedSales = DB::table('daily_sales')
-        ->where('sales_date', $recordDate)
-        ->whereIn('product_id', array_keys($salesRows))
-        ->where('created_at', '>=', now()->subSeconds(5))
-        ->get()
-        ->keyBy('product_id');
-
-    $creditSalesRows = [];
-    foreach ($this->productStocks as $productId => $stockData) {
-        $creditUnits = (float) ($stockData['credit_units'] ?? 0);
-        if ($creditUnits > 0 && isset($insertedSales[$productId])) {
-            $product  = $this->allProducts[$productId] ?? null;
-            $customer = $this->creditCustomerData[$productId] ?? null;
-            if ($product && $customer) {
-                $creditSalesRows[] = [
-                    'daily_sale_id'  => $insertedSales[$productId]->id,
-                    'product_id'     => $productId,
-                    'customer_name'  => $customer['name'],
-                    'customer_phone' => $customer['phone'],
-                    'units_credited' => $creditUnits,
-                    'credit_amount'  => $creditUnits * ($product->selling_price ?? 0),
-                    'credit_date'    => $recordDate,
-                    'status'         => 'unpaid',
-                    'metadata'       => json_encode([
-                        'selling_price' => $product->selling_price ?? 0,
-                        'recorded_by'   => Auth::id(),
-                        'product_name'  => $product->name,
-                    ]),
-                    'created_at'     => now(),
-                    'updated_at'     => now(),
-                ];
+                foreach ($salesRows as $productId => &$row) {
+                    if (isset($insertedStocks[$productId])) {
+                        $row['stock_id'] = $insertedStocks[$productId]->id;
+                    }
+                }
+                unset($row);
             }
-        }
-    }
 
-    if (! empty($creditSalesRows)) {
-        DB::table('credit_sales')->insert($creditSalesRows);
-        Log::debug('Created credit sales records', ['count' => count($creditSalesRows)]);
-    }
-}
+            // 2. Insert daily sales — ONCE
+            if (! empty($salesRows)) {
+                DB::table('daily_sales')->insert(array_values($salesRows));
+                Log::debug('Submitted new sales', ['count' => count($salesRows)]);
 
-Log::debug('updated all stocks');
+                // 3. Handle credit sales
+                $insertedSales = DB::table('daily_sales')
+                    ->where('sales_date', $recordDate)
+                    ->whereIn('product_id', array_keys($salesRows))
+                    ->where('created_at', '>=', now()->subSeconds(5))
+                    ->get()
+                    ->keyBy('product_id');
+
+                $creditSalesRows = [];
+                foreach ($this->productStocks as $productId => $stockData) {
+                    $creditUnits = (float) ($stockData['credit_units'] ?? 0);
+                    if ($creditUnits > 0 && isset($insertedSales[$productId])) {
+                        $product = $this->allProducts[$productId] ?? null;
+                        $customer = $this->creditCustomerData[$productId] ?? null;
+                        if ($product && $customer) {
+                            $creditSalesRows[] = [
+                                'daily_sale_id' => $insertedSales[$productId]->id,
+                                'product_id' => $productId,
+                                'customer_name' => $customer['name'],
+                                'customer_phone' => $customer['phone'],
+                                'units_credited' => $creditUnits,
+                                'credit_amount' => $creditUnits * ($product->selling_price ?? 0),
+                                'credit_date' => $recordDate,
+                                'status' => 'unpaid',
+                                'metadata' => json_encode([
+                                    'selling_price' => $product->selling_price ?? 0,
+                                    'recorded_by' => Auth::id(),
+                                    'product_name' => $product->name,
+                                ]),
+                                'created_at' => now(),
+                                'updated_at' => now(),
+                            ];
+                        }
+                    }
+                }
+
+                if (! empty($creditSalesRows)) {
+                    DB::table('credit_sales')->insert($creditSalesRows);
+                    Log::debug('Created credit sales records', ['count' => count($creditSalesRows)]);
+                }
+            }
+
+            Log::debug('updated all stocks');
 
             if ($mostSoldProductId && $drinksTotal > 0) {
                 // Replace the DB::table('daily_sales_summaries')->insert with:

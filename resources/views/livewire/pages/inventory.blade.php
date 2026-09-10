@@ -26,11 +26,20 @@
             </div>
 
             <div class="flex items-center space-x-3">
+                @if($inventoryRestricted)
+                    <div class="bg-amber-50 border border-amber-200 rounded-lg px-4 py-2 text-sm text-amber-700 flex items-center space-x-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                        </svg>
+                        <span>Inventory can only be taken after 3:00 AM</span>
+                    </div>
+                @endif
                 {{-- Date selector (binds to selectedDate if you want to query historical days later) --}}
                 <input type="date" wire:model="selectedDate"
                     class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
                 <button wire:click="openTakeInventoryModal"
-                    class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2">
+                    @if($inventoryRestricted) disabled @endif
+                    class="bg-blue-600 text-white px-6 py-2 rounded-lg transition-colors flex items-center space-x-2 @if($inventoryRestricted) opacity-50 cursor-not-allowed @else hover:bg-blue-700 @endif">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                             d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
@@ -167,7 +176,8 @@
                                         @endhaspermission
                                         @haspermission('modify', 'inventory')
                                             <button wire:click="openEditModal({{ $record->first_id }})"
-                                                class="text-amber-600 cursor-pointer hover:text-amber-900 flex items-center space-x-1">
+                                                @if($inventoryRestricted) disabled @endif
+                                                class="text-amber-600 flex items-center space-x-1 @if($inventoryRestricted) opacity-50 cursor-not-allowed @else cursor-pointer hover:text-amber-900 @endif">
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor"
                                                     viewBox="0 0 24 24">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
