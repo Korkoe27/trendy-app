@@ -39,7 +39,7 @@ Route::middleware(['auth', 'must.change.password'])->group(function () {
 
     Route::get('stocks', Stocks::class)->name('stocks')->middleware('permission:stocks,view');
 
-    Route::get('stock-movements', StockMovements::class)->name('stock-movements')->middleware('permission:stocks,view');
+    Route::get('stock-movements', StockMovements::class)->name('stock-movements')->middleware('permission:stocks,modify');
 
     Route::get('inventory', Inventory::class)->name('inventory')->middleware('permission:inventory,create');
 

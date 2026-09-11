@@ -3,7 +3,6 @@
 namespace App\Livewire\Pages;
 
 use App\Models\Categories;
-use App\Models\DailySales;
 use App\Models\Product;
 use App\Models\Stock;
 use Livewire\Component;
@@ -81,10 +80,6 @@ class StockMovements extends Component
             ->orderBy('created_at', 'asc')
             ->get();
 
-        $dailySales = DailySales::where('product_id', $productId)
-            ->get()
-            ->keyBy('sales_date');
-
         $movements = [];
         $previousTotal = 0;
         $totalPurchased = 0;
@@ -116,15 +111,6 @@ class StockMovements extends Component
                 $unitsSold = (float) $metadata['units_sold'];
                 $damaged = isset($metadata['damaged_units']) ? (float) $metadata['damaged_units'] : 0;
                 $credit = isset($metadata['credit_units']) ? (float) $metadata['credit_units'] : 0;
-            } else {
-                $salesDate = $metadata['sales_date'] ?? $stock->created_at->format('Y-m-d');
-                $dailySale = $dailySales->get($salesDate);
-
-                if ($dailySale) {
-                    $unitsSold = max(0, $dailySale->opening_stock - $dailySale->closing_stock - $dailySale->damaged_units - $dailySale->credit_units);
-                    $damaged = $dailySale->damaged_units;
-                    $credit = $dailySale->credit_units;
-                }
             }
 
             if ($type === 'purchase') {

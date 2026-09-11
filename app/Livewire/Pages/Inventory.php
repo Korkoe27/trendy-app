@@ -71,14 +71,8 @@ class Inventory extends Component
     public function mount()
     {
 
-        $currentHour = (int) now()->format('H');
-        if ($currentHour >= 0 && $currentHour < 6) {
-            $this->selectedDate = now()->subDay()->format('Y-m-d');
-            $this->salesDate = now()->subDay()->format('Y-m-d');
-        } else {
-            $this->selectedDate = now()->format('Y-m-d');
-            $this->salesDate = now()->format('Y-m-d');
-        }
+        $this->selectedDate = $this->defaultRecordDate();
+        $this->salesDate = $this->defaultRecordDate();
 
         $this->inventoryRestricted = $this->isInventoryRestricted();
 
@@ -112,7 +106,19 @@ class Inventory extends Component
         Log::debug('Checking inventory restriction - Current Hour: '.$currentHour);
         $isSuperAdmin = Auth::user()?->role?->name === 'Super Admin';
 
-        return $currentHour < 3 && ! $isSuperAdmin;
+        return $currentHour < 15 && ! $isSuperAdmin;
+    }
+
+    private const CLOSED_DAYS = [1]; // Carbon 'N': 1 = Monday (pub closed)
+
+    private function defaultRecordDate(): string
+    {
+        $date = now()->subDay();
+        while (in_array((int) $date->format('N'), self::CLOSED_DAYS, true)) {
+            $date = $date->subDay();
+        }
+
+        return $date->format('Y-m-d');
     }
 
     protected $rules = [
@@ -290,7 +296,7 @@ class Inventory extends Component
     public function proceedWithInventory()
     {
         if ($this->isInventoryRestricted()) {
-            session()->flash('error', 'Inventory can only be taken after 3:00 AM.');
+            session()->flash('error', 'Inventory can only be taken after 3:00 PM.');
 
             return;
         }
@@ -321,16 +327,16 @@ class Inventory extends Component
             ActivityLogs::create([
                 'user_id' => Auth::id(),
                 'action_type' => 'inventory_restricted',
-                'description' => 'Attempted to take inventory before 3:00 AM',
+                'description' => 'Attempted to take inventory before 3:00 PM',
                 'entity_type' => 'inventory',
                 'entity_id' => null,
                 'metadata' => json_encode([
                     'hour' => (int) now()->format('H'),
-                    'reason' => 'Time restriction: inventory not allowed before 3:00 AM',
+                    'reason' => 'Time restriction: inventory not allowed before 3:00 PM',
                 ]),
             ]);
 
-            session()->flash('error', 'Inventory can only be taken after 3:00 AM. Please try again later.');
+            session()->flash('error', 'Inventory can only be taken after 3:00 PM. Please try again later.');
 
             return;
         }
@@ -452,7 +458,7 @@ class Inventory extends Component
     public function updateInventory()
     {
         if ($this->isInventoryRestricted()) {
-            session()->flash('error', 'Inventory can only be edited after 3:00 AM.');
+            session()->flash('error', 'Inventory can only be edited after 3:00 PM.');
 
             return;
         }
@@ -808,10 +814,7 @@ class Inventory extends Component
     public function resetForm()
     {
         $this->currentStep = 1;
-        $currentHour = (int) now()->format('H');
-        $this->salesDate = ($currentHour >= 0 && $currentHour < 6)
-            ? now()->subDay()->format('Y-m-d')
-            : now()->format('Y-m-d');
+        $this->salesDate = $this->defaultRecordDate();
         $this->productStocks = [];
     }
 
@@ -953,7 +956,7 @@ class Inventory extends Component
     public function actuallySubmitInventory()
     {
         if ($this->isInventoryRestricted()) {
-            session()->flash('error', 'Inventory can only be taken after 3:00 AM.');
+            session()->flash('error', 'Inventory can only be taken after 3:00 PM.');
 
             return;
         }
