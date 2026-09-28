@@ -203,7 +203,7 @@
 
 
                                     @haspermission('delete', 'stocks')
-                                        <button wire:click="deleteStockEntry({{ $stock->product_id }})"
+                                        <button wire:click="deleteStockEntry({{ $stock->id }})"
                                             wire:confirm="Are you sure you want to delete this stock entry?"
                                             class="text-red-600 hover:text-red-900" title="Delete Stock">
                                             <svg class="w-4 h-4" fill="none" stroke="currentColor"

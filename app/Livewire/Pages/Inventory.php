@@ -634,6 +634,47 @@ class Inventory extends Component
                                 'notes' => 'Corrected via inventory edit - '.$salesDate,
                                 'updated_at' => now(),
                             ]);
+
+                        // Keep the ledger in sync: replace (not add to) the correction for this
+                        // stock row each time it's edited, relative to its original recorded
+                        // delta, so re-editing the same record stays idempotent.
+                        $originalMovementDelta = (float) DB::table('stock_movements')
+                            ->where('reference_type', 'stock')
+                            ->where('reference_id', $originalStock->id)
+                            ->sum('quantity_delta');
+
+                        $correctedDelta = ($closingUnits - $openingStock) - $originalMovementDelta;
+
+                        $existingCorrection = DB::table('stock_movements')
+                            ->where('reference_type', 'stock_correction')
+                            ->where('reference_id', $originalStock->id)
+                            ->first();
+
+                        $correctionPayload = [
+                            'product_id' => $productId,
+                            'type' => 'correction',
+                            'quantity_delta' => $correctedDelta,
+                            'occurred_at' => \Carbon\Carbon::parse($salesDate),
+                            'metadata' => json_encode([
+                                'corrected_closing' => $closingUnits,
+                                'original_opening' => $openingStock,
+                                'edited_by' => Auth::id(),
+                            ]),
+                            'created_by' => Auth::id(),
+                            'updated_at' => now(),
+                        ];
+
+                        if ($existingCorrection) {
+                            DB::table('stock_movements')
+                                ->where('id', $existingCorrection->id)
+                                ->update($correctionPayload);
+                        } else {
+                            DB::table('stock_movements')->insert($correctionPayload + [
+                                'reference_type' => 'stock_correction',
+                                'reference_id' => $originalStock->id,
+                                'created_at' => now(),
+                            ]);
+                        }
                     } elseif (! $originalStock) {
                         // Original sale had no stock record at all — create one
                         $newStockRows[] = [
@@ -646,9 +687,11 @@ class Inventory extends Component
                             'free_units' => 0,
                             'notes' => 'Created via inventory edit - '.$salesDate,
                             'restock_date' => null,
+                            'occurred_at' => \Carbon\Carbon::parse($salesDate),
                             'metadata' => json_encode([
                                 'source' => 'inventory_edit',
                                 'sales_date' => $salesDate,
+                                'opening_stock' => $openingStock,
                                 'created_by' => Auth::id(),
                             ]),
                             'created_at' => now(),
@@ -706,6 +749,41 @@ class Inventory extends Component
                         $newStock = $newStockIds[$productId] ?? null;
                         $salesRow['stock_id'] = $newStock ? $newStock->id : null;
                     }
+                }
+                unset($salesRow);
+
+                // Record the ledger movement for each newly created stock row.
+                $editMovementRows = [];
+                foreach ($newStockRows as $stockRow) {
+                    $insertedStock = $newStockIds[$stockRow['product_id']] ?? null;
+
+                    if (! $insertedStock) {
+                        continue;
+                    }
+
+                    $stockMetadata = json_decode($stockRow['metadata'], true) ?? [];
+                    $delta = (float) $stockRow['total_units'] - (float) ($stockMetadata['opening_stock'] ?? 0);
+
+                    $editMovementRows[] = [
+                        'product_id' => $stockRow['product_id'],
+                        'type' => 'edit',
+                        'quantity_delta' => $delta,
+                        'reference_type' => 'stock',
+                        'reference_id' => $insertedStock->id,
+                        'occurred_at' => $stockRow['occurred_at'],
+                        'metadata' => json_encode([
+                            'opening_stock' => $stockMetadata['opening_stock'] ?? null,
+                            'closing_stock' => $stockRow['total_units'],
+                            'edited_by' => Auth::id(),
+                        ]),
+                        'created_by' => Auth::id(),
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ];
+                }
+
+                if (! empty($editMovementRows)) {
+                    DB::table('stock_movements')->insert($editMovementRows);
                 }
             }
 
@@ -1110,6 +1188,7 @@ class Inventory extends Component
                     'free_units' => 0,
                     'notes' => 'End of day inventory - '.$recordDate,
                     'restock_date' => $currentStock->restock_date,
+                    'occurred_at' => \Carbon\Carbon::parse($recordDate),
                     'metadata' => json_encode([
                         'source' => 'daily_inventory',
                         'previous_stock_date' => $currentStock->created_at,
@@ -1146,6 +1225,42 @@ class Inventory extends Component
                     }
                 }
                 unset($row);
+
+                // Record the corresponding ledger movement for each closing-stock row.
+                $movementRows = [];
+                foreach ($newStockRows as $stockRow) {
+                    $insertedStock = $insertedStocks[$stockRow['product_id']] ?? null;
+
+                    if (! $insertedStock) {
+                        continue;
+                    }
+
+                    $stockMetadata = json_decode($stockRow['metadata'], true) ?? [];
+                    $delta = (float) $stockRow['total_units'] - (float) ($stockMetadata['opening_stock'] ?? 0);
+
+                    $movementRows[] = [
+                        'product_id' => $stockRow['product_id'],
+                        'type' => 'inventory',
+                        'quantity_delta' => $delta,
+                        'reference_type' => 'stock',
+                        'reference_id' => $insertedStock->id,
+                        'occurred_at' => $stockRow['occurred_at'],
+                        'metadata' => json_encode([
+                            'units_sold' => $stockMetadata['units_sold'] ?? null,
+                            'damaged_units' => $stockMetadata['damaged_units'] ?? null,
+                            'credit_units' => $stockMetadata['credit_units'] ?? null,
+                            'opening_stock' => $stockMetadata['opening_stock'] ?? null,
+                            'closing_stock' => $stockRow['total_units'],
+                        ]),
+                        'created_by' => Auth::id(),
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ];
+                }
+
+                if (! empty($movementRows)) {
+                    DB::table('stock_movements')->insert($movementRows);
+                }
             }
 
             // 2. Insert daily sales — ONCE

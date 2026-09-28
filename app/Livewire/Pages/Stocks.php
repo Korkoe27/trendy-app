@@ -672,7 +672,6 @@ use Livewire\WithPagination;
                     ->get()
                     ->keyBy('id');
 
-                $stockCreateRows = [];
                 $expenseItems = [];
                 $productDetails = [];
                 $supplierNames = [];
@@ -718,9 +717,12 @@ use Livewire\WithPagination;
                         'supplier_name' => $supplier['name'] ?? null,
                     ];
 
-                    // Get the latest stock record for this product to carry forward the running total
+                    // Get the latest stock record for this product to carry forward the running total.
+                    // Locked for the duration of this transaction so two concurrent restocks of the
+                    // same product can't both read the same previous total and silently drop one.
                     $latestStock = Stock::where('product_id', $product->id)
                         ->latest('created_at')
+                        ->lockForUpdate()
                         ->first();
 
                     $previousUnits = $latestStock ? $latestStock->total_units : 0;
@@ -731,7 +733,7 @@ use Livewire\WithPagination;
                     $costPrice = $totalUnitsToAdd > 0 ? $totalCost / $totalUnitsToAdd : 0;
                     $costMargin = (float) $product->selling_price - $costPrice;
 
-                    $stockCreateRows[] = [
+                    $newStockId = DB::table('stocks')->insertGetId([
                         'product_id' => $product->id,
                         'total_units' => $cumulativeTotalUnits,   // running total becomes current stock
                         'supplier_id' => $supplierId,
@@ -741,9 +743,27 @@ use Livewire\WithPagination;
                         'free_units' => $freeUnits,
                         'notes' => $this->notes,
                         'restock_date' => $restockDate,
+                        'occurred_at' => Carbon::parse($restockDate),
                         'created_at' => now(),
                         'updated_at' => now(),
-                    ];
+                    ]);
+
+                    DB::table('stock_movements')->insert([
+                        'product_id' => $product->id,
+                        'type' => 'purchase',
+                        'quantity_delta' => $totalUnitsToAdd,
+                        'reference_type' => 'stock',
+                        'reference_id' => $newStockId,
+                        'occurred_at' => Carbon::parse($restockDate),
+                        'metadata' => json_encode([
+                            'free_units' => $freeUnits,
+                            'total_cost' => $totalCost,
+                            'supplier_id' => $supplierId,
+                        ]),
+                        'created_by' => Auth::id(),
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
 
                     $productDetails[] = [
                         'name' => $product->name,
@@ -758,11 +778,7 @@ use Livewire\WithPagination;
                 }
 
                 Log::debug('prepared stock count');
-                // Batch insert new stock records
-                if (! empty($stockCreateRows)) {
-                    DB::table('stocks')->insert($stockCreateRows);
-                    Log::info('Created new stock entries', ['count' => count($stockCreateRows)]);
-                }
+                Log::info('Created new stock entries', ['count' => $successCount]);
 
                 $productNamesList = implode(', ', array_column($productDetails, 'name'));
                 $truncatedProductList = strlen($productNamesList) > 200
@@ -882,33 +898,60 @@ use Livewire\WithPagination;
             ]);
         }
 
-        public function deleteStockEntry($productId)
+        public function deleteStockEntry($stockId)
         {
-            $stock = Stock::where('product_id', $productId)->first();
+            $stock = Stock::find($stockId);
 
             if ($stock) {
-                $product = Product::find($productId);
-                $boxesEquivalent = $product->units_per_box > 0 ? round($stock->total_units / $product->units_per_box, 2) : 0;
+                DB::transaction(function () use ($stock) {
+                    $product = $stock->product;
+                    $boxesEquivalent = $product->units_per_box > 0 ? round($stock->total_units / $product->units_per_box, 2) : 0;
 
-                // Create activity log for deletion
-                ActivityLogs::create([
-                    'user_id' => Auth::id(),
-                    'action_type' => 'stock_delete',
-                    'description' => "Stock entry deleted for {$product->name}",
-                    'entity_type' => 'stock_record',
-                    'entity_id' => $productId,
-                    'metadata' => json_encode([
-                        'product_name' => $product->name,
-                        'deleted_units' => $stock->total_units,
-                        'deleted_boxes_equivalent' => $boxesEquivalent,
-                        'supplier' => $stock->supplier,
-                        'total_cost' => $stock->total_cost,
-                        'cost_price' => $stock->cost_price,
-                        'timestamp' => now(),
-                    ]),
-                ]);
+                    // Create activity log for deletion
+                    ActivityLogs::create([
+                        'user_id' => Auth::id(),
+                        'action_type' => 'stock_delete',
+                        'description' => "Stock entry deleted for {$product->name}",
+                        'entity_type' => 'stock_record',
+                        'entity_id' => $stock->product_id,
+                        'metadata' => json_encode([
+                            'product_name' => $product->name,
+                            'deleted_units' => $stock->total_units,
+                            'deleted_boxes_equivalent' => $boxesEquivalent,
+                            'supplier' => $stock->supplier,
+                            'total_cost' => $stock->total_cost,
+                            'cost_price' => $stock->cost_price,
+                            'timestamp' => now(),
+                        ]),
+                    ]);
 
-                $stock->delete();
+                    // Reverse whatever this stock row contributed to the ledger so
+                    // SUM(quantity_delta) stays accurate after the row is gone.
+                    $originalDelta = DB::table('stock_movements')
+                        ->where('reference_type', 'stock')
+                        ->where('reference_id', $stock->id)
+                        ->sum('quantity_delta');
+
+                    if ($originalDelta != 0) {
+                        DB::table('stock_movements')->insert([
+                            'product_id' => $stock->product_id,
+                            'type' => 'deletion_reversal',
+                            'quantity_delta' => -$originalDelta,
+                            'reference_type' => 'stock_deletion',
+                            'reference_id' => $stock->id,
+                            'occurred_at' => now(),
+                            'metadata' => json_encode([
+                                'deleted_stock_id' => $stock->id,
+                                'reversed_delta' => $originalDelta,
+                            ]),
+                            'created_by' => Auth::id(),
+                            'created_at' => now(),
+                            'updated_at' => now(),
+                        ]);
+                    }
+
+                    $stock->delete();
+                });
             }
 
             session()->flash('message', 'Stock entry deleted successfully');

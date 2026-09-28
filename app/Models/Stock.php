@@ -21,6 +21,10 @@ class Stock extends Model
 
     protected $table = 'stocks';
 
+    protected $casts = [
+        'occurred_at' => 'datetime',
+    ];
+
     public function product()
     {
         return $this->belongsTo(Product::class, 'product_id');

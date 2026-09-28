@@ -229,7 +229,7 @@
                                                    @elseif($movement['type'] === 'inventory') bg-blue-500
                                                    @else bg-amber-500 @endif"
                                             style="height: {{ max(5, round(($movement['closing'] / $maxClosing) * $chartHeight)) }}px;"
-                                            title="{{ $movement['date_full'] }} — {{ number_format($movement['closing']) }} units ({{ ucfirst($movement['type']) }})">
+                                            title="{{ $movement['date_full'] }} — {{ number_format($movement['closing']) }} units ({{ ucwords(str_replace('_', ' ', $movement['type'])) }})">
                                         </div>
                                     </div>
                                 @endforeach
@@ -277,7 +277,7 @@
                                                            @if($movement['type'] === 'purchase') bg-green-100 text-green-700
                                                            @elseif($movement['type'] === 'inventory') bg-blue-100 text-blue-700
                                                            @else bg-amber-100 text-amber-700 @endif">
-                                                        {{ ucfirst($movement['type']) }}
+                                                        {{ ucwords(str_replace('_', ' ', $movement['type'])) }}
                                                     </span>
                                                 </td>
                                                 <td class="px-4 py-3 whitespace-nowrap text-right text-sm text-gray-600">
