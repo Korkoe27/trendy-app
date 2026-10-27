@@ -25,11 +25,16 @@ class DatabaseSeeder extends Seeder
                 ['name' => 'inventory', 'description' => 'Inventory Management'],
                 ['name' => 'expenses', 'description' => 'Expense data and Information'],
                 ['name' => 'settings', 'description' => 'Application Settings'],
+                ['name' => 'debt_payments', 'description' => 'Debt Payments'],
             ];
 
+            // firstOrCreate: the debt_payments module is also inserted by a migration.
             $createdModules = [];
             foreach ($modules as $module) {
-                $createdModules[$module['name']] = Module::create($module);
+                $createdModules[$module['name']] = Module::firstOrCreate(
+                    ['name' => $module['name']],
+                    ['description' => $module['description']]
+                );
             }
 
             // Create Super Admin Role

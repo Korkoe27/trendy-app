@@ -55,6 +55,10 @@ return [
 
     'url' => env('APP_URL', 'http://localhost'),
 
+    'HUBTEL_SMS_URL' => env('HUBTEL_SMS_URL', 'https://smsc.hubtel.com/v1/messages/send'),
+    'HUBTEL_SMS_USER' => env('HUBTEL_SMS_USER', ''),
+    'HUBTEL_SMS_KEY' => env('HUBTEL_SMS_KEY', ''),
+
     /*
     |--------------------------------------------------------------------------
     | Application Timezone

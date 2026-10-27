@@ -4,6 +4,7 @@ use App\Http\Controllers\ProductController;
 use App\Http\Controllers\UserAuthController;
 use App\Livewire\Pages\Analytics;
 use App\Livewire\Pages\Dashboard;
+use App\Livewire\Pages\DebtPayments;
 use App\Livewire\Pages\Inventory;
 use App\Livewire\Pages\Logs;
 use App\Livewire\Pages\Products;
@@ -48,6 +49,8 @@ Route::middleware(['auth', 'must.change.password'])->group(function () {
     Route::get('logs', Logs::class)->name('logs')->middleware('permission:logs,view');
 
     Route::get('expenses', Spending::class)->name('spending')->middleware('permission:expenses,view');
+
+    Route::get('debt-payments', DebtPayments::class)->name('debt-payments')->middleware('permission:debt_payments,view');
 
     Route::get('users', Users::class)->name('users')->middleware('permission:users,view');
 
