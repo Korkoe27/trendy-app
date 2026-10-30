@@ -199,9 +199,8 @@
 
                     @if ($existingTab && $existingTabBlocked)
                         <div class="bg-amber-50 border border-amber-200 text-amber-800 text-sm rounded-lg px-4 py-3">
-                            <span class="font-semibold">{{ $existingTab->customer_name }}</span> already has an open tab
-                            <span class="font-semibold">{{ $existingTab->code }}</span> taken by {{ $existingTab->taken_by_name ?: 'another waiter' }}.
-                            Only {{ $existingTab->taken_by_name ?: 'that waiter' }}, a manager or an admin can add to it.
+                            This customer already has an open tab with another waiter, so you cannot add to it here.
+                            Ask a manager or an admin to take the order.
                         </div>
                     @elseif ($existingTab)
                         <div class="bg-indigo-50 border border-indigo-200 text-indigo-800 text-sm rounded-lg px-4 py-3">

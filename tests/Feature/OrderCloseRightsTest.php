@@ -179,7 +179,7 @@ class OrderCloseRightsTest extends TestCase
         Livewire::test(Orders::class)->assertSee('Close Tab');
 
         $this->actingAs($this->waiter('Esi'));
-        Livewire::test(Orders::class)->assertSee('Kwame Mensah')->assertDontSee('Close Tab')->assertDontSee('+ Add Items');
+        Livewire::test(Orders::class)->assertDontSee('Kwame Mensah')->assertDontSee('Close Tab')->assertDontSee('+ Add Items');
 
         $this->actingAs($this->manager());
         Livewire::test(Orders::class)->assertSee('Close Tab');
@@ -267,7 +267,8 @@ class OrderCloseRightsTest extends TestCase
             $this->orders->placeOrAddToTab($this->waiter('Esi'), 'Kwame Mensah', '024 123 4567', [$this->beer => 1]);
             $this->fail('Esi must not be able to add to Ama\'s tab.');
         } catch (\DomainException $e) {
-            $this->assertStringContainsString('taken by Ama', $e->getMessage());
+            $this->assertStringContainsString('open tab with another waiter', $e->getMessage());
+            $this->assertStringNotContainsString('Ama', $e->getMessage());
         }
 
         $this->assertSame(1, Order::count());
@@ -285,8 +286,9 @@ class OrderCloseRightsTest extends TestCase
         Livewire::test(Orders::class)
             ->call('openTakeOrder')
             ->set('customerPhone', '0241234567')
-            ->assertSee('taken by Ama')
-            ->assertSee('Only Ama, a manager or an admin can add to it');
+            ->assertSee('already has an open tab with another waiter')
+            ->assertDontSee('Kwame Mensah')
+            ->assertDontSee('Ama');
     }
 
     public function test_managers_and_admins_get_the_right_by_migration_and_nobody_else_does(): void

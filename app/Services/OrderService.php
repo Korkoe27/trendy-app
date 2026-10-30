@@ -123,9 +123,8 @@ class OrderService
             }
 
             if (! $tab->canBeManagedBy($staff)) {
-                $owner = $tab->taken_by_name ?: 'the waiter who took it';
-
-                throw new \DomainException("{$tab->customer_name} already has an open tab ({$tab->code}) taken by {$owner}. Only {$owner}, a manager or an admin can add to it.");
+                // Waiters only see their own orders, so nothing about the other waiter's tab is revealed.
+                throw new \DomainException('This customer already has an open tab with another waiter, so you cannot add to it here. Ask a manager or an admin to take the order.');
             }
 
             return [$this->addItems($tab, $staff, $items, $notes), true];

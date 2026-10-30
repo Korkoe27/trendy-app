@@ -140,7 +140,7 @@ class Dashboard extends Component
             return collect();
         }
 
-        return Order::unpaid()->with('items')->orderBy('created_at')->get();
+        return Order::unpaid()->visibleTo(Auth::user())->with('items')->orderBy('created_at')->get();
     }
 
     public function getTotalUnpaidTabsAmountProperty()

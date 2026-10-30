@@ -109,10 +109,20 @@ class Orders extends Component
         return (bool) Auth::user()?->hasPermission('modify', 'order_debts');
     }
 
+    /** An order this user is allowed to see, or 403 (a waiter never reaches another waiter's order). */
+    private function visibleOrder(?int $orderId): Order
+    {
+        $order = Order::findOrFail($orderId);
+
+        abort_unless($order->canBeSeenBy(Auth::user()), 403);
+
+        return $order;
+    }
+
     /** The order being added to, edited or closed, or 403 when this user may not touch it. */
     private function manageableOrder(?int $orderId): Order
     {
-        $order = Order::findOrFail($orderId);
+        $order = $this->visibleOrder($orderId);
 
         abort_unless($order->canBeManagedBy(Auth::user()), 403);
 
@@ -259,14 +269,18 @@ class Orders extends Component
     {
         $this->allow('modify');
 
-        $this->run(fn () => $orders->markReady(Order::findOrFail($orderId), Auth::user()), 'Order marked ready.');
+        $order = $this->visibleOrder($orderId);
+
+        $this->run(fn () => $orders->markReady($order, Auth::user()), 'Order marked ready.');
     }
 
     public function serve(OrderService $orders, int $orderId): void
     {
         abort_unless($this->canServe(), 403);
 
-        $this->run(fn () => $orders->serve(Order::findOrFail($orderId), Auth::user()), 'Order served. The tab stays open until it is paid.');
+        $order = $this->visibleOrder($orderId);
+
+        $this->run(fn () => $orders->serve($order, Auth::user()), 'Order served. The tab stays open until it is paid.');
     }
 
     // ------------------------------------------------------------------ close tab
@@ -390,7 +404,7 @@ class Orders extends Component
     {
         $this->allow('delete');
 
-        $this->cancellingOrderId = $orderId;
+        $this->cancellingOrderId = $this->visibleOrder($orderId)->id;
         $this->cancelReason = '';
         $this->resetErrorBag();
         $this->showCancelModal = true;
@@ -409,7 +423,7 @@ class Orders extends Component
         $this->allow('delete');
 
         try {
-            $order = $orders->cancel(Order::findOrFail($this->cancellingOrderId), Auth::user(), $this->cancelReason);
+            $order = $orders->cancel($this->visibleOrder($this->cancellingOrderId), Auth::user(), $this->cancelReason);
         } catch (\DomainException $e) {
             $this->addError('cancelReason', $e->getMessage());
 
@@ -426,7 +440,7 @@ class Orders extends Component
     {
         $this->allow('view');
 
-        $this->viewingOrderId = Order::findOrFail($orderId)->id;
+        $this->viewingOrderId = $this->visibleOrder($orderId)->id;
         $this->showViewModal = true;
     }
 
@@ -440,9 +454,10 @@ class Orders extends Component
 
     public function render(OrderService $orders, MobileMoneyService $momo)
     {
-        $board = $this->filterBoard($orders->board());
+        $board = $this->filterBoard($this->ownOnly($orders->board()));
 
         $history = Order::query()
+            ->visibleTo(Auth::user())
             ->whereIn('status', [Order::STATUS_CLOSED, Order::STATUS_CANCELLED])
             ->when($this->searchTerm !== '', fn ($q) => $this->applySearch($q))
             ->with('items')
@@ -519,6 +534,21 @@ class Orders extends Component
     }
 
     // ------------------------------------------------------------------ helpers
+
+    /** The board is cached for everyone, so a waiter's view is cut down here. */
+    private function ownOnly(array $board): array
+    {
+        $user = Auth::user();
+
+        if (Order::seesAll($user)) {
+            return $board;
+        }
+
+        return array_map(fn (array $column) => array_values(array_filter(
+            $column,
+            fn (array $order) => $order['taken_by'] !== null && $order['taken_by'] === (int) $user->id
+        )), $board);
+    }
 
     private function filterBoard(array $board): array
     {

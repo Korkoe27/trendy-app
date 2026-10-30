@@ -59,6 +59,30 @@ class Order extends Model
         return $query->whereIn('status', self::OPEN_STATUSES);
     }
 
+    /**
+     * Waiters only see the orders they took. Admins and managers (order_debts, modify) and the
+     * bartender (orders, modify: prepares every order) see all of them.
+     */
+    public static function seesAll(?User $user): bool
+    {
+        return (bool) ($user?->hasPermission('modify', 'order_debts') || $user?->hasPermission('modify', 'orders'));
+    }
+
+    public function scopeVisibleTo($query, ?User $user)
+    {
+        if (self::seesAll($user)) {
+            return $query;
+        }
+
+        return $user ? $query->where('taken_by', $user->id) : $query->whereRaw('1 = 0');
+    }
+
+    public function canBeSeenBy(?User $user): bool
+    {
+        return self::seesAll($user)
+            || ($user && $this->taken_by !== null && (int) $this->taken_by === (int) $user->id);
+    }
+
     public function scopeUnpaid($query)
     {
         return $query->where('payment_status', self::PAYMENT_UNPAID)->open();
