@@ -78,7 +78,7 @@
     </div>
 
     <!-- Completed orders: 40% of the screen, stuck to the bottom, scrolls inside -->
-    <div class="mt-auto sticky bottom-0 z-10  xl:h-[30vh] 2xl:h-[40vh] min-h-[11rem] flex flex-col bg-white rounded-lg border border-gray-200 shadow-[0_-6px_16px_rgba(0,0,0,0.08)] overflow-hidden" data-testid="completed-orders">
+    <div class="mt-auto lg:sticky bottom-0 z-10  xl:h-[30vh] 2xl:h-[40vh] min-h-[11rem] flex flex-col bg-white rounded-lg border border-gray-200 shadow-[0_-6px_16px_rgba(0,0,0,0.08)] overflow-hidden" data-testid="completed-orders">
         <div class="shrink-0 px-3 sm:px-4 lg:px-6 py-2 sm:py-3 flex items-center justify-between gap-2 border-b border-gray-100">
             <div>
                 <h3 class="text-base sm:text-lg font-semibold text-gray-900">Completed orders</h3>
