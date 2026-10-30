@@ -71,30 +71,41 @@ class AnalyticsDebtRecoveryTest extends TestCase
 
     public function test_a_debt_payment_lowers_the_loss_on_the_page(): void
     {
-        $this->pay(100);
+        $this->pay(50);
 
         $analytics = $this->analytics();
 
         $this->assertEqualsWithDelta(-80, (float) $analytics->get('accumulatedLosses'), 0.01);
-        $this->assertEqualsWithDelta(100, (float) $analytics->get('debtRecovered'), 0.01);
-        $this->assertEqualsWithDelta(20, (float) $analytics->get('netLosses'), 0.01);
+        $this->assertEqualsWithDelta(50, (float) $analytics->get('debtRecovered'), 0.01);
+        $this->assertEqualsWithDelta(-30, (float) $analytics->get('netLosses'), 0.01);
 
         $analytics->call('loadCharts') // the discrepancies card sits with the charts
             ->assertSee('Recovered from debt payments')
-            ->assertSee('GH₵ 100.00')
+            ->assertSee('GH₵ 50.00')
             ->assertSee('Before debt payments: GH₵ -80.00');
     }
 
-    public function test_paying_the_whole_debt_leaves_only_the_over_collection(): void
+    public function test_paying_the_whole_debt_brings_the_loss_to_zero(): void
     {
-        $this->pay(130);
+        $this->pay(80);
 
-        $this->assertEqualsWithDelta(50, (float) $this->analytics()->get('netLosses'), 0.01);
+        $this->assertEqualsWithDelta(0, (float) $this->analytics()->get('netLosses'), 0.01);
+    }
+
+    public function test_the_months_loss_is_the_debt_payments_figure(): void
+    {
+        $analytics = $this->analytics();
+
+        $this->assertEqualsWithDelta(
+            -(float) $analytics->get('accumulatedLosses'),
+            (new DebtLedger)->monthlyDebt(Carbon::create(2026, 3, 1)),
+            0.01,
+        );
     }
 
     public function test_voiding_the_payment_puts_the_loss_back(): void
     {
-        $this->pay(100);
+        $this->pay(50);
         $payment = \App\Models\DebtPayment::firstOrFail();
 
         (new DebtLedger)->void($payment, 'Entered by mistake', $this->staff);
@@ -104,7 +115,7 @@ class AnalyticsDebtRecoveryTest extends TestCase
 
     public function test_a_range_outside_the_paid_month_is_not_affected(): void
     {
-        $this->pay(130);
+        $this->pay(80);
 
         $analytics = Livewire::test(Analytics::class)
             ->set('timeframe', 'custom')

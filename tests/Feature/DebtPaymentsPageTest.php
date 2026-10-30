@@ -82,6 +82,29 @@ class DebtPaymentsPageTest extends TestCase
             ->assertSee('200.00');
     }
 
+    public function test_over_collected_days_are_listed_and_offset_the_debt(): void
+    {
+        $user = $this->userWithPermissions(['view' => true]);
+
+        // Second day over-collected by 50: the month's debt is 200 - 50 = 150.
+        DB::table('daily_sales_summaries')->insert([
+            'sales_date' => now()->startOfMonth()->addDay()->toDateString(),
+            'drinks_total' => 300,
+            'total_cash' => 350,
+            'product_id' => $this->productId,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        Livewire::actingAs($user)
+            ->test(DebtPayments::class)
+            ->assertSee('Daily differences')
+            ->assertSee('50.00 over')
+            ->assertSee('200.00 short')
+            ->assertSee('150.00 short') // month total
+            ->assertSee('1 short day, 1 over-collected day');
+    }
+
     public function test_recording_a_payment_reduces_outstanding_and_stores_staff(): void
     {
         $user = $this->userWithPermissions(['view' => true, 'create' => true]);

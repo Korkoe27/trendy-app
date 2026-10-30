@@ -40,13 +40,26 @@ class UnpaidTabsDashboardTest extends TestCase
         ]);
     }
 
+    /** A manager: the only kind of user who may close a tab with cash. */
+    private function cashier(): User
+    {
+        $roleId = DB::table('roles')->insertGetId(['name' => 'Cashier', 'created_at' => now(), 'updated_at' => now()]);
+        DB::table('permissions')->insert([
+            'role_id' => $roleId, 'module_id' => DB::table('modules')->where('name', 'order_debts')->value('id'),
+            'can_view' => true, 'can_create' => false, 'can_modify' => true, 'can_delete' => false,
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        return User::forceCreate(['name' => 'Cashier', 'username' => 'cashier', 'phone' => '0241000009', 'role_id' => $roleId, 'password' => '482913', 'must_change_password' => false]);
+    }
+
     public function test_users_who_can_view_debts_see_open_unpaid_tabs_with_the_total(): void
     {
         $service = app(OrderService::class);
         $service->place($this->waiter, 'Kwame Mensah', '0241234567', [$this->beer => 2]);                       // 60
         $ready = $service->markReady($service->place($this->waiter, 'Esi Boateng', '0245550000', [$this->beer => 1]), $this->bartender); // 30
         $paid = $service->markReady($service->place($this->waiter, 'Paid Person', '0205550000', [$this->beer => 5]), $this->bartender);
-        $service->closeWithCash($paid, $this->waiter);
+        $service->closeWithCash($paid, $this->cashier());
         $service->cancel($service->place($this->waiter, 'Cancelled Person', '0205550001', [$this->beer => 9]), $this->waiter, 'Left');
 
         $this->actingAs($this->waiter);

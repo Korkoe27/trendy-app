@@ -14,10 +14,43 @@ class DebtLedger
     public const METHODS = ['cash', 'momo', 'hubtel'];
 
     /**
-     * Days in the month where money collected was less than expected from the stock count.
+     * Every day in the month where money collected differs from what the stock count expected.
      * Uses the same expected/collected formula as Analytics::calculateLossMetrics().
+     *
+     * `difference` is expected - collected: positive when short, negative when over-collected.
      */
-    public function dailyShortfalls(Carbon $month): Collection
+    public function dailyDifferences(Carbon $month): Collection
+    {
+        return $this->rawDifferences($month)
+            ->map(fn ($day) => [
+                'date' => $day['date'],
+                'expected' => round($day['expected'], 2),
+                'collected' => round($day['collected'], 2),
+                'difference' => round($day['difference'], 2),
+            ])
+            ->filter(fn ($day) => abs($day['difference']) >= 0.01)
+            ->values();
+    }
+
+    /**
+     * Signed total for the month: positive is money missing, negative is over-collected. Summed
+     * unrounded so it matches the Total Loss on Analytics to the cent.
+     */
+    public function monthlyNet(Carbon $month): float
+    {
+        return round((float) $this->rawDifferences($month)->sum('difference'), 2);
+    }
+
+    /**
+     * What the month owes. Over-collected days offset short days, so this equals the Total Loss
+     * shown on Analytics for the whole month, and is never negative.
+     */
+    public function monthlyDebt(Carbon $month): float
+    {
+        return max(0.0, $this->monthlyNet($month));
+    }
+
+    private function rawDifferences(Carbon $month): Collection
     {
         $start = $month->copy()->startOfMonth();
         $end = $month->copy()->endOfMonth();
@@ -37,18 +70,11 @@ class DebtLedger
 
                 return [
                     'date' => $summary->sales_date,
-                    'expected' => round($expected, 2),
-                    'collected' => round($collected, 2),
-                    'shortfall' => round($expected - $collected, 2),
+                    'expected' => $expected,
+                    'collected' => $collected,
+                    'difference' => $expected - $collected,
                 ];
-            })
-            ->filter(fn ($day) => $day['shortfall'] >= 0.01)
-            ->values();
-    }
-
-    public function monthlyDebt(Carbon $month): float
-    {
-        return round($this->dailyShortfalls($month)->sum('shortfall'), 2);
+            });
     }
 
     public function paidFor(Carbon $month): float
@@ -59,12 +85,13 @@ class DebtLedger
     }
 
     /**
-     * How much of the shortfall inside a date range has since been paid back, for Analytics.
+     * How much of the loss inside a date range has since been paid back, for Analytics.
      *
-     * A payment belongs to the month whose debt it settles. Within each month the paid amount is
-     * spread over that month's shortfall days in proportion, so a full month recovers exactly what
-     * was paid and a part-month range (the last 7 days) gets its share. Overpayment never counts,
-     * so the result can never exceed the shortfall inside the range.
+     * A payment belongs to the month whose debt it settles. The month's debt is its net loss
+     * (over-collected days offset short days), so a payment is capped at that and spread over the
+     * month's short days in proportion: a full month recovers exactly what was paid, and a
+     * part-month range (the last 7 days) gets its share. Over-collected days recover nothing, and
+     * overpayment never counts.
      */
     public function recoveredBetween(Carbon $start, Carbon $end): float
     {
@@ -73,8 +100,7 @@ class DebtLedger
         $recovered = 0.0;
 
         for ($month = $start->copy()->startOfMonth(); $month->lte($end); $month->addMonth()) {
-            $shortfalls = $this->dailyShortfalls($month);
-            $monthDebt = (float) $shortfalls->sum('shortfall');
+            $monthDebt = $this->monthlyDebt($month);
 
             if ($monthDebt <= 0) {
                 continue;
@@ -86,11 +112,18 @@ class DebtLedger
                 continue;
             }
 
-            $inRange = (float) $shortfalls
-                ->filter(fn ($day) => Carbon::parse($day['date'])->betweenIncluded($start, $end))
-                ->sum('shortfall');
+            $shortDays = $this->dailyDifferences($month)->filter(fn ($day) => $day['difference'] > 0);
+            $shortTotal = (float) $shortDays->sum('difference');
 
-            $recovered += $paid * ($inRange / $monthDebt);
+            if ($shortTotal <= 0) {
+                continue;
+            }
+
+            $inRange = (float) $shortDays
+                ->filter(fn ($day) => Carbon::parse($day['date'])->betweenIncluded($start, $end))
+                ->sum('difference');
+
+            $recovered += $paid * ($inRange / $shortTotal);
         }
 
         return round($recovered, 2);

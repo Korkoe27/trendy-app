@@ -281,6 +281,11 @@ class OrderService
     {
         return $this->locked($order, function (Order $order) use ($staff) {
             $this->assertCanManage($order, $staff);
+
+            if (! Order::canTakeCash($staff)) {
+                throw new \DomainException('Only a manager or an admin can close a tab with cash. Use mobile money, or ask a manager.');
+            }
+
             $this->assertNoActivePayment($order);
 
             return $this->settle($order, $staff, 'cash');

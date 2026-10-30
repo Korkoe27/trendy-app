@@ -41,6 +41,12 @@ class OrderServiceTest extends TestCase
             'can_view' => true, 'can_create' => true, 'can_modify' => false, 'can_delete' => false,
             'created_at' => now(), 'updated_at' => now(),
         ]);
+        // Closing with cash is a manager/admin right (order_debts -> modify); these tests act as a cashier.
+        DB::table('permissions')->insert([
+            'role_id' => $roleId, 'module_id' => DB::table('modules')->where('name', 'order_debts')->value('id'),
+            'can_view' => true, 'can_create' => false, 'can_modify' => true, 'can_delete' => false,
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
         $categoryId = DB::table('categories')->insertGetId(['name' => 'drinks', 'created_at' => now(), 'updated_at' => now()]);
 
         $this->beer = $this->product($categoryId, 'Club Beer (Large)', 30);

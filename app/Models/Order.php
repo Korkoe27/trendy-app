@@ -75,6 +75,15 @@ class Order extends Model
     }
 
     /**
+     * Cash never changes hands through a waiter's close: only admins and managers (order_debts,
+     * modify) may settle a tab with cash. Waiters close their own tabs with mobile money.
+     */
+    public static function canTakeCash(?User $user): bool
+    {
+        return (bool) $user?->hasPermission('modify', 'order_debts');
+    }
+
+    /**
      * Who may add items to, edit and close this order: anyone who can settle tabs on behalf of
      * others (admins and managers: order_debts, modify), or the waiter who created the order.
      */

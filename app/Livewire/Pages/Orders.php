@@ -283,7 +283,8 @@ class Orders extends Component
 
         $this->closingOrderId = $order->id;
         $this->momoPhone = Phone::local($order->customer_phone);
-        $this->paymentMethod = $order->payments()->active()->exists() ? 'momo' : 'cash';
+        // Only admins and managers can take cash; a waiter's close goes through mobile money.
+        $this->paymentMethod = ($order->payments()->active()->exists() || ! Order::canTakeCash(Auth::user())) ? 'momo' : 'cash';
         $this->resetErrorBag();
         $this->showCloseModal = true;
     }
@@ -298,6 +299,12 @@ class Orders extends Component
     public function confirmClose(OrderService $orders): void
     {
         $order = $this->manageableOrder($this->closingOrderId);
+
+        if (! Order::canTakeCash(Auth::user())) {
+            $this->addError('paymentMethod', 'Only a manager or an admin can close a tab with cash. Use mobile money, or ask a manager.');
+
+            return;
+        }
 
         if ($this->paymentMethod !== 'cash') {
             $this->addError('paymentMethod', 'Use "Send payment prompt" for mobile money, or choose cash.');
@@ -504,6 +511,7 @@ class Orders extends Component
             'canServe' => $this->canServe(),
             'canSettle' => $this->canSettle(),
             'canSettleAny' => $this->canSettleAny(),
+            'canTakeCash' => Order::canTakeCash(Auth::user()),
             'userId' => (int) Auth::id(),
             'canCancel' => Auth::user()->hasPermission('delete', 'orders'),
             'modalOpen' => $this->showOrderModal || $this->showCloseModal || $this->showCancelModal || $this->showViewModal,

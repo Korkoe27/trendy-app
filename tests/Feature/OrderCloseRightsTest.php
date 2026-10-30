@@ -92,13 +92,70 @@ class OrderCloseRightsTest extends TestCase
 
         $this->orders->markReady($order->fresh(), $this->bartender());
 
+        // She can open the close window for her own tab, but cash is not hers to take.
         Livewire::test(Orders::class)
             ->call('openCloseModal', $order->id)
+            ->assertSet('paymentMethod', 'momo')
+            ->assertSee('Only a manager or an admin can close a tab with cash')
             ->set('paymentMethod', 'cash')
-            ->call('confirmClose');
+            ->call('confirmClose')
+            ->assertHasErrors('paymentMethod');
 
-        $this->assertSame('closed', $order->fresh()->status);
-        $this->assertSame($ama->id, (int) $order->fresh()->closed_by);
+        $this->assertSame('ready', $order->fresh()->status);
+    }
+
+    public function test_a_waiter_can_never_close_with_cash_but_a_manager_can(): void
+    {
+        $ama = $this->waiter('Ama');
+        $order = $this->readyOrder($ama);
+
+        $this->assertFalse(Order::canTakeCash($ama));
+
+        try {
+            $this->orders->closeWithCash($order, $ama);
+            $this->fail('A waiter must not close a tab with cash.');
+        } catch (\DomainException $e) {
+            $this->assertStringContainsString('Only a manager or an admin can close a tab with cash', $e->getMessage());
+        }
+
+        $this->assertTrue($order->fresh()->isOpen());
+        $this->assertFalse($order->fresh()->isPaid());
+
+        $closed = $this->orders->closeWithCash($order, $this->manager());
+        $this->assertSame('cash', $closed->payment_method);
+        $this->assertSame('closed', $closed->status);
+    }
+
+    public function test_a_waiter_closes_their_own_tab_with_mobile_money(): void
+    {
+        config(['hubtel.payments_enabled' => true]);
+        $this->app->instance(\App\Services\Payments\MobileMoneyGateway::class, new \Tests\Support\FakeMobileMoneyGateway);
+
+        $ama = $this->waiter('Ama');
+        $order = $this->readyOrder($ama);
+
+        $payment = app(MobileMoneyService::class)->start($order, $ama);
+
+        $this->assertSame($order->id, $payment->order_id);
+        $this->assertSame($ama->id, (int) $payment->initiated_by);
+    }
+
+    public function test_the_close_window_hides_the_cash_option_from_a_waiter_but_not_a_manager(): void
+    {
+        $order = $this->readyOrder($ama = $this->waiter('Ama'));
+
+        $this->actingAs($ama);
+        Livewire::test(Orders::class)
+            ->call('openCloseModal', $order->id)
+            ->assertSee('Managers only')
+            ->assertDontSee('COLLECT CASH');
+
+        $this->actingAs($this->manager());
+        Livewire::test(Orders::class)
+            ->call('openCloseModal', $order->id)
+            ->assertSet('paymentMethod', 'cash')
+            ->assertSee('COLLECT CASH')
+            ->assertDontSee('Managers only');
     }
 
     public function test_another_waiter_cannot_add_items_to_or_close_the_order(): void

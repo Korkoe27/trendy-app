@@ -393,7 +393,16 @@
                             @endunless
                         </div>
 
-                        <!-- Cash -->
+                        <!-- Cash: managers and admins only -->
+                        @unless ($canTakeCash)
+                            <div class="flex items-center justify-between gap-3 border-2 border-gray-200 rounded-xl p-4 opacity-60 select-none" aria-disabled="true">
+                                <div>
+                                    <p class="font-bold text-gray-900">Cash settlement</p>
+                                    <p class="text-sm text-gray-500">Only a manager or an admin can close a tab with cash</p>
+                                </div>
+                                <span class="text-xs font-bold text-gray-600 bg-gray-200 rounded-full px-2 py-0.5">Managers only</span>
+                            </div>
+                        @else
                         <label class="flex items-center justify-between gap-3 border-2 rounded-xl p-4 cursor-pointer {{ $paymentMethod === 'cash' ? 'border-blue-600 bg-blue-50' : 'border-gray-200' }}">
                             <div class="flex items-center gap-3">
                                 <input type="radio" wire:model.live="paymentMethod" value="cash" class="text-blue-600" />
@@ -404,6 +413,7 @@
                             </div>
                             <span class="text-xs font-bold text-green-700">Instant clear</span>
                         </label>
+                        @endunless
                     @endif
 
                     @error('paymentMethod') <div class="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-3 py-2">{{ $message }}</div> @enderror
@@ -418,6 +428,8 @@
                                 class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-bold disabled:opacity-40 disabled:cursor-not-allowed">
                                 SEND PAYMENT PROMPT (GH₵ {{ number_format((float) $closingOrder->total, 0) }})
                             </button>
+                        @elseif (! $canTakeCash)
+                            <p class="text-sm text-gray-500 text-right max-w-xs">Mobile money is not available yet. Ask a manager or an admin to close this tab with cash.</p>
                         @else
                             <button wire:click="confirmClose" wire:loading.attr="disabled" @disabled($closingOrder->status === 'pending')
                                 class="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-bold disabled:opacity-40 disabled:cursor-not-allowed">

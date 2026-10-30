@@ -53,7 +53,8 @@ class OrdersPageTest extends TestCase
 
     private function waiter(): User
     {
-        return $this->userWith(['orders' => ['view', 'create'], 'order_debts' => ['view']], 'Garnet');
+        // Can close with cash (order_debts -> modify); the cash-less waiter is covered in OrderCloseRightsTest.
+        return $this->userWith(['orders' => ['view', 'create'], 'order_debts' => ['view', 'modify']], 'Garnet');
     }
 
     private function bartender(): User

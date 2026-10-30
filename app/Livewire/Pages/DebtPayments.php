@@ -215,7 +215,8 @@ class DebtPayments extends Component
         return view('livewire.pages.debt-payments', [
             'payments' => $payments,
             'summary' => $ledger->summary($month),
-            'shortfalls' => $ledger->dailyShortfalls($month),
+            'differences' => $ledger->dailyDifferences($month),
+            'monthNet' => $ledger->monthlyNet($month),
             'month' => $month,
             'modalSummary' => $modalSummary,
             'amountAfter' => $amountAfter,

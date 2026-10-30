@@ -28,7 +28,7 @@
         </div>
 
         <!-- Navigation -->
-        <nav class="flex-1 p-4 space-y-2 overflow-y-auto" style="max-height: calc(100vh - 180px);">
+        <nav class="flex-1 p-4 space-y-2 overflow-y-auto" style="max-height: calc(100vh - 200px);">
             <!-- Dashboard Link -->
             <a href="{{ route('dashboard') }}"
                wire:navigate 

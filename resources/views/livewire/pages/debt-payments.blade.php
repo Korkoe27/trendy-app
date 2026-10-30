@@ -34,7 +34,15 @@
                 <div>
                     <p class="text-sm text-gray-600">Debt for {{ $month->format('F Y') }}</p>
                     <p class="text-2xl font-bold text-gray-900">₵{{ number_format($summary['debt'], 2) }}</p>
-                    <p class="text-xs text-gray-500">{{ $shortfalls->count() }} day{{ $shortfalls->count() !== 1 ? 's' : '' }} with a shortfall</p>
+                    @php
+                        $shortDays = $differences->where('difference', '>', 0)->count();
+                        $overDays = $differences->where('difference', '<', 0)->count();
+                    @endphp
+                    @if ($monthNet < 0)
+                        <p class="text-xs text-green-700">Over-collected by ₵{{ number_format(-$monthNet, 2) }}, nothing to pay</p>
+                    @else
+                        <p class="text-xs text-gray-500">{{ $shortDays }} short day{{ $shortDays !== 1 ? 's' : '' }}, {{ $overDays }} over-collected day{{ $overDays !== 1 ? 's' : '' }}</p>
+                    @endif
                 </div>
                 <div class="bg-gray-100 p-2 rounded-full">
                     <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -101,11 +109,11 @@
         </div>
     </div>
 
-    <!-- Days with shortfall -->
+    <!-- Daily differences -->
     <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
         <div class="px-6 py-4 border-b border-gray-200">
-            <h3 class="text-base font-semibold text-gray-900">Days with a shortfall in {{ $month->format('F Y') }}</h3>
-            <p class="text-sm text-gray-500 mt-0.5">Money collected was less than the stock count expected. These add up to the month's debt.</p>
+            <h3 class="text-base font-semibold text-gray-900">Daily differences in {{ $month->format('F Y') }}</h3>
+            <p class="text-sm text-gray-500 mt-0.5">Over-collected days offset short days, so the total is the same as Total Loss on Analytics for the month.</p>
         </div>
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200">
@@ -114,27 +122,45 @@
                         <th class="px-6 py-3 text-left text-sm font-semibold text-gray-500 uppercase tracking-wider">Date</th>
                         <th class="px-6 py-3 text-left text-sm font-semibold text-gray-500 uppercase tracking-wider">Expected</th>
                         <th class="px-6 py-3 text-left text-sm font-semibold text-gray-500 uppercase tracking-wider">Collected</th>
-                        <th class="px-6 py-3 text-left text-sm font-semibold text-gray-500 uppercase tracking-wider">Shortfall</th>
+                        <th class="px-6 py-3 text-left text-sm font-semibold text-gray-500 uppercase tracking-wider">Difference</th>
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
-                    @forelse ($shortfalls as $day)
+                    @forelse ($differences as $day)
                         <tr class="hover:bg-gray-50">
                             <td class="px-6 py-4 whitespace-nowrap text-base text-gray-900">
                                 {{ \Carbon\Carbon::parse($day['date'])->format('D, M j, Y') }}
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-base text-gray-900">₵{{ number_format($day['expected'], 2) }}</td>
                             <td class="px-6 py-4 whitespace-nowrap text-base text-gray-900">₵{{ number_format($day['collected'], 2) }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-base font-semibold text-red-600">₵{{ number_format($day['shortfall'], 2) }}</td>
+                            @if ($day['difference'] > 0)
+                                <td class="px-6 py-4 whitespace-nowrap text-base font-semibold text-red-600">₵{{ number_format($day['difference'], 2) }} short</td>
+                            @else
+                                <td class="px-6 py-4 whitespace-nowrap text-base font-semibold text-green-600">₵{{ number_format(-$day['difference'], 2) }} over</td>
+                            @endif
                         </tr>
                     @empty
                         <tr>
                             <td colspan="4" class="px-6 py-4 text-base text-gray-500 text-center">
-                                No shortfalls recorded for this month.
+                                No differences recorded for this month.
                             </td>
                         </tr>
                     @endforelse
                 </tbody>
+                @if ($differences->isNotEmpty())
+                    <tfoot class="bg-gray-50">
+                        <tr>
+                            <td colspan="3" class="px-6 py-3 text-base font-semibold text-gray-900">Month total</td>
+                            @if ($monthNet > 0)
+                                <td class="px-6 py-3 whitespace-nowrap text-base font-bold text-red-600">₵{{ number_format($monthNet, 2) }} short</td>
+                            @elseif ($monthNet < 0)
+                                <td class="px-6 py-3 whitespace-nowrap text-base font-bold text-green-600">₵{{ number_format(-$monthNet, 2) }} over</td>
+                            @else
+                                <td class="px-6 py-3 whitespace-nowrap text-base font-bold text-gray-900">₵0.00</td>
+                            @endif
+                        </tr>
+                    </tfoot>
+                @endif
             </table>
         </div>
     </div>
