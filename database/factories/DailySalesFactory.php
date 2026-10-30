@@ -31,10 +31,6 @@ class DailySalesFactory extends Factory
             'closing_stock' => $closing,
             'opening_boxes' => $upb > 0 ? floor($opening / $upb) : 0,
             'closing_boxes' => $upb > 0 ? floor($closing / $upb) : 0,
-            'damaged_units' => 0,
-            'credit_units' => 0,
-            'credit_amount' => 0,
-            'loss_amount' => 0,
             'total_amount' => $sold * $price,
             'unit_profit' => $sold * (float) $stock->cost_margin,
             'metadata' => json_encode(['selling_price' => $price, 'cost_margin' => (float) $stock->cost_margin, 'demo' => true]),
@@ -45,11 +41,11 @@ class DailySalesFactory extends Factory
 
     /**
      * Build the row from the stock the day opened with and the closing stock row that was
-     * written for it. sold = opening - closing - damaged - credit, like the app computes it.
+     * written for it. sold = opening - closing, like the app computes it.
      */
-    public function forClose(Stock $opening, Stock $closing, float $sold, float $damaged, float $credit, Carbon $businessDate, Carbon $enteredAt): static
+    public function forClose(Stock $opening, Stock $closing, float $sold, Carbon $businessDate, Carbon $enteredAt): static
     {
-        return $this->state(function () use ($opening, $closing, $sold, $damaged, $credit, $businessDate, $enteredAt) {
+        return $this->state(function () use ($opening, $closing, $sold, $businessDate, $enteredAt) {
             $product = $opening->product;
             $price = (float) $product->selling_price;
             $upb = (int) $product->units_per_box;
@@ -63,10 +59,6 @@ class DailySalesFactory extends Factory
                 'closing_stock' => $closing->total_units,
                 'opening_boxes' => $upb > 0 ? floor($opening->total_units / $upb) : 0,
                 'closing_boxes' => $upb > 0 ? floor($closing->total_units / $upb) : 0,
-                'damaged_units' => $damaged,
-                'credit_units' => $credit,
-                'credit_amount' => round($credit * $price, 2),
-                'loss_amount' => round($damaged * $price, 2),
                 'total_amount' => round($sold * $price, 2),
                 'unit_profit' => round($sold * $costMargin, 2),
                 'metadata' => json_encode([

@@ -29,7 +29,7 @@ class DebtLedgerTest extends TestCase
         $this->ledger = new DebtLedger;
         $this->month = Carbon::create(2026, 3, 1);
 
-        $roleId = DB::table('roles')->insertGetId(['name' => 'Bartender', 'created_at' => now(), 'updated_at' => now()]);
+        $roleId = DB::table('roles')->insertGetId(['name' => 'Ledger Tester', 'created_at' => now(), 'updated_at' => now()]);
         $categoryId = DB::table('categories')->insertGetId(['name' => 'Drinks', 'created_at' => now(), 'updated_at' => now()]);
         $this->productId = DB::table('products')->insertGetId(['name' => 'Water', 'category_id' => $categoryId, 'created_at' => now(), 'updated_at' => now()]);
 
@@ -184,5 +184,72 @@ class DebtLedgerTest extends TestCase
         $summary = $this->ledger->summary($this->month);
         $this->assertSame(0.0, $summary['outstanding']);
         $this->assertSame(100.0, $summary['overpaid']);
+    }
+
+    // ---------------------------------------------------------------- recovered loss (Analytics)
+
+    private function recovered(string $from, string $to): float
+    {
+        return $this->ledger->recoveredBetween(Carbon::parse($from), Carbon::parse($to));
+    }
+
+    public function test_nothing_is_recovered_until_a_payment_is_made(): void
+    {
+        $this->assertSame(0.0, $this->recovered('2026-03-01', '2026-03-31'));
+    }
+
+    public function test_a_payment_recovers_that_much_of_the_whole_month(): void
+    {
+        $this->pay(50);
+        $this->assertSame(50.0, $this->recovered('2026-03-01', '2026-03-31'));
+
+        $this->pay(80);
+        $this->assertSame(130.0, $this->recovered('2026-03-01', '2026-03-31'));
+    }
+
+    public function test_a_part_month_range_gets_its_proportional_share(): void
+    {
+        $this->pay(65); // half of the month's 130 debt
+
+        // 3 March carries 100 of the 130, 5 March carries 30.
+        $this->assertSame(50.0, $this->recovered('2026-03-01', '2026-03-03'));
+        $this->assertSame(15.0, $this->recovered('2026-03-04', '2026-03-31'));
+        $this->assertSame(0.0, $this->recovered('2026-03-06', '2026-03-31'), 'No shortfall in range, nothing recovered');
+    }
+
+    public function test_it_never_exceeds_the_shortfall_in_the_range(): void
+    {
+        $this->pay(130);
+
+        $this->assertSame(100.0, $this->recovered('2026-03-01', '2026-03-03'));
+        $this->assertSame(130.0, $this->recovered('2026-02-01', '2026-03-31'));
+    }
+
+    public function test_overpayment_after_an_edit_is_capped_at_the_month_debt(): void
+    {
+        $this->pay(130);
+        DB::table('daily_sales_summaries')->where('sales_date', '2026-03-03')->update(['total_cash' => 400]); // day 1 now fully collected
+
+        $this->assertSame(30.0, $this->recovered('2026-03-01', '2026-03-31'));
+    }
+
+    public function test_voided_payments_do_not_count(): void
+    {
+        $payment = $this->pay(100);
+        $this->assertSame(100.0, $this->recovered('2026-03-01', '2026-03-31'));
+
+        $this->ledger->void($payment, 'Wrong month', $this->staff);
+
+        $this->assertSame(0.0, $this->recovered('2026-03-01', '2026-03-31'));
+    }
+
+    public function test_a_range_spanning_two_months_sums_each_months_recovery(): void
+    {
+        $this->pay(130);
+        // April has a 999 shortfall on the 1st and nothing paid yet.
+        $this->assertSame(130.0, $this->recovered('2026-03-01', '2026-04-30'));
+
+        $this->ledger->recordPayment(Carbon::create(2026, 4, 1), 'Kofi', null, 500, 'cash', Carbon::create(2026, 4, 10), null, $this->staff);
+        $this->assertSame(630.0, $this->recovered('2026-03-01', '2026-04-30'));
     }
 }

@@ -134,9 +134,8 @@
                                                 {{ $user->name }}
                                             </div>
                                             <div class="text-base uppercase text-gray-500">
-                                                {{ $user->username }} @if ($user->email)
-                                                    • {{ $user->email }}
-                                                @endif
+                                                {{ $user->phone ? \App\Support\Phone::local($user->phone) : 'NO PHONE' }}
+                                                @if ($user->username) • {{ $user->username }} @endif
                                             </div>
                                         </div>
                                     </div>
@@ -176,7 +175,7 @@
                                                 </svg>
                                             </button>
                                             <button wire:click="resetUserPassword({{ $user->id }})"
-                                                class="text-orange-600 hover:text-orange-800" title="Reset Password">
+                                                class="text-orange-600 hover:text-orange-800" title="Reset PIN" wire:confirm="Reset this user's PIN? They will be asked to choose a new one at next sign in.">
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor"
                                                     viewBox="0 0 24 24">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -360,14 +359,26 @@
                             @enderror
                         </div>
 
-                        <!-- Username -->
+                        <!-- Phone (login) -->
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">
-                                Username <span class="text-red-500">*</span>
+                                Phone Number <span class="text-red-500">*</span>
                             </label>
+                            <input type="tel" wire:model="phone" inputmode="tel"
+                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                placeholder="024 123 4567" required />
+                            <p class="text-xs text-gray-500 mt-1">The user signs in with this number.</p>
+                            @error('phone')
+                                <div class="text-red-500 text-xs mt-1">{{ $message }}</div>
+                            @enderror
+                        </div>
+
+                        <!-- Username -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Username</label>
                             <input type="text" wire:model="username"
                                 class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                placeholder="Enter username" required />
+                                placeholder="Optional, shown in logs (generated if blank)" />
                             @error('username')
                                 <div class="text-red-500 text-xs mt-1">{{ $message }}</div>
                             @enderror
@@ -402,32 +413,25 @@
                             @enderror
                         </div>
 
-                        <!-- Password -->
+                        <!-- PIN -->
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">
-                                Password @if (!$isEditMode)
-                                    <span class="text-red-500">*</span>
-                                @endif
+                                @if ($isEditMode) Reset PIN @else Temporary PIN <span class="text-red-500">*</span> @endif
                             </label>
-                            <input type="password" wire:model="password"
-                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                placeholder="{{ $isEditMode ? 'Leave blank to keep current password' : 'Enter password' }}"
-                                {{ $isEditMode ? '' : 'required' }} />
-                            @error('password')
+                            <div class="flex gap-2">
+                                <input type="text" wire:model="pin" inputmode="numeric" maxlength="6" autocomplete="off"
+                                    class="w-full px-4 py-2 border border-gray-300 rounded-lg tracking-widest focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    placeholder="{{ $isEditMode ? 'Leave blank to keep the current PIN' : '6 digits' }}"
+                                    {{ $isEditMode ? '' : 'required' }} />
+                                <button type="button" wire:click="generatePin"
+                                    class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 whitespace-nowrap">
+                                    Generate
+                                </button>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">The user must choose their own PIN the first time they sign in.</p>
+                            @error('pin')
                                 <div class="text-red-500 text-xs mt-1">{{ $message }}</div>
                             @enderror
-                        </div>
-
-                        <!-- Password Confirmation -->
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">
-                                Confirm Password @if (!$isEditMode)
-                                    <span class="text-red-500">*</span>
-                                @endif
-                            </label>
-                            <input type="password" wire:model="password_confirmation"
-                                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                placeholder="Confirm password" {{ $isEditMode ? '' : 'required' }} />
                         </div>
 
                         <!-- Status -->
@@ -479,6 +483,10 @@
                         <div>
                             <label class="text-sm font-medium text-gray-500">Full Name</label>
                             <p class="mt-1 text-base text-gray-900 uppercase">{{ $viewUser->name }}</p>
+                        </div>
+                        <div>
+                            <label class="text-sm font-medium text-gray-500">Phone</label>
+                            <p class="mt-1 text-base text-gray-900">{{ $viewUser->phone ? \App\Support\Phone::local($viewUser->phone) : 'Not set' }}</p>
                         </div>
                         <div>
                             <label class="text-sm font-medium text-gray-500">Username</label>

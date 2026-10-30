@@ -12,6 +12,9 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         //
+        // Provider callbacks cannot carry a CSRF token; the webhook authenticates with a secret URL token instead.
+        $middleware->validateCsrfTokens(except: ['webhooks/*']);
+
         $middleware->alias([
             'permission'=>CheckPermission::class,
             'must.change.password'=>MustChangePassword::class,

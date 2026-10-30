@@ -87,8 +87,6 @@ class BackfillStockMovements extends Command
                         // read side (StockMovements::buildMovements) looks for these at the
                         // top level, not nested.
                         'units_sold' => $metadata['units_sold'] ?? null,
-                        'damaged_units' => $metadata['damaged_units'] ?? null,
-                        'credit_units' => $metadata['credit_units'] ?? null,
                         'original_metadata' => $metadata,
                     ]),
                     'created_at' => now(),

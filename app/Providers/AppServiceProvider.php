@@ -3,6 +3,8 @@
 namespace App\Providers;
 
 use App\Models\Permission;
+use App\Services\Payments\HubtelGateway;
+use App\Services\Payments\MobileMoneyGateway;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\{Log,DB};
@@ -16,7 +18,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // The mobile-money provider the order system uses. Swap this binding to change provider.
+        $this->app->bind(MobileMoneyGateway::class, HubtelGateway::class);
     }
 
     /**

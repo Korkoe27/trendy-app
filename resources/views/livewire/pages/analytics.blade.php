@@ -188,7 +188,6 @@
                     <div class="flex-1">
                         <p class="text-sm font-medium text-gray-600">Units Sold</p>
                         <p class="text-3xl font-bold text-gray-900 mt-2">{{ number_format($totalItemsSold) }}</p>
-                        <p class="text-xs text-gray-500 mt-1">Damage rate: {{ number_format($damageRate, 1) }}%</p>
                     </div>
                     <div class="flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium
                                 {{ $itemsSoldGrowth >= 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700' }}">
@@ -270,9 +269,9 @@
         Total Loss:
         <span
             class="font-semibold text-lg
-                {{ $accumulatedLosses < 0 ? 'text-red-500' : ($accumulatedLosses > 0 ? 'text-green-400' : 'text-gray-400') }}
+                {{ $netLosses < 0 ? 'text-red-500' : ($netLosses > 0 ? 'text-green-400' : 'text-gray-400') }}
 ">
-            GH₵ {{ number_format($accumulatedLosses, 2) }}
+            GH₵ {{ number_format($netLosses, 2) }}
         </span>
         •
         On the House:
@@ -280,6 +279,12 @@
             GH₵ {{ number_format($totalOnTheHouse, 2) }}
         </span>
     </p>
+    @if ($debtRecovered > 0)
+        <p class="text-xs text-gray-500 -mt-2 mb-4">
+            Before debt payments: GH₵ {{ number_format($accumulatedLosses, 2) }}
+            • Recovered from debt payments: <span class="font-semibold text-green-600">GH₵ {{ number_format($debtRecovered, 2) }}</span>
+        </p>
+    @endif
 </div>
 
             {{-- Payment Method Breakdown --}}

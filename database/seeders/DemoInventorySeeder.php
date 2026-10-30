@@ -40,14 +40,12 @@ class DemoInventorySeeder extends Seeder
         $stats = app(InventoryDaySimulator::class)->simulate(days: 45);
 
         $this->command?->info(sprintf(
-            'Simulated %d trading day(s) (%s to %s): %d stock rows, %d daily sales rows, %d credit rows (₵%s on credit).',
+            'Simulated %d trading day(s) (%s to %s): %d stock rows, %d daily sales rows.',
             $stats['days'],
             $stats['from'] ?? '-',
             $stats['to'] ?? '-',
             $stats['stock_rows'],
             $stats['daily_sales'],
-            $stats['credit_rows'],
-            number_format($stats['credit_amount'], 2),
         ));
     }
 

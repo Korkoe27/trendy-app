@@ -3,6 +3,8 @@
 namespace Database\Seeders;
 
 use App\Models\{Module,Permission,Role,User};
+use App\Rules\SixDigitPin;
+use App\Support\Phone;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 
@@ -26,6 +28,8 @@ class DatabaseSeeder extends Seeder
                 ['name' => 'expenses', 'description' => 'Expense data and Information'],
                 ['name' => 'settings', 'description' => 'Application Settings'],
                 ['name' => 'debt_payments', 'description' => 'Debt Payments'],
+                ['name' => 'orders', 'description' => 'Orders'],
+                ['name' => 'order_debts', 'description' => 'Unpaid Tabs / Order Debts'],
             ];
 
             // firstOrCreate: the debt_payments module is also inserted by a migration.
@@ -130,6 +134,25 @@ class DatabaseSeeder extends Seeder
                 'role_id' => $manager->id,
                 'module_id' => $createdModules['expenses']->id,
                 'can_create' => true,
+                'can_view' => true,
+                'can_modify' => true,
+                'can_delete' => false,
+            ]);
+
+            // Managers see the order board and may close (settle) any order.
+            Permission::create([
+                'role_id' => $manager->id,
+                'module_id' => $createdModules['orders']->id,
+                'can_create' => false,
+                'can_view' => true,
+                'can_modify' => false,
+                'can_delete' => false,
+            ]);
+
+            Permission::create([
+                'role_id' => $manager->id,
+                'module_id' => $createdModules['order_debts']->id,
+                'can_create' => false,
                 'can_view' => true,
                 'can_modify' => true,
                 'can_delete' => false,
@@ -321,13 +344,19 @@ class DatabaseSeeder extends Seeder
             ]);
 
             // Super Admin
+            // Sign in is phone + 6-digit PIN. Override with SEED_ADMIN_PHONE / SEED_ADMIN_PIN; otherwise a PIN is generated and printed.
+            $adminPin = env('SEED_ADMIN_PIN') ?: SixDigitPin::generate();
+
             User::create([
                 'name' => 'Garnet Koku',
                 'username' => 'garnet',
+                'phone' => env('SEED_ADMIN_PHONE', '0558731186'),
                 'email' => 'garnet@trendy.com',
                 'role_id' => $superAdmin->id,
-                'password' => bcrypt('admin'),
+                'password' => $adminPin,
             ]);
+
+            $this->command?->info('Super Admin created. Phone: '.Phone::local(env('SEED_ADMIN_PHONE', '0558731186')).' PIN: '.$adminPin);
 
             // User::create([
             //     'name' => 'Korkoe Dumashie',

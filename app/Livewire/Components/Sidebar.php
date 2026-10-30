@@ -9,6 +9,9 @@ class Sidebar extends Component
     public $isOpen = false;
     public $activeItem = null;
 
+    /** The sidebar shows the user's name, so redraw it when they change it in Settings. */
+    protected $listeners = ['profile-updated' => '$refresh'];
+
     public function toggleSidebar()
     {
         $this->isOpen = !$this->isOpen;

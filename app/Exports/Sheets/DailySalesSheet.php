@@ -32,13 +32,9 @@ class DailySalesSheet implements FromCollection, WithHeadings, WithTitle, WithMa
                 'daily_sales.closing_stock',
                 'daily_sales.opening_boxes',
                 'daily_sales.closing_boxes',
-                'daily_sales.damaged_units',
-                'daily_sales.loss_amount',
-                'daily_sales.credit_units',
-                'daily_sales.credit_amount',
                 'daily_sales.unit_profit',
                 'daily_sales.total_amount',
-                DB::raw('(daily_sales.opening_stock - daily_sales.closing_stock - COALESCE(daily_sales.damaged_units, 0) - COALESCE(daily_sales.credit_units, 0)) as units_sold')
+                DB::raw('(daily_sales.opening_stock - daily_sales.closing_stock) as units_sold')
             )
             ->orderBy('daily_sales.sales_date')
             ->orderBy('products.name')
@@ -49,8 +45,7 @@ class DailySalesSheet implements FromCollection, WithHeadings, WithTitle, WithMa
     {
         return [
             'Date', 'Product Name', 'Opening Stock', 'Closing Stock',
-            'Opening Boxes', 'Closing Boxes', 'Damaged Units', 'Loss Amount (GH₵)',
-            'Credit Units', 'Credit Amount (GH₵)', 'Unit Profit (GH₵)', 'Total Amount (GH₵)',
+            'Opening Boxes', 'Closing Boxes', 'Unit Profit (GH₵)', 'Total Amount (GH₵)',
             'Units Sold',
         ];
     }
@@ -64,10 +59,6 @@ class DailySalesSheet implements FromCollection, WithHeadings, WithTitle, WithMa
             $row->closing_stock ?? 0,
             $row->opening_boxes ?? 0,
             $row->closing_boxes ?? 0,
-            $row->damaged_units ?? 0,
-            number_format($row->loss_amount ?? 0, 2),
-            $row->credit_units ?? 0,
-            number_format($row->credit_amount ?? 0, 2),
             number_format($row->unit_profit ?? 0, 2),
             number_format($row->total_amount, 2),
             $row->units_sold ?? 0,

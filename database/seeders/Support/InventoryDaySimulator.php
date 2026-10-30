@@ -2,19 +2,17 @@
 
 namespace Database\Seeders\Support;
 
-use App\Models\CreditSales;
 use App\Models\DailySales;
 use App\Models\DailySalesSummary;
 use App\Models\Product;
 use App\Models\Stock;
 use App\Models\Supplier;
 use Carbon\Carbon;
-use Database\Factories\CreditSalesFactory;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Generates believable trading history (stock, daily sales, daily summaries, credit sales and
+ * Generates believable trading history (stock, daily sales, daily summaries and
  * ledger rows) that reconciles end to end. Local/staging only. Requires dev dependencies (faker),
  * because it builds rows through the model factories.
  */
@@ -27,7 +25,7 @@ class InventoryDaySimulator
     private const DAY_FACTOR = [2 => 0.7, 3 => 0.8, 4 => 0.9, 5 => 1.6, 6 => 2.0, 7 => 1.2];
 
     /**
-     * @return array{days: int, from: ?string, to: ?string, stock_rows: int, daily_sales: int, credit_rows: int, credit_amount: float}
+     * @return array{days: int, from: ?string, to: ?string, stock_rows: int, daily_sales: int}
      */
     public function simulate(int $days = 45, bool $fresh = false, ?int $seed = null): array
     {
@@ -54,7 +52,7 @@ class InventoryDaySimulator
         $lastDay = now()->subDay()->startOfDay();
         $firstDay = $this->firstDay($lastDay->copy()->subDays(max(1, $days) - 1));
 
-        $stats = ['days' => 0, 'from' => null, 'to' => null, 'stock_rows' => 0, 'daily_sales' => 0, 'credit_rows' => 0, 'credit_amount' => 0.0];
+        $stats = ['days' => 0, 'from' => null, 'to' => null, 'stock_rows' => 0, 'daily_sales' => 0];
 
         if ($firstDay->gt($lastDay)) {
             return $stats;
@@ -93,7 +91,6 @@ class InventoryDaySimulator
     public function cleanup(): void
     {
         DB::transaction(function () {
-            DB::table('credit_sales')->where('metadata->demo', true)->delete();
             DB::table('daily_sales')->where('metadata->demo', true)->delete();
             DB::table('daily_sales_summaries')->where('metadata->demo', true)->delete();
             DB::table('stock_movements')->where('metadata->demo', true)->delete();
@@ -118,14 +115,6 @@ class InventoryDaySimulator
             }
         }
 
-        // Some days a few products go out on credit.
-        $creditProducts = [];
-        if ($this->chance(25)) {
-            $ids = $products->pluck('id')->all();
-            shuffle($ids);
-            $creditProducts = array_slice($ids, 0, mt_rand(1, min(3, count($ids))));
-        }
-
         $enteredDay = $day->copy()->addDay();
         $enteredAt = $enteredDay->copy()->setTime(15, mt_rand(0, 40), 0);
         $dailySales = collect();
@@ -138,31 +127,19 @@ class InventoryDaySimulator
             }
 
             $available = (float) $opening->total_units;
-            $damaged = $this->chance(3) ? mt_rand(1, 3) : 0;
-            $credit = in_array($p->id, $creditProducts, true) ? mt_rand(1, 6) : 0;
             $sold = (int) round($base[$p->id] * $factor * (0.8 + mt_rand(0, 40) / 100));
-
-            $damaged = min($damaged, $available);
-            $credit = min($credit, $available - $damaged);
-            $sold = max(0, min($sold, $available - $damaged - $credit));
+            $sold = max(0, min($sold, $available));
 
             $rowAt = $enteredAt->copy()->addSeconds($i * 2);
 
             $closing = Stock::factory()
                 ->forProduct($p)
-                ->closing($opening, $sold, $damaged, $credit, $day, $rowAt)
+                ->closing($opening, $sold, $day, $rowAt)
                 ->create();
 
             $sale = DailySales::factory()
-                ->forClose($opening, $closing, $sold, $damaged, $credit, $day, $rowAt)
+                ->forClose($opening, $closing, $sold, $day, $rowAt)
                 ->create();
-
-            if ($credit > 0) {
-                $customer = CreditSalesFactory::CUSTOMERS[array_rand(CreditSalesFactory::CUSTOMERS)];
-                CreditSales::factory()->forSale($sale, $customer)->create();
-                $stats['credit_rows']++;
-                $stats['credit_amount'] += (float) $sale->credit_amount;
-            }
 
             $current[$p->id] = $closing->setRelation('product', $p);
             $dailySales->push($sale);

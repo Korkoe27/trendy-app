@@ -2,7 +2,8 @@
 
 namespace App\Livewire\Pages;
 
-use App\Models\{ActivityLogs, CreditSales, Product,DailySales, DailySalesSummary, Stock};
+use App\Models\{ActivityLogs, Order, Product,DailySales, DailySalesSummary, Stock};
+use App\Services\PriceService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
@@ -131,64 +132,20 @@ class Dashboard extends Component
 //         });
 // }
 
-    public function getUnpaidCreditsProperty()
-{
-    return CreditSales::with(['product'])
-        ->unpaid()
-        ->orderBy('credit_date', 'desc')
-        ->get();
-}
-
-public function getTotalUnpaidCreditAmountProperty()
-{
-    return CreditSales::unpaid()->sum('credit_amount');
-}
-
-public function markCreditAsPaid($creditId)
-{
-    DB::transaction(function () use ($creditId) {
-        $credit = CreditSales::find($creditId);
-        
-        if (!$credit) {
-            session()->flash('error', 'Credit not found.');
-            return;
-        }
-        
-        $credit->update([
-            'status' => 'paid',
-            'amount_paid' => $credit->credit_amount,
-            'payment_date' => now(),
-            'metadata' => json_encode([
-                'paid_by' => Auth::id(),
-                'payment_method' => 'manual_marking',
-                'original_amount' => $credit->credit_amount,
-            ]),
-        ]);
-
-        // Update the daily sales summary profit
-        $summary = DailySalesSummary::where('sales_date', $credit->credit_date)->first();
-        if ($summary) {
-            $summary->increment('total_profit', $credit->credit_amount);
-            $summary->decrement('total_credit_amount', $credit->credit_amount);
+    /** Open order tabs that are still unpaid: the "pending debt" waiters and managers chase. */
+    public function getUnpaidTabsProperty()
+    {
+        if (! Auth::user()?->hasPermission('view', 'order_debts')) {
+            return collect();
         }
 
-        ActivityLogs::create([
-            'user_id' => Auth::id(),
-            'action_type' => 'credit_payment',
-            'description' => "Credit payment received from {$credit->customer_name}",
-            'entity_type' => 'credit_sale',
-            'entity_id' => $credit->id,
-            'metadata' => json_encode([
-                'amount_paid' => $credit->credit_amount,
-                'customer_phone' => $credit->customer_phone,
-                'customer_name' => $credit->customer_name,
-                'product_id' => $credit->product_id,
-            ]),
-        ]);
-    });
+        return Order::unpaid()->with('items')->orderBy('created_at')->get();
+    }
 
-    session()->flash('success', 'Credit marked as paid successfully!');
-}
+    public function getTotalUnpaidTabsAmountProperty()
+    {
+        return (float) $this->unpaidTabs->sum('total');
+    }
 
     public function getTodayRevenueProperty()
     {
@@ -257,6 +214,8 @@ public function markCreditAsPaid($creditId)
 
     public function bestSellingProducts()
     {
+        $prices = app(PriceService::class);
+
         return DailySales::whereDate('created_at', $this->displayDate)
             ->with(['product'])
             ->select('product_id', DB::raw('SUM(opening_stock - closing_stock) as total_units_sold'))
@@ -264,13 +223,13 @@ public function markCreditAsPaid($creditId)
             ->orderByDesc('total_units_sold')
             ->take(5)
             ->get()
-            ->map(function ($sale) {
+            ->map(function ($sale) use ($prices) {
                 return [
                     'product' => $sale->product->name ?? 'N/A',
                     'category' => $sale->product->category->name ?? 'N/A',
                     'units_sold' => $sale->total_units_sold,
                     'revenue' => number_format(
-                        ($sale->total_units_sold * ($sale->product->selling_price ?? 0)),
+                        ($sale->total_units_sold * $prices->priceOn((int) $sale->product_id, $sale->product->selling_price ?? 0, $this->displayDate)),
                         2
                     ),
                     // 'time' => Carbon::parse($sale->created_at)->diffForHumans()

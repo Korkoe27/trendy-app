@@ -21,8 +21,9 @@ class UserSeeder extends Seeder
             'username' => 'admin',
             'name' => 'Admin User',
             'role_id' => 1,
+            'phone' => '0558731186',
             'email' => 'admin',
-            'password' => static::$password ??= Hash::make('admin'),
+            'password' => static::$password ??= Hash::make('482913'),
             ]);
     }
 

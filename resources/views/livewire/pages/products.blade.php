@@ -86,6 +86,18 @@
                     <option value="{{ $category->name }}">{{ $category->name }}</option>
                 @endforeach
             </select>
+
+            <label class="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 cursor-pointer select-none">
+                <input type="checkbox" wire:model.live="vipOnly" class="rounded border-gray-300 text-amber-500 focus:ring-amber-400" />
+                VIP only
+            </label>
+
+            @haspermission('modify','products')
+                <button type="button" wire:click="openVipModal"
+                    class="flex items-center justify-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 font-medium transition-colors">
+                    <span aria-hidden="true">★</span> VIP Price Days
+                </button>
+            @endhaspermission
         </div>
     </div>
 
@@ -146,8 +158,23 @@
                                     {{ number_format($prod->currentStock->cost_price ?? 0, 2) }}</div>
                             </td>
                             <td class="px-6 py-2 whitespace-nowrap">
-                                <div class="text-base text-gray-900">GH₵
-                                    {{ number_format($prod->selling_price, 2) }}</div>
+                                @php $vip = $vipPrices[$prod->id] ?? null; @endphp
+                                <div class="flex items-center gap-2">
+                                    <div class="text-base text-gray-900 {{ $vip && $vip['active'] ? 'line-through text-gray-400' : '' }}">GH₵
+                                        {{ number_format($prod->selling_price, 2) }}</div>
+                                    @if ($vip)
+                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold {{ $vip['event']->isIncrease() ? 'bg-amber-100 text-amber-800' : 'bg-green-100 text-green-800' }}"
+                                            title="{{ $vip['event']->name ?: 'VIP price day' }}: {{ $vip['active'] ? 'running now' : 'starts '.\Carbon\Carbon::parse($vip['event']->starts_on)->format('D j M') }}">
+                                            @if ($vip['active'])
+                                                VIP GH₵ {{ number_format($vip['price'], 2) }} ({{ $vip['event']->percentLabel() }})
+                                            @else
+                                                {{ \Carbon\Carbon::parse($vip['event']->starts_on)->format('D j M') }}: GH₵ {{ number_format($vip['price'], 2) }} ({{ $vip['event']->percentLabel() }})
+                                            @endif
+                                        </span>
+                                    @elseif ($prod->is_vip)
+                                        <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">★ VIP</span>
+                                    @endif
+                                </div>
                             </td>
                             
                                     @haspermission('modify','analytics')
@@ -184,6 +211,9 @@
 
                                     
                                     @haspermission('modify','products')
+                                    <button wire:click="toggleVip({{ $prod->id }})"
+                                        class="{{ $prod->is_vip ? 'text-amber-500 hover:text-amber-600' : 'text-gray-300 hover:text-amber-500' }} text-lg leading-none"
+                                        title="{{ $prod->is_vip ? 'Remove from VIP list' : 'Add to VIP list' }}">★</button>
                                     <button wire:click="editProduct({{ $prod->id }})"
                                         class="text-green-600 hover:text-green-900" title="Edit">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -263,6 +293,13 @@
                                 <label class="block text-sm font-medium text-gray-600">Selling Price</label>
                                 <p class="text-base font-semibold text-gray-900">GH₵
                                     {{ number_format($product->selling_price, 2) }}</p>
+                                @php $viewVip = $vipPrices[$product->id] ?? null; @endphp
+                                @if ($viewVip)
+                                    <p class="text-sm {{ $viewVip['event']->isIncrease() ? 'text-amber-700' : 'text-green-700' }}">
+                                        VIP price GH₵ {{ number_format($viewVip['price'], 2) }} ({{ $viewVip['event']->percentLabel() }})
+                                        {{ $viewVip['active'] ? 'running now' : 'from '.\Carbon\Carbon::parse($viewVip['event']->starts_on)->format('D j M') }}
+                                    </p>
+                                @endif
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-600">Stock Limit</label>
@@ -784,4 +821,116 @@
     </div>
 @endif
     </div>
+    {{-- VIP Price Days modal --}}
+    @if ($showVipModal)
+        <div class="fixed inset-0 bg-black/50 flex items-start sm:items-center justify-center z-50 overflow-y-auto py-4" role="dialog" aria-modal="true">
+            <div class="bg-white rounded-lg p-5 sm:p-6 w-full max-w-3xl mx-4">
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-900">VIP Price Days</h3>
+                        <p class="text-sm text-gray-500">Change the price of the VIP products on the days you pick. Prices go back to normal by themselves after the last day.</p>
+                    </div>
+                    <button type="button" wire:click="closeVipModal" class="text-gray-400 hover:text-gray-600" aria-label="Close">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+
+                <form wire:submit="scheduleVipPrices" class="space-y-4">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="sm:col-span-2">
+                            <label for="vipName" class="block text-xs font-semibold text-gray-600 uppercase mb-1">Name (optional)</label>
+                            <input id="vipName" type="text" wire:model="vipName" maxlength="255" placeholder="e.g. Independence Day"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-400" />
+                            @error('vipName') <div class="text-red-500 text-xs mt-1">{{ $message }}</div> @enderror
+                        </div>
+                        <div>
+                            <label for="vipStart" class="block text-xs font-semibold text-gray-600 uppercase mb-1">First day</label>
+                            <input id="vipStart" type="date" wire:model.live="vipStart" min="{{ $today }}"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-400" />
+                            @error('vipStart') <div class="text-red-500 text-xs mt-1">{{ $message }}</div> @enderror
+                        </div>
+                        <div>
+                            <label for="vipEnd" class="block text-xs font-semibold text-gray-600 uppercase mb-1">Last day (same as first for one day)</label>
+                            <input id="vipEnd" type="date" wire:model.live="vipEnd" min="{{ $vipStart ?: $today }}"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-400" />
+                            @error('vipEnd') <div class="text-red-500 text-xs mt-1">{{ $message }}</div> @enderror
+                        </div>
+                        <div class="sm:col-span-2">
+                            <label for="vipPercent" class="block text-xs font-semibold text-gray-600 uppercase mb-1">Percentage (use a minus sign for a discount)</label>
+                            <div class="flex items-center gap-2">
+                                <input id="vipPercent" type="text" oninput="this.value = this.value.replace(/[^-0-9]/g, '');" type="number" step="0.01" inputmode="decimal" wire:model.live.debounce.300ms="vipPercent" placeholder="e.g. 20 or -10"
+                                    class="w-40 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-400" />
+                                <span class="text-gray-500">%</span>
+                            </div>
+                            @error('vipPercent') <div class="text-red-500 text-xs mt-1">{{ $message }}</div> @enderror
+                        </div>
+                    </div>
+
+                    {{-- Preview of the new prices --}}
+                    <div class="border border-gray-200 rounded-lg overflow-hidden">
+                        <div class="px-3 py-2 bg-gray-50 text-xs font-semibold text-gray-500 uppercase">VIP products ({{ $vipPreview->count() }})</div>
+                        @if ($vipPreview->isEmpty())
+                            <p class="px-3 py-4 text-sm text-gray-500">No products are on the VIP list yet. Close this window and tap the ★ beside a product to add it.</p>
+                        @else
+                            <div class="max-h-56 overflow-y-auto divide-y divide-gray-100">
+                                @foreach ($vipPreview as $vp)
+                                    @php
+                                        $newPrice = $vipPercentValue !== null && $vipPercentValue > -100
+                                            ? round((float) $vp->selling_price * (1 + $vipPercentValue / 100), 2)
+                                            : null;
+                                    @endphp
+                                    <div class="flex items-center justify-between px-3 py-2 text-sm" wire:key="vip-prev-{{ $vp->id }}">
+                                        <span class="uppercase text-gray-900">{{ $vp->name }}</span>
+                                        <span class="text-gray-600">
+                                            GH₵ {{ number_format($vp->selling_price, 2) }}
+                                            @if ($newPrice !== null)
+                                                <span class="mx-1">→</span>
+                                                <span class="font-semibold {{ $vipPercentValue > 0 ? 'text-amber-700' : 'text-green-700' }}">GH₵ {{ number_format($newPrice, 2) }}</span>
+                                            @endif
+                                        </span>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @endif
+                    </div>
+
+                    <div class="flex justify-end gap-3">
+                        <button type="button" wire:click="closeVipModal" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">Close</button>
+                        <button type="submit" wire:loading.attr="disabled" wire:target="scheduleVipPrices"
+                            class="px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 font-semibold disabled:opacity-50">
+                            Apply {{ $vipPercentValue !== null && $vipPercentValue != 0 ? ($vipPercentValue > 0 ? '+' : '').rtrim(rtrim(number_format($vipPercentValue, 2, '.', ''), '0'), '.').'%' : 'prices' }}
+                            @if ($vipStart) on {{ \Carbon\Carbon::parse($vipStart)->format('D j M') }}@if ($vipEnd && $vipEnd !== $vipStart) to {{ \Carbon\Carbon::parse($vipEnd)->format('D j M') }}@endif @endif
+                        </button>
+                    </div>
+                </form>
+
+                {{-- Scheduled events --}}
+                <div class="mt-6">
+                    <h4 class="text-sm font-semibold text-gray-900 uppercase mb-2">Scheduled price days</h4>
+                    @error('vipEvents') <div class="text-red-500 text-xs mb-2">{{ $message }}</div> @enderror
+                    @forelse ($vipEvents as $event)
+                        @php
+                            $status = $event->statusOn($today);
+                            $badge = ['active' => 'bg-green-100 text-green-800', 'upcoming' => 'bg-blue-100 text-blue-800', 'ended' => 'bg-gray-100 text-gray-600', 'cancelled' => 'bg-red-100 text-red-700'][$status];
+                        @endphp
+                        <div class="flex items-center justify-between gap-3 py-2 border-t border-gray-100 text-sm" wire:key="vip-event-{{ $event->id }}">
+                            <div>
+                                <p class="font-medium text-gray-900">{{ $event->name ?: 'VIP price day' }}
+                                    <span class="ml-1 px-2 py-0.5 rounded-full text-xs font-semibold {{ $badge }}">{{ ucfirst($status === 'active' ? 'running now' : $status) }}</span>
+                                </p>
+                                <p class="text-xs text-gray-500">{{ app(\App\Services\PriceService::class)->describeDays($event) }} · {{ $event->percentLabel() }} · {{ $event->products_count }} {{ \Illuminate\Support\Str::plural('product', $event->products_count) }}</p>
+                            </div>
+                            @if (in_array($status, ['active', 'upcoming'], true))
+                                <button type="button" wire:click="cancelVipEvent({{ $event->id }})"
+                                    wire:confirm="Cancel this price day? Prices go back to normal straight away."
+                                    class="px-3 py-1 text-xs font-semibold text-red-600 border border-red-200 rounded-lg hover:bg-red-50">Cancel</button>
+                            @endif
+                        </div>
+                    @empty
+                        <p class="text-sm text-gray-500">Nothing scheduled yet.</p>
+                    @endforelse
+                </div>
+            </div>
+        </div>
+    @endif
 </div>

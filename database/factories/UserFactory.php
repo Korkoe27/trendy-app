@@ -26,11 +26,12 @@ class UserFactory extends Factory
     {
         return [
             'username' => fake()->unique()->userName(),
+            'phone' => '+23324'.fake()->unique()->numerify('#######'),
             'name' => fake()->name(),
             'email' => fake()->unique()->safeEmail(),
             // 'email_verified_at' => now(),
             'role_id'=>Role::inRandomOrder()->first()->id,
-            'password' => static::$password ??= Hash::make('admin'),
+            'password' => static::$password ??= Hash::make('482913'),
             'remember_token' => Str::random(10),
         ];
     }

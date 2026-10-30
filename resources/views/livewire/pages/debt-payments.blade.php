@@ -301,8 +301,8 @@
                                     </button>
                                 @endif
                             </div>
-                            <input type="number" step="0.01" min="0.01" wire:model.live.debounce.300ms="amount" placeholder="0.00"
-                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent" />
+                            <input type="text" pattern="[0-9]*" oninput="this.value = this.value.replace(/[^0-9]/g, '');" step="0.01" min="0.01" wire:model.live.debounce.300ms="amount" placeholder="0.00"
+                                class="w-full px-3 py-2 border border-gray-300 focus:border-0 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent" />
                             @error('amount') <span class="text-red-500 text-xs mt-1">{{ $message }}</span> @enderror
                             @if ($amountAfter !== null)
                                 <p class="text-xs mt-1 {{ $amountAfter < 0 ? 'text-red-600' : 'text-gray-500' }}">

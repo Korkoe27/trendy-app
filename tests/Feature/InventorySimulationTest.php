@@ -28,7 +28,7 @@ class InventorySimulationTest extends TestCase
             ]);
         }
 
-        $this->stats = (new InventoryDaySimulator)->simulate(days: 28, seed: 42);
+        $this->stats = (new InventoryDaySimulator)->simulate(days: 28, seed: 99);
     }
 
     public function test_it_generates_trading_days_but_never_on_mondays(): void
@@ -47,7 +47,7 @@ class InventorySimulationTest extends TestCase
     {
         foreach (DB::table('daily_sales')->get() as $sale) {
             $closing = DB::table('stocks')->find($sale->stock_id);
-            $sold = $sale->opening_stock - $sale->closing_stock - $sale->damaged_units - $sale->credit_units;
+            $sold = $sale->opening_stock - $sale->closing_stock;
 
             $this->assertEquals($closing->total_units, $sale->closing_stock);
             $this->assertGreaterThanOrEqual(0, $sold, 'Negative units sold');
@@ -86,31 +86,36 @@ class InventorySimulationTest extends TestCase
         foreach (DB::table('daily_sales_summaries')->get() as $summary) {
             $sales = DB::table('daily_sales')->where('sales_date', $summary->sales_date)->get();
 
-            $this->assertEqualsWithDelta($sales->sum('total_amount') + $sales->sum('credit_amount'), $summary->drinks_total, 0.01);
-            $this->assertEqualsWithDelta($sales->sum('credit_amount'), $summary->total_credit_amount, 0.01);
+            $this->assertEqualsWithDelta($sales->sum('total_amount'), $summary->drinks_total, 0.01);
             $this->assertEqualsWithDelta(
                 $summary->total_cash + $summary->total_momo + $summary->total_hubtel,
                 $summary->total_money,
                 0.01
             );
 
-            $creditRows = DB::table('credit_sales')->whereDate('credit_date', $summary->sales_date)->sum('credit_amount');
-            $this->assertEqualsWithDelta($creditRows, $summary->total_credit_amount, 0.01);
-
-            // Expected minus collected is the day's credit, plus a small unexplained gap (-15..+25).
+            // Expected minus collected is a small unexplained gap (-15..+25), zero on most days.
             $expected = $summary->drinks_total + $summary->food_total - $summary->on_the_house;
-            $gap = $expected - $summary->total_money - $summary->total_credit_amount;
+            $gap = $expected - $summary->total_money;
             $this->assertGreaterThanOrEqual(-15.01, $gap);
             $this->assertLessThanOrEqual(25.01, $gap);
         }
     }
 
-    public function test_credit_days_leave_debt_for_the_debt_payments_page(): void
+    public function test_the_simulation_no_longer_involves_credit_or_damaged_units(): void
     {
-        $this->assertGreaterThan(0, $this->stats['credit_rows']);
+        $this->assertArrayNotHasKey('credit_rows', $this->stats);
+        $this->assertSame(0.0, (float) DB::table('daily_sales')->sum('credit_units'));
+        $this->assertSame(0.0, (float) DB::table('daily_sales')->sum('damaged_units'));
+        $this->assertSame(0, DB::table('credit_sales')->count());
+    }
 
-        $month = Carbon::parse(DB::table('daily_sales')->max('sales_date'));
-        $debt = (new DebtLedger)->monthlyDebt($month);
+    public function test_shortfall_days_leave_debt_for_the_debt_payments_page(): void
+    {
+        $months = DB::table('daily_sales')->distinct()->pluck('sales_date')
+            ->map(fn ($date) => Carbon::parse($date)->startOfMonth()->toDateString())
+            ->unique();
+
+        $debt = $months->sum(fn ($month) => (new DebtLedger)->monthlyDebt(Carbon::parse($month)));
 
         $this->assertGreaterThan(0, $debt);
     }
@@ -142,7 +147,6 @@ class InventorySimulationTest extends TestCase
         (new InventoryDaySimulator)->cleanup();
 
         $this->assertSame(0, DB::table('daily_sales')->count());
-        $this->assertSame(0, DB::table('credit_sales')->count());
         $this->assertSame(0, DB::table('daily_sales_summaries')->count());
         $this->assertSame(0, DB::table('stock_movements')->count());
         $this->assertSame([$realStockId], DB::table('stocks')->pluck('id')->all());

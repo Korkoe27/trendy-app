@@ -28,6 +28,13 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+    'hubtel_sms' => [
+        'url' => env('HUBTEL_SMS_URL'),
+        'user' => env('HUBTEL_SMS_USER'),
+        'key' => env('HUBTEL_SMS_KEY'),
+        'from' => env('HUBTEL_SMS_FROM', 'Trendy'),
+    ],
+
     'slack' => [
         'notifications' => [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),

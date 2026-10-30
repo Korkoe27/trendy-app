@@ -3,8 +3,12 @@
 namespace App\Livewire\Pages;
 
 use App\Models\{User,Role,Module,Permission,ActivityLogs};
+use App\Rules\SixDigitPin;
+use App\Services\SmsService;
+use App\Support\Phone;
+use Illuminate\Support\Str;
 use Livewire\{Component,WithPagination};
-use Illuminate\Support\Facades\{Auth, Hash,DB};
+use Illuminate\Support\Facades\{Auth,DB};
 use Illuminate\Validation\Rule;
 
 class Users extends Component
@@ -34,8 +38,8 @@ class Users extends Component
     public $username;
     public $email;
     public $role_id;
-    public $password;
-    public $password_confirmation;
+    public $phone;
+    public $pin;
     public $is_active = true;
     public $isEditMode = false;
 
@@ -74,10 +78,19 @@ class Users extends Component
         $rules = [
             'name' => 'required|string|max:255',
             'username' => [
-                'required',
+                'nullable',
                 'string',
                 'max:255',
                 Rule::unique('users')->ignore($this->userId),
+            ],
+            'phone' => [
+                'required',
+                function ($attribute, $value, $fail) {
+                    if (! Phone::isValid($value)) {
+                        $fail('Enter a valid Ghana mobile number, e.g. 024 123 4567.');
+                    }
+                },
+                Rule::unique('users', 'phone')->ignore($this->userId),
             ],
             'email' => [
                 'nullable',
@@ -89,10 +102,11 @@ class Users extends Component
             'is_active' => 'boolean',
         ];
 
+        // The admin sets the first PIN; the user is forced to choose their own at first login.
         if (!$this->isEditMode) {
-            $rules['password'] = 'required|string|min:8|confirmed';
-        } elseif ($this->password) {
-            $rules['password'] = 'nullable|string|min:8|confirmed';
+            $rules['pin'] = ['required', new SixDigitPin];
+        } elseif ($this->pin) {
+            $rules['pin'] = ['nullable', new SixDigitPin];
         }
 
         return $rules;
@@ -122,6 +136,8 @@ class Users extends Component
         $this->userId = $user->id;
         $this->name = $user->name;
         $this->username = $user->username;
+        $this->phone = Phone::local($user->phone);
+        $this->pin = '';
         $this->email = $user->email;
         $this->role_id = $user->role_id;
         $this->is_active = $user->is_active;
@@ -130,64 +146,75 @@ class Users extends Component
     }
 
 
-    public function resetUserPassword($userId)
-{
-    DB::beginTransaction();
-    try {
-        $user = User::findOrFail($userId);
-
-        // Generate a temporary password (you can customize this)
-        $tempPassword = 'Temp' . rand(1000, 9999) . '!';
-        
-        $user->update([
-            'password' => Hash::make($tempPassword),
-            'must_change_password' => true,
-            'password_changed_at' => null,
-        ]);
-
-        ActivityLogs::create([
-            'user_id' => Auth::id(),
-            'action_type' => 'password_reset',
-            'description' => 'Reset password for user: ' . $user->name,
-            'entity_type' => 'user',
-            'entity_id' => $user->id,
-            'metadata' => json_encode([
-                'reset_by' => Auth::user()->name,
-                'temporary_password' => $tempPassword, // Store temporarily for admin to see
-            ])
-        ]);
-
-        DB::commit();
-        
-        // Flash the temporary password for the admin to communicate to the user
-        session()->flash('message', "Password reset successfully. Temporary password: {$tempPassword}");
-        session()->flash('temp_password', $tempPassword);
-        
-    } catch (\Exception $e) {
-        DB::rollBack();
-        session()->flash('error', 'An error occurred: ' . $e->getMessage());
+    public function generatePin()
+    {
+        $this->pin = SixDigitPin::generate();
     }
-}
+
+    public function resetUserPassword($userId, SmsService $sms)
+    {
+        abort_unless(Auth::user()?->hasPermission('modify', 'users'), 403);
+
+        DB::beginTransaction();
+        try {
+            $user = User::findOrFail($userId);
+
+            $tempPin = SixDigitPin::generate();
+
+            $user->update([
+                'password' => $tempPin,
+                'must_change_password' => true,
+                'password_changed_at' => null,
+            ]);
+
+            // The PIN itself is never written to the activity log.
+            ActivityLogs::create([
+                'user_id' => Auth::id(),
+                'action_type' => 'password_reset',
+                'description' => 'Reset PIN for user: ' . $user->name,
+                'entity_type' => 'user',
+                'entity_id' => $user->id,
+                'metadata' => json_encode([
+                    'reset_by' => Auth::user()->name,
+                ])
+            ]);
+
+            DB::commit();
+
+            $texted = $user->phone && $sms->send($user->phone, "Your Trendy PIN has been reset to {$tempPin}. You will be asked to choose a new one when you sign in.");
+
+            // Shown once to the admin so they can pass it on if the SMS did not go through.
+            session()->flash('message', "PIN reset for {$user->name}. Temporary PIN: {$tempPin}" . ($texted ? ' (also sent by SMS).' : ' (SMS not sent, please pass it on).'));
+        } catch (\Exception $e) {
+            DB::rollBack();
+            session()->flash('error', 'An error occurred: ' . $e->getMessage());
+        }
+    }
 
     public function saveUser()
     {
+        abort_unless(Auth::user()?->hasPermission($this->isEditMode ? 'modify' : 'create', 'users'), 403);
+
+        // Compare phones in the stored format so "024 123 4567" and "+233241234567" count as one number.
+        $this->phone = Phone::normalize($this->phone) ?? $this->phone;
+
         $this->validate($this->userRules(), [
         'name.required' => 'The name field is required.',
-        'username.required' => 'The username field is required.',
         'username.unique' => 'This username is already taken.',
+        'phone.required' => 'A phone number is required, it is how the user signs in.',
+        'phone.unique' => 'That phone number already belongs to another user.',
         'email.unique' => 'This email is already taken.',
         'role_id.required' => 'Please select a role.',
-        'password.required' => 'The password field is required.',
-        'password.min' => 'Password must be at least 8 characters.',
-        'password.confirmed' => 'Password confirmation does not match.',
+        'pin.required' => 'Set a 6-digit PIN for the user.',
         ]);
 
         DB::beginTransaction();
         try {
             $userData = [
                 'name' => $this->name,
-                'username' => $this->username,
-                'email' => $this->email,
+                'username' => $this->username ?: $this->makeUsername(),
+                'phone' => $this->phone,
+                'email' => $this->email ?: null,
                 'role_id' => $this->role_id,
                 'is_active' => $this->is_active,
             ];
@@ -195,9 +222,9 @@ class Users extends Component
             if ($this->isEditMode) {
                 $user = User::findOrFail($this->userId);
                 
-            if ($this->password) {
-                $userData['password'] = Hash::make($this->password);
-                $userData['must_change_password'] = true; // Force password change when admin resets
+            if ($this->pin) {
+                $userData['password'] = $this->pin; // hashed by the model cast
+                $userData['must_change_password'] = true; // Force PIN change when admin resets
                 $userData['password_changed_at'] = null;
             }
                 
@@ -214,7 +241,7 @@ class Users extends Component
 
                 session()->flash('message', 'User updated successfully.');
             } else {
-                $userData['password'] = Hash::make($this->password);
+                $userData['password'] = $this->pin; // hashed by the model cast
                 $userData['must_change_password'] = true;
                 $user = User::create($userData);
                 
@@ -227,7 +254,6 @@ class Users extends Component
                     'metadata' => json_encode([
                         'username' => $user->username,
                         'role' => $user->role->name,
-                        'initial_password' => $this->password,
                     ])
                 ]);
 
@@ -344,15 +370,29 @@ class Users extends Component
         $this->viewUser = null;
     }
 
+    /** Phone is the login now; usernames stay for display and logs, so make one when none is typed. */
+    private function makeUsername(): string
+    {
+        $base = Str::slug(Str::before((string) $this->name, ' '), '') ?: 'user';
+        $base .= substr((string) Phone::normalize($this->phone), -4);
+        $username = $base;
+
+        for ($i = 2; User::where('username', $username)->when($this->userId, fn ($q) => $q->where('id', '!=', $this->userId))->exists(); $i++) {
+            $username = $base . $i;
+        }
+
+        return $username;
+    }
+
     private function resetUserForm()
     {
         $this->userId = null;
         $this->name = '';
         $this->username = '';
+        $this->phone = '';
         $this->email = '';
         $this->role_id = null;
-        $this->password = '';
-        $this->password_confirmation = '';
+        $this->pin = '';
         $this->is_active = true;
         $this->isEditMode = false;
         $this->resetValidation();
@@ -611,6 +651,7 @@ class Users extends Component
                 $query->where(function($q) {
                     $q->where('name', 'like', '%' . $this->searchTerm . '%')
                     ->orWhere('username', 'like', '%' . $this->searchTerm . '%')
+                    ->when(preg_match('/\d{3,}/', $this->searchTerm), fn ($q) => $q->orWhere('phone', 'like', '%' . preg_replace('/\D+/', '', ltrim($this->searchTerm, '0+')) . '%'))
                     ->orWhere('email', 'like', '%' . $this->searchTerm . '%')
                     ->orWhereHas('role', function($roleQuery) {
                         $roleQuery->where('name', 'like', '%' . $this->searchTerm . '%');

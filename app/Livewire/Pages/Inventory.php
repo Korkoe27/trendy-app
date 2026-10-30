@@ -7,6 +7,7 @@ use App\Models\DailySales;
 use App\Models\DailySalesSummary;
 use App\Models\Product;
 use App\Models\Stock;
+use App\Services\PriceService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -53,12 +54,6 @@ class Inventory extends Component
     public $cashAmount = '';
 
     public $momoAmount = '';
-
-    public $creditCustomerData = [];
-
-    public $showCreditCustomerModal = false;
-
-    public $pendingCreditProducts = [];
 
     public $foodTotal = '';
 
@@ -200,21 +195,6 @@ class Inventory extends Component
                 Log::debug("Closing stock exceeds opening stock for product ID: {$productId}");
                 $hasErrors = true;
             }
-
-            // **NEW: Validate credit units**
-            $creditUnits = (float) ($stockData['credit_units'] ?? 0);
-            $damagedUnits = (float) ($stockData['damaged_units'] ?? 0);
-
-            if ($creditUnits > 0) {
-                // Credit units cannot exceed units available for sale
-                $maxCreditUnits = $openingStock - $closingUnits - $damagedUnits;
-
-                if ($creditUnits > $maxCreditUnits) {
-                    $this->stockErrors[$productId] = "Credit units ({$creditUnits}) cannot exceed available units ({$maxCreditUnits})";
-                    Log::debug("Credit units exceed available units for product ID: {$productId}");
-                    $hasErrors = true;
-                }
-            }
         }
 
         return ! $hasErrors;
@@ -248,77 +228,6 @@ class Inventory extends Component
             return;
         }
         $this->onTheHouse = $value;
-    }
-
-    public function collectCreditCustomerInfo()
-    {
-        // Check if there are any products with credit units
-        $hasCredits = false;
-        $this->pendingCreditProducts = [];
-
-        foreach ($this->productStocks as $productId => $stockData) {
-            $creditUnits = (float) ($stockData['credit_units'] ?? 0);
-            if ($creditUnits > 0) {
-                $hasCredits = true;
-                $product = $this->allProducts[$productId] ?? null;
-                if ($product) {
-                    $this->pendingCreditProducts[$productId] = [
-                        'name' => $product->name,
-                        'units' => $creditUnits,
-                        'amount' => $creditUnits * ($product->selling_price ?? 0),
-                    ];
-
-                    // Initialize customer data if not exists
-                    if (! isset($this->creditCustomerData[$productId])) {
-                        $this->creditCustomerData[$productId] = [
-                            'name' => '',
-                            'phone' => '',
-                        ];
-                    }
-                }
-            }
-        }
-
-        if ($hasCredits) {
-            $this->showCreditCustomerModal = true;
-
-            return true;
-        }
-
-        return false;
-    }
-
-    public function closeCreditCustomerModal()
-    {
-        $this->showCreditCustomerModal = false;
-    }
-
-    public function proceedWithInventory()
-    {
-        if ($this->isInventoryRestricted()) {
-            session()->flash('error', 'Inventory can only be taken after 3:00 PM.');
-
-            return;
-        }
-
-        // Validate credit customer data
-        foreach ($this->pendingCreditProducts as $productId => $creditInfo) {
-            $customerData = $this->creditCustomerData[$productId] ?? null;
-            if (! $customerData || empty($customerData['name']) || empty($customerData['phone'])) {
-                session()->flash('error', 'Please provide customer name and phone for all credit items.');
-
-                return;
-            }
-        }
-
-        $this->showCreditCustomerModal = false;
-
-        // Now call the actual submit
-        if ($this->isEditing) {
-            $this->updateInventory();
-        } else {
-            $this->actuallySubmitInventory();
-        }
     }
 
     public function openTakeInventoryModal()
@@ -411,8 +320,6 @@ class Inventory extends Component
                 $this->productStocks[$product->id] = [
                     'closing_boxes' => '',
                     'closing_units' => (string) $existingProduct->closing_stock,
-                    'damaged_units' => (string) ($existingProduct->damaged_units ?? ''),
-                    'credit_units' => (string) ($existingProduct->credit_units ?? ''),
                     'product' => $product,
                     'original_opening_stock' => $openingStockForDisplay,
                 ];
@@ -420,29 +327,10 @@ class Inventory extends Component
                 $this->productStocks[$product->id] = [
                     'closing_boxes' => '',
                     'closing_units' => '',
-                    'damaged_units' => '',
-                    'credit_units' => '',
                     'product' => $product,
                     'original_opening_stock' => $openingStockForDisplay,
                 ];
             }
-        }
-
-        // **NEW: Load existing credit customer data**
-        $existingCredits = DB::table('credit_sales')
-            ->whereIn('daily_sale_id', function ($query) use ($salesDate) {
-                $query->select('id')
-                    ->from('daily_sales')
-                    ->where('sales_date', $salesDate);
-            })
-            ->get()
-            ->keyBy('product_id');
-
-        foreach ($existingCredits as $productId => $credit) {
-            $this->creditCustomerData[$productId] = [
-                'name' => $credit->customer_name,
-                'phone' => $credit->customer_phone,
-            ];
         }
     }
 
@@ -526,16 +414,14 @@ class Inventory extends Component
             $drinksTotal = 0;
             $totalItemsSold = 0;
             $totalProfit = 0;
-            $totalDamaged = 0;
-            $totalCredit = 0;
-            $totalCreditAmount = 0;
-            $totalLossAmount = 0;
             $mostSoldProductId = null;
             $maxUnitsSold = 0;
 
             $salesRows = [];
             $newStockRows = [];
             $stockIdsToKeep = []; // Track which stock IDs should be preserved
+
+            $prices = app(PriceService::class);
 
             foreach ($this->productStocks as $productId => $stockData) {
                 if (! filled($stockData['closing_units'])) {
@@ -551,8 +437,6 @@ class Inventory extends Component
                 }
 
                 $closingUnits = (float) ($stockData['closing_units'] ?? 0);
-                $damagedUnits = (float) ($stockData['damaged_units'] ?? 0);
-                $creditUnits = (float) ($stockData['credit_units'] ?? 0);
 
                 // Get the ORIGINAL opening stock from the existing record
                 $openingStock = $stockData['original_opening_stock'] ?? 0;
@@ -572,13 +456,12 @@ class Inventory extends Component
                     : 0;
 
                 // Calculate units sold
-                $unitsSold = max(0, $openingStock - $closingUnits - $damagedUnits - $creditUnits);
+                $unitsSold = max(0, $openingStock - $closingUnits);
 
-                $sellingPrice = $product->selling_price ?? 0;
-                $cashRevenue = $unitsSold * $sellingPrice;
-                $creditAmount = $creditUnits * $sellingPrice;
-                $lossAmount = $damagedUnits * $sellingPrice;
-                $productRevenue = $cashRevenue + $creditAmount;
+                // Revenue and profit use the price on the day (VIP price on a price day); stock margins keep the normal price.
+                $basePrice = $product->selling_price ?? 0;
+                $sellingPrice = $prices->priceOn((int) $productId, $basePrice, $salesDate);
+                $productRevenue = $unitsSold * $sellingPrice;
 
                 // Get the stock entry that was used for the ORIGINAL sale
                 $existingSale = $existingDailySales[$productId] ?? null;
@@ -591,17 +474,15 @@ class Inventory extends Component
 
                 $costMargin = $originalStock ? $originalStock->cost_margin : 0;
                 $costPrice = $originalStock ? $originalStock->cost_price : 0;
-                $unitProfit = $unitsSold * $costMargin;
+                // Profit per unit follows the price charged that day: the stock's margin plus any VIP price change.
+                $priceChange = $originalStock ? $sellingPrice - $basePrice : 0;
+                $unitProfit = $unitsSold * ($costMargin + $priceChange);
 
                 Log::debug("Product $product->name - Units Sold: $unitsSold, Profit: $unitProfit");
 
                 $drinksTotal += $productRevenue;
                 $totalItemsSold += $unitsSold;
                 $totalProfit += $unitProfit;
-                $totalDamaged += $damagedUnits;
-                $totalCredit += $creditUnits;
-                $totalCreditAmount += $creditAmount;
-                $totalLossAmount += $lossAmount;
 
                 if ($unitsSold > $maxUnitsSold) {
                     $maxUnitsSold = $unitsSold;
@@ -630,7 +511,7 @@ class Inventory extends Component
                             ->where('id', $originalStock->id)
                             ->update([
                                 'total_units' => $closingUnits,
-                                'cost_margin' => $sellingPrice - ($originalStock->cost_price ?? 0),
+                                'cost_margin' => $basePrice - ($originalStock->cost_price ?? 0),
                                 'notes' => 'Corrected via inventory edit - '.$salesDate,
                                 'updated_at' => now(),
                             ]);
@@ -683,7 +564,7 @@ class Inventory extends Component
                             'supplier_id' => null,
                             'total_cost' => 0,
                             'cost_price' => 0,
-                            'cost_margin' => $sellingPrice,
+                            'cost_margin' => $basePrice,
                             'free_units' => 0,
                             'notes' => 'Created via inventory edit - '.$salesDate,
                             'restock_date' => null,
@@ -713,11 +594,7 @@ class Inventory extends Component
                     'closing_stock' => $closingUnits,
                     'opening_boxes' => $openingBoxes,
                     'closing_boxes' => $closingBoxes,
-                    'damaged_units' => $damagedUnits,
-                    'credit_units' => $creditUnits,
-                    'credit_amount' => $creditAmount,
-                    'loss_amount' => $lossAmount,
-                    'total_amount' => $cashRevenue,
+                    'total_amount' => $productRevenue,
                     'unit_profit' => $unitProfit,
                     'metadata' => json_encode([
                         'edited_by' => Auth::id(),
@@ -790,53 +667,6 @@ class Inventory extends Component
             if (! empty($salesRows)) {
                 DB::table('daily_sales')->insert(array_values($salesRows));
                 Log::debug('Inserted updated sales records', ['count' => count($salesRows)]);
-
-                // Delete old credit sales then re-insert
-                DB::table('credit_sales')
-                    ->whereIn('daily_sale_id', function ($query) use ($salesDate) {
-                        $query->select('id')->from('daily_sales')->where('sales_date', $salesDate);
-                    })
-                    ->delete();
-
-                $insertedSales = DB::table('daily_sales')
-                    ->where('sales_date', $salesDate)
-                    ->whereIn('product_id', array_keys($salesRows))
-                    ->where('created_at', '>=', now()->subSeconds(5))
-                    ->get()
-                    ->keyBy('product_id');
-
-                $creditSalesRows = [];
-                foreach ($this->productStocks as $productId => $stockData) {
-                    $creditUnits = (float) ($stockData['credit_units'] ?? 0);
-                    if ($creditUnits > 0 && isset($insertedSales[$productId])) {
-                        $product = $this->allProducts[$productId] ?? null;
-                        $customer = $this->creditCustomerData[$productId] ?? null;
-                        if ($product && $customer) {
-                            $creditSalesRows[] = [
-                                'daily_sale_id' => $insertedSales[$productId]->id,
-                                'product_id' => $productId,
-                                'customer_name' => $customer['name'],
-                                'customer_phone' => $customer['phone'],
-                                'units_credited' => $creditUnits,
-                                'credit_amount' => $creditUnits * ($product->selling_price ?? 0),
-                                'credit_date' => $salesDate,
-                                'status' => 'unpaid',
-                                'metadata' => json_encode([
-                                    'edited_by' => Auth::id(),
-                                    'selling_price' => $product->selling_price ?? 0,
-                                    'product_name' => $product->name,
-                                    'is_edited' => true,
-                                ]),
-                                'created_at' => now(),
-                                'updated_at' => now(),
-                            ];
-                        }
-                    }
-                }
-
-                if (! empty($creditSalesRows)) {
-                    DB::table('credit_sales')->insert($creditSalesRows);
-                }
             }
             // Calculate total_money correctly: sum of all payment methods
             $totalMoney = $this->cashAmount + $this->momoAmount + $this->hubtelAmount;
@@ -848,10 +678,6 @@ class Inventory extends Component
                 'drinks_total' => $drinksTotal,
                 'items_sold' => $totalItemsSold,
                 'total_profit' => $totalProfit,
-                'total_damaged' => $totalDamaged,
-                'total_credit_units' => $totalCredit,
-                'total_credit_amount' => $totalCreditAmount,
-                'total_loss_amount' => $totalLossAmount,
                 'total_cash' => (float) $this->cashAmount,
                 'total_momo' => (float) $this->momoAmount,
                 'total_hubtel' => (float) $this->hubtelAmount,
@@ -920,8 +746,6 @@ class Inventory extends Component
             $this->productStocks[$stock->product_id] = [
                 'closing_boxes' => '',
                 'closing_units' => '',
-                'damaged_units' => '',
-                'credit_units' => '',
                 'product' => $stock,  // Stock object
                 'stock' => $product,  // Product object
             ];
@@ -996,13 +820,13 @@ class Inventory extends Component
 
         // $openingStock = $stock->total_units;
         $closingStock = $this->calculateTotalUnits($productId);
-        $damagedUnits = (float) ($entry['damaged_units'] ?? 0);
-        $creditUnits = (float) ($entry['credit_units'] ?? 0);
 
-        $unitsSold = max(0, $openingStock - $closingStock - $damagedUnits - $creditUnits);
-        $sellingPrice = $product->selling_price ?? 0;
+        $unitsSold = max(0, $openingStock - $closingStock);
 
-        return ($unitsSold * $sellingPrice) + ($creditUnits * $sellingPrice);
+        // The price on the day being recorded: the VIP price if a price day covers it.
+        $sellingPrice = app(PriceService::class)->priceOn((int) $productId, $product->selling_price ?? 0, $this->salesDate ?: now()->format('Y-m-d'));
+
+        return $unitsSold * $sellingPrice;
     }
 
     public function submitInventory()
@@ -1022,12 +846,6 @@ class Inventory extends Component
 
         Log::debug('validated');
 
-        // Check if there are credits and collect customer info first
-        if ($this->collectCreditCustomerInfo()) {
-            return; // Will show modal, user clicks proceed
-        }
-
-        // If no credits, proceed directly
         $this->actuallySubmitInventory();
     }
 
@@ -1067,10 +885,6 @@ class Inventory extends Component
             $drinksTotal = 0;
             $totalItemsSold = 0;
             $totalProfit = 0;
-            $totalDamaged = 0;
-            $totalCredit = 0;
-            $totalCreditAmount = 0;
-            $totalLossAmount = 0;
             $mostSoldProductId = null;
             $maxUnitsSold = 0;
 
@@ -1089,6 +903,8 @@ class Inventory extends Component
             $salesRows = [];
             $newStockRows = [];
             $stockUpdates = [];
+
+            $prices = app(PriceService::class);
 
             foreach ($this->productStocks as $productId => $stockData) {
                 if (! filled($stockData['closing_units'])) {
@@ -1111,8 +927,6 @@ class Inventory extends Component
 
                 $closingBoxes = (float) ($stockData['closing_boxes'] ?? 0);
                 $closingUnits = (float) ($stockData['closing_units'] ?? 0);
-                $damagedUnits = (float) ($stockData['damaged_units'] ?? 0);
-                $creditUnits = (float) ($stockData['credit_units'] ?? 0);
 
                 Log::debug('Processing product ID: '.$productId);
                 Log::debug('Closing Units: '.$closingUnits);
@@ -1126,16 +940,16 @@ class Inventory extends Component
                 $openingBoxes = $product->units_per_box > 0 ?
                     floor($openingStock / $product->units_per_box) : 0;
 
-                $unitsSold = max(0, $openingStock - $closingUnits - $damagedUnits - $creditUnits);
+                $unitsSold = max(0, $openingStock - $closingUnits);
 
                 Log::debug('Units Sold: '.$unitsSold);
-                $sellingPrice = $product->selling_price ?? 0;
-                $cashRevenue = $unitsSold * $sellingPrice;
-                $creditAmount = $creditUnits * $sellingPrice;
-                $lossAmount = $damagedUnits * $sellingPrice;
-                $productRevenue = $cashRevenue + $creditAmount;
+                // Revenue and profit use the price on the day (VIP price on a price day); stock margins keep the normal price.
+                $basePrice = $product->selling_price ?? 0;
+                $sellingPrice = $prices->priceOn((int) $productId, $basePrice, $recordDate);
+                $productRevenue = $unitsSold * $sellingPrice;
 
-                $unitProfit = $unitsSold * $currentStock->cost_margin;
+                // Profit per unit follows the price charged that day: the stock's margin plus any VIP price change.
+                $unitProfit = $unitsSold * ($currentStock->cost_margin + ($sellingPrice - $basePrice));
 
                 Log::debug('Stock Cost Margin: '.$currentStock->cost_margin);
                 Log::debug('unitProfit: '.$unitProfit);
@@ -1143,10 +957,6 @@ class Inventory extends Component
                 $drinksTotal += $productRevenue;
                 $totalItemsSold += $unitsSold;
                 $totalProfit += $unitProfit;
-                $totalDamaged += $damagedUnits;
-                $totalCredit += $creditUnits;
-                $totalCreditAmount += $creditAmount;
-                $totalLossAmount += $lossAmount;
 
                 if ($unitsSold > $maxUnitsSold) {
                     $maxUnitsSold = $unitsSold;
@@ -1164,11 +974,7 @@ class Inventory extends Component
                     'closing_stock' => $closingUnits,
                     'opening_boxes' => $openingBoxes,
                     'closing_boxes' => $closingBoxes,
-                    'damaged_units' => $damagedUnits,
-                    'credit_units' => $creditUnits,
-                    'credit_amount' => $creditAmount,
-                    'loss_amount' => $lossAmount,
-                    'total_amount' => $cashRevenue,
+                    'total_amount' => $productRevenue,
                     'unit_profit' => $unitProfit,
                     'metadata' => json_encode([
                         'selling_price' => $sellingPrice,
@@ -1184,7 +990,7 @@ class Inventory extends Component
                     'supplier_id' => $currentStock->supplier_id,
                     'total_cost' => $currentStock->total_cost,
                     'cost_price' => $currentStock->cost_price,
-                    'cost_margin' => $sellingPrice - ($currentStock->cost_price),
+                    'cost_margin' => $basePrice - ($currentStock->cost_price),
                     'free_units' => 0,
                     'notes' => 'End of day inventory - '.$recordDate,
                     'restock_date' => $currentStock->restock_date,
@@ -1194,8 +1000,6 @@ class Inventory extends Component
                         'previous_stock_date' => $currentStock->created_at,
                         'opening_stock' => $openingStock,
                         'units_sold' => $unitsSold,
-                        'damaged_units' => $damagedUnits,
-                        'credit_units' => $creditUnits,
                         'created_by' => Auth::id(),
                     ]),
                     'created_at' => now(),
@@ -1247,8 +1051,6 @@ class Inventory extends Component
                         'occurred_at' => $stockRow['occurred_at'],
                         'metadata' => json_encode([
                             'units_sold' => $stockMetadata['units_sold'] ?? null,
-                            'damaged_units' => $stockMetadata['damaged_units'] ?? null,
-                            'credit_units' => $stockMetadata['credit_units'] ?? null,
                             'opening_stock' => $stockMetadata['opening_stock'] ?? null,
                             'closing_stock' => $stockRow['total_units'],
                         ]),
@@ -1267,47 +1069,6 @@ class Inventory extends Component
             if (! empty($salesRows)) {
                 DB::table('daily_sales')->insert(array_values($salesRows));
                 Log::debug('Submitted new sales', ['count' => count($salesRows)]);
-
-                // 3. Handle credit sales
-                $insertedSales = DB::table('daily_sales')
-                    ->where('sales_date', $recordDate)
-                    ->whereIn('product_id', array_keys($salesRows))
-                    ->where('created_at', '>=', now()->subSeconds(5))
-                    ->get()
-                    ->keyBy('product_id');
-
-                $creditSalesRows = [];
-                foreach ($this->productStocks as $productId => $stockData) {
-                    $creditUnits = (float) ($stockData['credit_units'] ?? 0);
-                    if ($creditUnits > 0 && isset($insertedSales[$productId])) {
-                        $product = $this->allProducts[$productId] ?? null;
-                        $customer = $this->creditCustomerData[$productId] ?? null;
-                        if ($product && $customer) {
-                            $creditSalesRows[] = [
-                                'daily_sale_id' => $insertedSales[$productId]->id,
-                                'product_id' => $productId,
-                                'customer_name' => $customer['name'],
-                                'customer_phone' => $customer['phone'],
-                                'units_credited' => $creditUnits,
-                                'credit_amount' => $creditUnits * ($product->selling_price ?? 0),
-                                'credit_date' => $recordDate,
-                                'status' => 'unpaid',
-                                'metadata' => json_encode([
-                                    'selling_price' => $product->selling_price ?? 0,
-                                    'recorded_by' => Auth::id(),
-                                    'product_name' => $product->name,
-                                ]),
-                                'created_at' => now(),
-                                'updated_at' => now(),
-                            ];
-                        }
-                    }
-                }
-
-                if (! empty($creditSalesRows)) {
-                    DB::table('credit_sales')->insert($creditSalesRows);
-                    Log::debug('Created credit sales records', ['count' => count($creditSalesRows)]);
-                }
             }
 
             Log::debug('updated all stocks');
@@ -1326,16 +1087,10 @@ class Inventory extends Component
                     'food_total' => (float) $this->foodTotal,
                     'on_the_house' => (float) $this->onTheHouse,
                     'snooker' => (float) $this->snooker,
-                    'total_damaged' => $totalDamaged,
-                    'total_credit_units' => $totalCredit,
-                    'total_credit_amount' => $totalCreditAmount,
-                    'total_loss_amount' => $totalLossAmount,
                     'product_id' => $mostSoldProductId,
                     'metadata' => json_encode([
                         'recorded_by' => Auth::id(),
                         'products_count' => count($salesRows),
-                        'has_credits' => $totalCredit > 0,
-                        'has_damages' => $totalDamaged > 0,
                     ]),
                     'created_at' => now(),
                     'updated_at' => now(),
@@ -1420,14 +1175,10 @@ class Inventory extends Component
                 'ds.closing_stock',
                 'ds.opening_boxes',
                 'ds.closing_boxes',
-                'ds.damaged_units',
-                'ds.credit_units',
-                'ds.credit_amount',
-                'ds.loss_amount',
                 'ds.total_amount',
-                DB::raw('(ds.opening_stock - ds.closing_stock - COALESCE(ds.damaged_units, 0) - COALESCE(ds.credit_units, 0)) as units_sold'),
+                DB::raw('(ds.opening_stock - ds.closing_stock) as units_sold'),
                 DB::raw('(ds.opening_boxes - ds.closing_boxes) as boxes_sold'),
-                DB::raw('(ds.total_amount + COALESCE(ds.credit_amount, 0)) as revenue')
+                'ds.total_amount as revenue'
             )
             ->where('ds.sales_date', $targetDate)
             ->get();
@@ -1444,10 +1195,6 @@ class Inventory extends Component
             'on_the_house' => $summary->on_the_house,
             'food_total' => $summary->food_total,
             'total_profit' => $summary->total_profit,
-            'total_loss_amount' => $summary->total_loss_amount,
-            'total_credit_amount' => $summary->total_credit_amount,
-            'total_credit_units' => $summary->total_credit_units,
-            'total_damaged' => $summary->total_damaged,
             'products' => $dailySales,
         ];
     }

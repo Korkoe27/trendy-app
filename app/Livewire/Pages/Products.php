@@ -4,8 +4,10 @@ namespace App\Livewire\Pages;
 
 use App\Models\ActivityLogs;
 use App\Models\Categories;
+use App\Models\PriceEvent;
 use App\Models\Product;
 use App\Models\Stock;
+use App\Services\PriceService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Livewire\Component;
@@ -54,6 +56,19 @@ class Products extends Component
     public $selectedCategory = 'all';
 
     public $stockHistory = [];
+
+    // VIP list and VIP price days
+    public bool $vipOnly = false;
+
+    public bool $showVipModal = false;
+
+    public string $vipName = '';
+
+    public string $vipStart = '';
+
+    public string $vipEnd = '';
+
+    public $vipPercent = '';
 
     protected $listeners = ['editProduct'];
 
@@ -566,6 +581,7 @@ class Products extends Component
             ->when($this->selectedCategory !== 'all', fn ($q) => $q->whereHas('category', fn ($qq) => $qq->where('name', $this->selectedCategory)
             )
             )
+            ->when($this->vipOnly, fn ($q) => $q->where('is_vip', true))
             ->orderBy('name');
 
         Log::debug('Filtered products query: '.$query->toSql());
@@ -718,11 +734,129 @@ class Products extends Component
         ]);
     }
 
+    public function updatingVipOnly()
+    {
+        $this->resetPage();
+    }
+
+    // ------------------------------------------------------------------ VIP list and price days
+
+    private function authorizeVip(): void
+    {
+        abort_unless(Auth::user()?->hasPermission('modify', 'products'), 403);
+    }
+
+    public function toggleVip($productId)
+    {
+        $this->authorizeVip();
+
+        $product = Product::find((int) $productId);
+
+        if ($product) {
+            app(PriceService::class)->setVip(Auth::user(), $product, ! $product->is_vip);
+            session()->flash('message', $product->is_vip
+                ? $product->name.' is now on the VIP list.'
+                : $product->name.' was removed from the VIP list.');
+        }
+    }
+
+    public function openVipModal()
+    {
+        $this->authorizeVip();
+
+        $this->resetErrorBag();
+        $this->vipName = '';
+        $this->vipPercent = '';
+        $this->vipStart = $this->vipEnd = app(PriceService::class)->businessDate()->toDateString();
+        $this->showVipModal = true;
+    }
+
+    public function closeVipModal()
+    {
+        $this->showVipModal = false;
+        $this->resetErrorBag();
+    }
+
+    public function updatedVipStart()
+    {
+        // Keep a one-day event the default: the last day follows the first until it is changed.
+        if ($this->vipEnd === '' || $this->vipEnd < $this->vipStart) {
+            $this->vipEnd = $this->vipStart;
+        }
+    }
+
+    public function scheduleVipPrices()
+    {
+        $this->authorizeVip();
+
+        $this->validate([
+            'vipName' => ['nullable', 'string', 'max:255'],
+            'vipStart' => ['required', 'date'],
+            'vipEnd' => ['required', 'date', 'after_or_equal:vipStart'],
+            'vipPercent' => ['required', 'numeric', 'not_in:0'],
+        ], [
+            'vipStart.required' => 'Pick the first day.',
+            'vipEnd.required' => 'Pick the last day.',
+            'vipEnd.after_or_equal' => 'The last day cannot be before the first day.',
+            'vipPercent.required' => 'Enter the percentage.',
+            'vipPercent.numeric' => 'The percentage must be a number.',
+            'vipPercent.not_in' => 'Enter a percentage other than 0.',
+        ]);
+
+        try {
+            $event = app(PriceService::class)->schedule(Auth::user(), $this->vipStart, $this->vipEnd, (float) $this->vipPercent, $this->vipName);
+        } catch (\DomainException $e) {
+            $this->addError('vipPercent', $e->getMessage());
+
+            return;
+        }
+
+        $this->showVipModal = false;
+        session()->flash('message', 'VIP prices '.$event->percentLabel().' scheduled for '.app(PriceService::class)->describeDays($event).'.');
+    }
+
+    public function cancelVipEvent($eventId)
+    {
+        $this->authorizeVip();
+
+        $event = PriceEvent::find((int) $eventId);
+
+        if (! $event) {
+            return;
+        }
+
+        try {
+            app(PriceService::class)->cancel(Auth::user(), $event);
+        } catch (\DomainException $e) {
+            $this->addError('vipEvents', $e->getMessage());
+
+            return;
+        }
+
+        session()->flash('message', 'The VIP price day was cancelled. Prices are back to normal.');
+    }
+
     public function render()
     {
+        $products = $this->filteredProducts;
+        $prices = app(PriceService::class);
+
+        $vipPreview = collect();
+        $vipEvents = collect();
+
+        if ($this->showVipModal) {
+            $vipPreview = Product::where('is_vip', true)->orderBy('name')->get();
+            $vipEvents = PriceEvent::withCount('products')->orderByDesc('starts_on')->orderByDesc('id')->limit(15)->get();
+        }
+
         return view('livewire.pages.products', [
-            'products' => $this->filteredProducts,
+            'products' => $products,
             'categories' => $this->categories,
+            'vipPrices' => $prices->upcomingFor($products),
+            'vipPreview' => $vipPreview,
+            'vipEvents' => $vipEvents,
+            'today' => $prices->businessDate()->toDateString(),
+            'vipPercentValue' => is_numeric($this->vipPercent) ? (float) $this->vipPercent : null,
         ]);
     }
 }

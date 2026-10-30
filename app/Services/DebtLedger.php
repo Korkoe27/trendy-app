@@ -59,6 +59,44 @@ class DebtLedger
     }
 
     /**
+     * How much of the shortfall inside a date range has since been paid back, for Analytics.
+     *
+     * A payment belongs to the month whose debt it settles. Within each month the paid amount is
+     * spread over that month's shortfall days in proportion, so a full month recovers exactly what
+     * was paid and a part-month range (the last 7 days) gets its share. Overpayment never counts,
+     * so the result can never exceed the shortfall inside the range.
+     */
+    public function recoveredBetween(Carbon $start, Carbon $end): float
+    {
+        $start = $start->copy()->startOfDay();
+        $end = $end->copy()->endOfDay();
+        $recovered = 0.0;
+
+        for ($month = $start->copy()->startOfMonth(); $month->lte($end); $month->addMonth()) {
+            $shortfalls = $this->dailyShortfalls($month);
+            $monthDebt = (float) $shortfalls->sum('shortfall');
+
+            if ($monthDebt <= 0) {
+                continue;
+            }
+
+            $paid = min($this->paidFor($month), $monthDebt);
+
+            if ($paid <= 0) {
+                continue;
+            }
+
+            $inRange = (float) $shortfalls
+                ->filter(fn ($day) => Carbon::parse($day['date'])->betweenIncluded($start, $end))
+                ->sum('shortfall');
+
+            $recovered += $paid * ($inRange / $monthDebt);
+        }
+
+        return round($recovered, 2);
+    }
+
+    /**
      * Can be negative if a later edit to a closed day shrank the month's debt below what
      * has already been paid.
      */

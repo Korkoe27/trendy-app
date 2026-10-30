@@ -20,9 +20,15 @@ class Product extends Model
         // "cost_price",    
         "selling_price",
         "units_per_box",
+        "is_vip",
     ];
 
     protected $table = 'products';
+
+    protected function casts(): array
+    {
+        return ['is_vip' => 'boolean'];
+    }
 
 
     public function category()

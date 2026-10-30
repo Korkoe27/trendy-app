@@ -4,6 +4,7 @@ namespace App\Livewire\Pages;
 
 use App\Models\{DailySales, DailySalesSummary, Product, Stock, Categories};
 use App\Exports\AnalyticsMultiSheetExport;
+use App\Services\DebtLedger;
 use Carbon\Carbon;
 use Livewire\Component;
 use Illuminate\Support\Facades\DB;
@@ -28,7 +29,6 @@ public $chartsLoaded = false;
     public $totalCashRevenue = 0;
     public $totalMomoRevenue = 0;
     public $totalHubtelRevenue = 0;
-    public $totalCreditRevenue = 0;
     public $averageDailyRevenue = 0;
     public $revenueGrowth = 0;
 
@@ -49,12 +49,9 @@ public $chartsLoaded = false;
     public $grossProfitMargin = 0;
 
     // Loss Metrics - IMPROVED
-    public $totalDamagedUnits = 0;
-    public $totalDamagedValue = 0;
-    public $totalCreditUnits = 0;
-    public $totalLossAmount = 0;
-    public $damageRate = 0;
-    public $accumulatedLosses = 0; // NEW: Collection discrepancies
+    public $accumulatedLosses = 0; // NEW: Collection discrepancies, before debt payments
+    public $debtRecovered = 0;     // part of the shortfall since paid back through Debt Payments
+    public $netLosses = 0;         // accumulatedLosses + debtRecovered
     public $totalOnTheHouse = 0; // NEW: Sum of on_the_house
 
     // Inventory Metrics - IMPROVED
@@ -300,7 +297,6 @@ public function updatedSelectedMonth()
     $this->totalCashRevenue   = $summaries->sum('total_cash');
     $this->totalMomoRevenue   = $summaries->sum('total_momo');
     $this->totalHubtelRevenue = $summaries->sum('total_hubtel');
-    $this->totalCreditRevenue = $summaries->sum('total_credit_amount'); // ensure this column exists
 
     $this->drinksTotal = $summaries->sum('drinks_total');
 
@@ -312,7 +308,6 @@ public function updatedSelectedMonth()
         'cash' => $this->totalCashRevenue,
         'momo' => $this->totalMomoRevenue,
         'hubtel' => $this->totalHubtelRevenue,
-        'credit' => $this->totalCreditRevenue,
         'avg_daily' => $this->averageDailyRevenue,
         'days' => $daysInPeriod,
     ]);
@@ -325,7 +320,7 @@ public function updatedSelectedMonth()
 //         ->selectRaw('
 //             SUM(total_amount) as cash_revenue,
 //             SUM(COALESCE(credit_amount, 0)) as credit_revenue,
-//             SUM(total_amount + COALESCE(credit_amount, 0)) as drinks_total
+//             SUM(total_amount) as drinks_total
 //         ')
 //         ->first();
 
@@ -355,12 +350,7 @@ private function calculateSalesMetrics()
     $result = DB::table('daily_sales')
         ->whereBetween('sales_date', [$this->startDate, $this->endDate])
         ->selectRaw('
-            SUM(
-                opening_stock
-                - closing_stock
-                - COALESCE(damaged_units, 0)
-                - COALESCE(credit_units, 0)
-            ) as total_units_sold
+            SUM(opening_stock - closing_stock) as total_units_sold
         ')
         ->first();
 
@@ -406,18 +396,19 @@ private function calculateProfitMetrics()
 
 
 
+    // The price per unit is what was charged that day (total_amount / units), so VIP price days count.
     $marginData = DB::table('daily_sales as ds')
         ->join('stocks as s', 'ds.stock_id', '=', 's.id')
-        ->join('products as p', 'ds.product_id', '=', 'p.id')
         ->whereBetween('ds.sales_date', [$this->startDate, $this->endDate])
-        ->where('p.selling_price', '>', 0)
+        ->whereRaw('(ds.opening_stock - ds.closing_stock) > 0')
+        ->where('ds.total_amount', '>', 0)
         ->where('s.cost_price', '>', 0)
         ->selectRaw('
             SUM(
-                ((p.selling_price - s.cost_price) / p.selling_price) * 100
-                * (ds.opening_stock - ds.closing_stock - COALESCE(ds.damaged_units,0) - COALESCE(ds.credit_units,0))
+                (1 - (s.cost_price * (ds.opening_stock - ds.closing_stock)) / ds.total_amount) * 100
+                * (ds.opening_stock - ds.closing_stock)
             ) as weighted_margin,
-            SUM(ds.opening_stock - ds.closing_stock - COALESCE(ds.damaged_units,0) - COALESCE(ds.credit_units,0)) as total_units
+            SUM(ds.opening_stock - ds.closing_stock) as total_units
         ')
         ->first();
 
@@ -457,32 +448,15 @@ private function calculateLossMetrics()
         $this->accumulatedLosses += ($collected - $expected);
     }
 
-    // Damaged / credit from daily_sales (per-product detail)
-    $lossData = DB::table('daily_sales')
-        ->whereBetween('sales_date', [$this->startDate, $this->endDate])
-        ->selectRaw('
-            SUM(COALESCE(damaged_units, 0)) as total_damaged_units,
-            SUM(COALESCE(loss_amount, 0)) as total_damaged_value,
-            SUM(COALESCE(credit_units, 0)) as total_credit_units
-        ')
-        ->first();
-
-    $this->totalDamagedUnits = (float) ($lossData->total_damaged_units ?? 0);
-    $this->totalDamagedValue = (float) ($lossData->total_damaged_value ?? 0);
-    $this->totalCreditUnits  = (float) ($lossData->total_credit_units ?? 0);
-    $this->totalLossAmount   = $this->totalDamagedValue;
-
-    $totalUnitsHandled = $this->totalItemsSold + $this->totalDamagedUnits;
-    $this->damageRate = $totalUnitsHandled > 0 
-        ? ($this->totalDamagedUnits / $totalUnitsHandled) * 100 
-        : 0;
+    // Debt payments recorded against these days' shortfalls bring the loss back down.
+    $this->debtRecovered = (new DebtLedger)->recoveredBetween(Carbon::parse($this->startDate), Carbon::parse($this->endDate));
+    $this->netLosses = $this->accumulatedLosses + $this->debtRecovered;
 
     Log::info('Analytics: Loss calculated', [
         'accumulated_losses' => $this->accumulatedLosses,
+        'debt_recovered' => $this->debtRecovered,
+        'net_losses' => $this->netLosses,
         'on_the_house' => $this->totalOnTheHouse,
-        'damaged_units' => $this->totalDamagedUnits,
-        'damaged_value' => $this->totalDamagedValue,
-        'damage_rate_pct' => round($this->damageRate, 2),
     ]);
 }
 
@@ -635,8 +609,8 @@ private function calculateInventoryMetrics()
         $topSelling = DailySales::whereBetween('sales_date', [$this->startDate, $this->endDate])
             ->select(
                 'product_id',
-                DB::raw('SUM(opening_stock - closing_stock - COALESCE(damaged_units, 0) - COALESCE(credit_units, 0)) as units_sold'),
-                DB::raw('SUM(total_amount + COALESCE(credit_amount, 0)) as revenue'),
+                DB::raw('SUM(opening_stock - closing_stock) as units_sold'),
+                DB::raw('SUM(total_amount) as revenue'),
                 DB::raw('SUM(unit_profit) as profit')
             )
             ->groupBy('product_id')
@@ -661,8 +635,8 @@ private function calculateInventoryMetrics()
         $leastSelling = DailySales::whereBetween('sales_date', [$this->startDate, $this->endDate])
             ->select(
                 'product_id',
-                DB::raw('SUM(opening_stock - closing_stock - COALESCE(damaged_units, 0) - COALESCE(credit_units, 0)) as units_sold'),
-                DB::raw('SUM(total_amount + COALESCE(credit_amount, 0)) as revenue')
+                DB::raw('SUM(opening_stock - closing_stock) as units_sold'),
+                DB::raw('SUM(total_amount) as revenue')
             )
             ->groupBy('product_id')
             ->orderBy('units_sold', 'asc')
@@ -686,7 +660,7 @@ private function calculateInventoryMetrics()
             ->select(
                 'product_id',
                 DB::raw('SUM(unit_profit) as total_profit'),
-                DB::raw('SUM(opening_stock - closing_stock - COALESCE(damaged_units, 0) - COALESCE(credit_units, 0)) as units_sold')
+                DB::raw('SUM(opening_stock - closing_stock) as units_sold')
             )
             ->groupBy('product_id')
             ->orderBy('total_profit', 'desc')
@@ -708,13 +682,12 @@ private function calculateInventoryMetrics()
 $leastPerforming = DailySales::whereBetween('sales_date', [$this->startDate, $this->endDate])
     ->select(
         'product_id',
-        DB::raw('SUM(total_amount + COALESCE(credit_amount, 0)) as revenue'),
+        DB::raw('SUM(total_amount) as revenue'),
         DB::raw('SUM(unit_profit) as profit'),
-        DB::raw('SUM(COALESCE(damaged_units, 0)) as damaged_units'),
-        DB::raw('SUM(opening_stock - closing_stock - COALESCE(damaged_units, 0) - COALESCE(credit_units, 0)) as units_sold')
+        DB::raw('SUM(opening_stock - closing_stock) as units_sold')
     )
     ->groupBy('product_id')
-    ->havingRaw('SUM(opening_stock - closing_stock - COALESCE(damaged_units, 0) - COALESCE(credit_units, 0)) > 0') // Only products that sold
+    ->havingRaw('SUM(opening_stock - closing_stock) > 0') // Only products that sold
     ->orderBy('revenue', 'asc') // Lowest revenue first
     ->limit(10)
     ->with('product.category')
@@ -729,7 +702,6 @@ $leastPerforming = DailySales::whereBetween('sales_date', [$this->startDate, $th
             'revenue' => $sale->revenue,
             'profit' => $sale->profit,
             'profit_margin' => $profitMargin,
-            'damaged_units' => $sale->damaged_units,
         ];
     });
 
@@ -754,24 +726,19 @@ $this->leastPerformingProducts = $leastPerforming->toArray();
                 return $sale->product->category->name ?? 'Uncategorized';
             })
             ->map(function ($sales, $categoryName) {
-                $revenue = $sales->sum(function ($sale) {
-                    return $sale->total_amount + ($sale->credit_amount ?? 0);
-                });
-                
+                $revenue = $sales->sum('total_amount');
+
                 $unitsSold = $sales->sum(function ($sale) {
-                    return $sale->opening_stock - $sale->closing_stock - 
-                           ($sale->damaged_units ?? 0) - ($sale->credit_units ?? 0);
+                    return $sale->opening_stock - $sale->closing_stock;
                 });
 
                 $profit = $sales->sum('unit_profit');
-                $damaged = $sales->sum('damaged_units');
 
                 return [
                     'category_name' => $categoryName,
                     'revenue' => $revenue,
                     'units_sold' => $unitsSold,
                     'profit' => $profit,
-                    'damaged_units' => $damaged,
                     'profit_margin' => $revenue > 0 ? ($profit / $revenue) * 100 : 0,
                 ];
             })
@@ -799,7 +766,6 @@ $this->leastPerformingProducts = $leastPerforming->toArray();
             DB::raw('SUM(snooker) as snooker'),
             DB::raw('SUM(total_profit) as profit'),
             DB::raw('SUM(items_sold) as items'),
-            DB::raw('SUM(total_damaged) as damaged'),
             DB::raw('SUM(total_cash + total_momo + total_hubtel) as total_collected'),
             DB::raw('SUM(drinks_total + food_total + snooker) as expected_total'),
             DB::raw('SUM(food_total) as food_sales'),
@@ -925,7 +891,6 @@ $this->leastPerformingProducts = $leastPerforming->toArray();
         $totalCash = $summaries->sum('total_cash');
         $totalMomo = $summaries->sum('total_momo');
         $totalHubtel = $summaries->sum('total_hubtel');
-        $totalCredit = $summaries->sum('total_credit_amount');
         $total = $totalCash + $totalMomo + $totalHubtel;
 
         $this->paymentMethodDistribution = [
@@ -944,19 +909,12 @@ $this->leastPerformingProducts = $leastPerforming->toArray();
                 'amount' => $totalHubtel,
                 'percentage' => $total > 0 ? round(($totalHubtel / $total) * 100, 1) : 0,
             ],
-            [
-                'method' => 'Credit',
-                'amount' => $totalCredit,
-                'percentage' => $this->drinksTotal > 0 ? round(($totalCredit / $this->drinksTotal) * 100, 1) : 0,
-                'is_credit' => true,
-            ],
         ];
 
         Log::info('Analytics: Payment distribution calculated', [
             'cash' => $totalCash,
             'momo' => $totalMomo,
             'hubtel' => $totalHubtel,
-            'credit' => $totalCredit,
             'total' => $total,
         ]);
     }
@@ -979,12 +937,12 @@ private function calculateGrowthRates()
     // Previous drinks total from daily_sales
     $prevDrinksRow = DB::table('daily_sales')
         ->whereBetween('sales_date', [$previousStartDate, $previousEndDate])
-        ->selectRaw('SUM(total_amount + COALESCE(credit_amount, 0)) as drinks_total')
+        ->selectRaw('SUM(total_amount) as drinks_total')
         ->first();
 
     $prevItemsRow = DB::table('daily_sales') 
         ->whereBetween('sales_date', [$previousStartDate, $previousEndDate])
-        ->selectRaw('SUM(opening_stock - closing_stock - COALESCE(damaged_units,0) - COALESCE(credit_units,0)) as units_sold')
+        ->selectRaw('SUM(opening_stock - closing_stock) as units_sold')
         ->first();
 
     $previousRevenue   = (float) ($prevDrinksRow->drinks_total ?? 0);

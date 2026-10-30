@@ -80,11 +80,11 @@ class StockFactory extends Factory
      * An end-of-day inventory row, shaped like Inventory::actuallySubmitInventory() writes it.
      * $enteredAt is when the count was typed in (the day after the business date).
      */
-    public function closing(Stock $opening, float $sold, float $damaged, float $credit, Carbon $businessDate, Carbon $enteredAt): static
+    public function closing(Stock $opening, float $sold, Carbon $businessDate, Carbon $enteredAt): static
     {
-        return $this->state(function () use ($opening, $sold, $damaged, $credit, $businessDate, $enteredAt) {
+        return $this->state(function () use ($opening, $sold, $businessDate, $enteredAt) {
             $price = (float) $opening->product->selling_price;
-            $closingUnits = (int) round($opening->total_units - $sold - $damaged - $credit);
+            $closingUnits = (int) round($opening->total_units - $sold);
 
             return [
                 'product_id' => $opening->product_id,
@@ -102,8 +102,6 @@ class StockFactory extends Factory
                     'previous_stock_date' => $opening->created_at?->toDateTimeString(),
                     'opening_stock' => $opening->total_units,
                     'units_sold' => $sold,
-                    'damaged_units' => $damaged,
-                    'credit_units' => $credit,
                     'created_by' => null,
                     'demo' => true,
                 ]),
@@ -139,8 +137,6 @@ class StockFactory extends Factory
             if ($isInventory) {
                 $movementMeta += [
                     'units_sold' => $metadata['units_sold'] ?? null,
-                    'damaged_units' => $metadata['damaged_units'] ?? null,
-                    'credit_units' => $metadata['credit_units'] ?? null,
                     'opening_stock' => $metadata['opening_stock'] ?? null,
                     'closing_stock' => $stock->total_units,
                 ];

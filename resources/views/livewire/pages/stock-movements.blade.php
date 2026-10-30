@@ -179,17 +179,6 @@
                                 <p class="text-2xl font-bold text-orange-800 mt-2">{{ number_format($productSummary['total_sold'] ?? 0) }}</p>
                                 <p class="text-xs text-orange-600 mt-1">units sold</p>
                             </div>
-
-                            <div class="bg-amber-50 rounded-lg border border-amber-200 p-4">
-                                <div class="flex items-center justify-between">
-                                    <p class="text-xs font-medium text-amber-700 uppercase tracking-wider">Damaged</p>
-                                    <svg class="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path>
-                                    </svg>
-                                </div>
-                                <p class="text-2xl font-bold text-amber-800 mt-2">{{ number_format($productSummary['total_damaged'] ?? 0, 1) }}</p>
-                                <p class="text-xs text-amber-600 mt-1">units</p>
-                            </div>
                         </div>
 
                         {{-- Stock Level Trend Chart --}}
@@ -261,7 +250,6 @@
                                             <th class="px-4 py-2.5 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Closing</th>
                                             <th class="px-4 py-2.5 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Change</th>
                                             <th class="px-4 py-2.5 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Sold</th>
-                                            <th class="px-4 py-2.5 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Damaged</th>
                                             <th class="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Details</th>
                                         </tr>
                                     </thead>
@@ -301,15 +289,9 @@
                                                 <td class="px-4 py-3 whitespace-nowrap text-right text-sm text-gray-600">
                                                     {{ $movement['units_sold'] !== null ? number_format($movement['units_sold']) : '—' }}
                                                 </td>
-                                                <td class="px-4 py-3 whitespace-nowrap text-right text-sm text-gray-600">
-                                                    {{ $movement['damaged'] !== null && $movement['damaged'] > 0 ? number_format($movement['damaged'], 1) : '—' }}
-                                                </td>
                                                 <td class="px-4 py-3 text-sm text-gray-500 max-w-[200px]">
                                                     @if($movement['supplier'])
                                                         <div class="text-xs">Supplier: {{ $movement['supplier'] }}</div>
-                                                    @endif
-                                                    @if($movement['credit'] && $movement['credit'] > 0)
-                                                        <div class="text-xs text-purple-600">Credits: {{ number_format($movement['credit'], 1) }}</div>
                                                     @endif
                                                     @if($movement['notes'])
                                                         <div class="text-xs truncate" title="{{ $movement['notes'] }}">{{ $movement['notes'] }}</div>
