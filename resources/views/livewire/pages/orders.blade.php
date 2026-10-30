@@ -59,7 +59,7 @@
         @endforeach
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-4 items-start">
         @foreach ($columns as $key => [$label, $style])
             <div class="space-y-3 {{ $activeColumn === $key ? '' : 'hidden lg:block lg:space-y-3' }}">
                 <div class="hidden lg:block px-4 py-3 border rounded-lg font-bold text-sm uppercase {{ $style }}">
@@ -78,11 +78,11 @@
     </div>
 
     <!-- Completed orders: 40% of the screen, stuck to the bottom, scrolls inside -->
-    <div class="mt-auto sticky bottom-0 z-10 h-[40vh] flex flex-col bg-white rounded-lg border border-gray-200 shadow-[0_-6px_16px_rgba(0,0,0,0.08)] overflow-hidden" data-testid="completed-orders">
-        <div class="shrink-0 px-4 sm:px-6 py-3 flex items-center justify-between border-b border-gray-100">
+    <div class="mt-auto sticky bottom-0 z-10  xl:h-[30vh] 2xl:h-[40vh] min-h-[11rem] flex flex-col bg-white rounded-lg border border-gray-200 shadow-[0_-6px_16px_rgba(0,0,0,0.08)] overflow-hidden" data-testid="completed-orders">
+        <div class="shrink-0 px-3 sm:px-4 lg:px-6 py-2 sm:py-3 flex items-center justify-between gap-2 border-b border-gray-100">
             <div>
-                <h3 class="text-lg font-semibold text-gray-900">Completed orders</h3>
-                <p class="text-sm text-gray-500">Paid and cancelled orders</p>
+                <h3 class="text-base sm:text-lg font-semibold text-gray-900">Completed orders</h3>
+                <p class="hidden sm:block text-sm text-gray-500">Paid and cancelled orders</p>
             </div>
             <span class="px-3 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700">{{ $history->total() }} total</span>
         </div>
@@ -90,44 +90,54 @@
         <div class="flex-1 min-h-0 overflow-auto">
         <!-- Table (md and up) -->
         <div class="hidden md:block">
-            <table class="w-full">
+            <table class="w-full min-w-[32rem]">
                 <thead class="bg-gray-50 sticky top-0 z-10">
                     <tr>
-                        @foreach (['Order', 'Customer', 'Waiter', 'Items', 'Total (GH₵)', 'Payment', 'Time', 'Status', ''] as $heading)
-                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">{{ $heading }}</th>
+                        @foreach ([
+                            ['Order', ''],
+                            ['Customer', ''],
+                            ['Waiter', 'hidden lg:table-cell'],
+                            ['Items', 'hidden xl:table-cell'],
+                            ['Total (GH₵)', ''],
+                            ['Payment', 'hidden lg:table-cell'],
+                            ['Time', 'hidden lg:table-cell'],
+                            ['Status', ''],
+                            ['', ''],
+                        ] as [$heading, $visible])
+                            <th class="px-3 lg:px-4 xl:px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase whitespace-nowrap {{ $visible }}">{{ $heading }}</th>
                         @endforeach
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200">
                     @forelse ($history as $done)
                         <tr wire:key="done-{{ $done->id }}" wire:click="openViewOrder({{ $done->id }})" class="hover:bg-gray-50 cursor-pointer">
-                            <td class="px-6 py-4 text-sm font-bold text-gray-900 whitespace-nowrap">{{ $done->code }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                <div class="text-sm font-semibold text-gray-900">{{ $done->customer_name }}</div>
+                            <td class="px-3 lg:px-4 xl:px-6 py-3 lg:py-4 text-sm font-bold text-gray-900 whitespace-nowrap">{{ $done->code }}</td>
+                            <td class="px-3 lg:px-4 xl:px-6 py-3 lg:py-4 max-w-[10rem] lg:max-w-[14rem]">
+                                <div class="text-sm font-semibold text-gray-900 truncate">{{ $done->customer_name }}</div>
                                 <div class="text-xs text-gray-500">{{ \App\Support\Phone::local($done->customer_phone) ?? $done->customer_phone }}</div>
                             </td>
-                            <td class="px-6 py-4 text-sm text-gray-700 whitespace-nowrap">{{ $done->taken_by_name }}</td>
-                            <td class="px-6 py-4 text-sm text-gray-600">
+                            <td class="hidden lg:table-cell px-4 xl:px-6 py-4 text-sm text-gray-700 whitespace-nowrap">{{ $done->taken_by_name }}</td>
+                            <td class="hidden xl:table-cell px-6 py-4 text-sm text-gray-600 max-w-xs">
                                 {{ $done->items->sum('quantity') }} items
                                 <span class="text-gray-400">({{ $done->items->take(2)->map(fn ($i) => $i->quantity.' '.$i->product_name)->join(', ') }}{{ $done->items->count() > 2 ? '…' : '' }})</span>
                             </td>
-                            <td class="px-6 py-4 text-sm font-bold text-gray-900 whitespace-nowrap">{{ number_format((float) $done->total, 2) }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap">
+                            <td class="px-3 lg:px-4 xl:px-6 py-3 lg:py-4 text-sm font-bold text-gray-900 whitespace-nowrap">{{ number_format((float) $done->total, 2) }}</td>
+                            <td class="hidden lg:table-cell px-4 xl:px-6 py-4 whitespace-nowrap">
                                 @if ($done->payment_method)
                                     <span class="px-2.5 py-1 text-xs font-medium rounded-full {{ $done->payment_method === 'momo' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700' }}">{{ $done->payment_method === 'momo' ? 'MoMo' : 'Cash' }}</span>
                                 @else
                                     <span class="text-gray-400">—</span>
                                 @endif
                             </td>
-                            <td class="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">{{ ($done->closed_at ?? $done->cancelled_at ?? $done->updated_at)->format('M j, H:i') }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap">
+                            <td class="hidden lg:table-cell px-4 xl:px-6 py-4 text-sm text-gray-500 whitespace-nowrap">{{ ($done->closed_at ?? $done->cancelled_at ?? $done->updated_at)->format('M j, H:i') }}</td>
+                            <td class="px-3 lg:px-4 xl:px-6 py-3 lg:py-4 whitespace-nowrap">
                                 @if ($done->status === 'closed')
                                     <span class="px-2.5 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-700">✓ Paid</span>
                                 @else
                                     <span class="px-2.5 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-700" title="{{ $done->cancel_reason }}">Cancelled</span>
                                 @endif
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-right">
+                            <td class="px-3 lg:px-4 xl:px-6 py-3 lg:py-4 whitespace-nowrap text-right">
                                 <button type="button" wire:click.stop="openViewOrder({{ $done->id }})" class="px-3 py-1.5 text-sm font-semibold text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-50">View</button>
                             </td>
                         </tr>
@@ -141,7 +151,7 @@
         <!-- Cards (small screens) -->
         <div class="md:hidden divide-y divide-gray-100">
             @forelse ($history as $done)
-                <div wire:key="done-m-{{ $done->id }}" wire:click="openViewOrder({{ $done->id }})" class="p-4 flex items-start justify-between gap-3 cursor-pointer active:bg-gray-50">
+                <div wire:key="done-m-{{ $done->id }}" wire:click="openViewOrder({{ $done->id }})" class="p-3 sm:p-4 flex items-start justify-between gap-3 cursor-pointer active:bg-gray-50">
                     <div>
                         <p class="font-semibold text-gray-900">{{ $done->customer_name }}</p>
                         <p class="text-xs text-gray-500">{{ $done->code }} • {{ $done->items->sum('quantity') }} items • {{ $done->payment_method ? ucfirst($done->payment_method === 'momo' ? 'MoMo' : 'Cash') : '—' }}</p>
@@ -159,7 +169,7 @@
         </div>
 
         @if ($history->hasPages())
-            <div class="px-6 py-4 border-t border-gray-200">{{ $history->links() }}</div>
+            <div class="px-3 sm:px-6 py-3 sm:py-4 border-t border-gray-200">{{ $history->links() }}</div>
         @endif
         </div>
     </div>
