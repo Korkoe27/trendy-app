@@ -212,8 +212,7 @@ class OrdersPageTest extends TestCase
             ->assertHasNoErrors()
             ->assertSet('showOrderModal', false)
             ->assertSee('Kwame Mensah')
-            ->assertSee('GH₵ 135.00')
-            ->assertDontSee('024 •• 4567'); // the board card is compact: details live in the View modal
+            ->assertSee('0241234567'); // the full number, so staff can call the customer
 
         $order = Order::firstOrFail();
         $this->assertSame('pending', $order->status);

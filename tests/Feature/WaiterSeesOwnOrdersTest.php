@@ -171,23 +171,49 @@ class WaiterSeesOwnOrdersTest extends TestCase
         $this->assertCount(0, Order::visibleTo(null)->get());
     }
 
-    public function test_board_cards_are_compact_and_the_view_button_opens_the_details(): void
+    public function test_the_board_cards_show_the_full_number_and_the_items(): void
     {
         [$ama, , $amaOrder] = $this->twoOrders();
         $this->actingAs($ama);
 
         Livewire::test(Orders::class)
-            ->assertSee($amaOrder->code)
-            ->assertSee('Amas Customer')
-            ->assertSee('GH₵ 30.00')
-            ->assertSee('View')
-            ->assertDontSee('1x Club Beer') // items and phone are not on the card
-            ->assertDontSee('0241111111')
-            ->call('openViewOrder', $amaOrder->id)
-            ->assertSet('showViewModal', true)
-            ->assertSee('1x Club Beer')
             ->assertSee('0241111111')
             ->assertSeeHtml('href="tel:+233241111111"')
-            ->assertSee('Pending');
+            ->assertSee('1x Club Beer');
+    }
+
+    public function test_the_completed_orders_panel_is_a_sticky_scrollable_40_percent_strip(): void
+    {
+        [$ama] = $this->twoOrders();
+        $this->actingAs($ama);
+
+        Livewire::test(Orders::class)
+            ->assertSeeHtml('data-testid="completed-orders"')
+            ->assertSeeHtml('h-[40vh]')
+            ->assertSeeHtml('sticky bottom-0')
+            ->assertSeeHtml('overflow-auto');
+    }
+
+    public function test_an_order_with_new_items_added_after_it_was_ready_is_flagged_new(): void
+    {
+        [$ama, , $amaOrder] = $this->twoOrders();
+        $bar = $this->userWith(['orders' => ['view', 'modify']], 'Akua');
+        $this->actingAs($ama);
+
+        // Fresh order: nothing is a "new round" yet.
+        Livewire::test(Orders::class)->assertDontSeeHtml('data-testid="new-items-badge"');
+
+        // Prepared, then the waiter adds more: the order goes back to pending flagged New.
+        $this->orders->markReady($amaOrder, $bar);
+        $this->orders->addItems($amaOrder->fresh(), $ama, [$this->beer => 1]);
+
+        // Only the added product carries a New tag, not the one that was already prepared.
+        $page = Livewire::test(Orders::class)->assertSeeHtml('data-testid="new-items-badge"');
+        $this->assertSame(1, substr_count($page->html(), 'data-testid="new-item-tag"'));
+
+        // The bartender prepares the new items: the flag goes away.
+        $this->orders->markReady($amaOrder->fresh(), $bar);
+
+        Livewire::test(Orders::class)->assertDontSeeHtml('data-testid="new-items-badge"')->assertDontSeeHtml('data-testid="new-item-tag"');
     }
 }

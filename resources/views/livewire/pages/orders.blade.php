@@ -1,6 +1,6 @@
 {{-- Live order board. Re-renders every 4 seconds unless a modal is open. --}}
 {{-- pt-14 on phones keeps the page clear of the fixed menu button --}}
-<div class="space-y-6 pt-14 lg:pt-0" @unless ($modalOpen) wire:poll.4s.visible @endunless>
+<div class="flex-1 flex flex-col gap-6 pt-14 lg:pt-0" @unless ($modalOpen) wire:poll.4s.visible @endunless>
     <!-- Flash Messages -->
     @if (session()->has('message'))
         <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative" role="alert">
@@ -77,9 +77,9 @@
         @endforeach
     </div>
 
-    <!-- Completed orders -->
-    <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
-        <div class="p-4 sm:p-6 flex items-center justify-between">
+    <!-- Completed orders: 40% of the screen, stuck to the bottom, scrolls inside -->
+    <div class="mt-auto sticky bottom-0 z-10 h-[40vh] flex flex-col bg-white rounded-lg border border-gray-200 shadow-[0_-6px_16px_rgba(0,0,0,0.08)] overflow-hidden" data-testid="completed-orders">
+        <div class="shrink-0 px-4 sm:px-6 py-3 flex items-center justify-between border-b border-gray-100">
             <div>
                 <h3 class="text-lg font-semibold text-gray-900">Completed orders</h3>
                 <p class="text-sm text-gray-500">Paid and cancelled orders</p>
@@ -87,10 +87,11 @@
             <span class="px-3 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700">{{ $history->total() }} total</span>
         </div>
 
+        <div class="flex-1 min-h-0 overflow-auto">
         <!-- Table (md and up) -->
-        <div class="hidden md:block overflow-x-auto">
+        <div class="hidden md:block">
             <table class="w-full">
-                <thead class="bg-gray-50">
+                <thead class="bg-gray-50 sticky top-0 z-10">
                     <tr>
                         @foreach (['Order', 'Customer', 'Waiter', 'Items', 'Total (GH₵)', 'Payment', 'Time', 'Status', ''] as $heading)
                             <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase">{{ $heading }}</th>
@@ -160,6 +161,7 @@
         @if ($history->hasPages())
             <div class="px-6 py-4 border-t border-gray-200">{{ $history->links() }}</div>
         @endif
+        </div>
     </div>
 
     <!-- Take order / add items modal -->
