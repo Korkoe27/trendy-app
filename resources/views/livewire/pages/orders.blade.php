@@ -103,7 +103,7 @@
                             <td class="px-6 py-4 text-sm font-bold text-gray-900 whitespace-nowrap">{{ $done->code }}</td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <div class="text-sm font-semibold text-gray-900">{{ $done->customer_name }}</div>
-                                <div class="text-xs text-gray-500">{{ \App\Support\Phone::mask($done->customer_phone) }}</div>
+                                <div class="text-xs text-gray-500">{{ \App\Support\Phone::local($done->customer_phone) ?? $done->customer_phone }}</div>
                             </td>
                             <td class="px-6 py-4 text-sm text-gray-700 whitespace-nowrap">{{ $done->taken_by_name }}</td>
                             <td class="px-6 py-4 text-sm text-gray-600">
@@ -458,11 +458,15 @@
                 <div class="p-4 sm:p-6 border-b flex items-start justify-between">
                     <div>
                         <h3 class="text-xl font-semibold text-gray-900">{{ $viewingOrder->code }}</h3>
-                        <p class="text-sm text-gray-500">{{ $viewingOrder->customer_name }} • {{ \App\Support\Phone::mask($viewingOrder->customer_phone) }}</p>
+                        <p class="text-sm text-gray-500">{{ $viewingOrder->customer_name }}</p>
+                        <a href="tel:{{ $viewingOrder->customer_phone }}" class="mt-1 inline-flex items-center gap-1.5 text-sm font-semibold text-blue-700 hover:underline" data-testid="customer-phone">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.95.68l1.5 4.5a1 1 0 01-.5 1.2l-2.26 1.13a11 11 0 005.52 5.52l1.13-2.26a1 1 0 011.2-.5l4.5 1.5a1 1 0 01.68.95V19a2 2 0 01-2 2h-1C9.72 21 3 14.28 3 6V5z"></path></svg>
+                            {{ \App\Support\Phone::local($viewingOrder->customer_phone) ?? $viewingOrder->customer_phone }}
+                        </a>
                     </div>
                     <div class="flex items-center gap-3">
                         <span class="px-2.5 py-1 text-xs font-semibold rounded-full {{ $paid ? 'bg-green-100 text-green-700' : ($viewingOrder->status === 'cancelled' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-800') }}">
-                            {{ $paid ? '✓ Paid' : ucfirst($viewingOrder->status) }}
+                            {{ $paid ? '✓ Paid' : ($viewingOrder->status === 'served' ? 'Ongoing tab' : ucfirst($viewingOrder->status)) }}
                         </span>
                         <button wire:click="closeViewModal" class="text-gray-400 hover:text-gray-600" aria-label="Close">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>

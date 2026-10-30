@@ -170,4 +170,24 @@ class WaiterSeesOwnOrdersTest extends TestCase
         $this->assertSame([$amaOrder->id], Order::visibleTo($ama)->pluck('id')->all());
         $this->assertCount(0, Order::visibleTo(null)->get());
     }
+
+    public function test_board_cards_are_compact_and_the_view_button_opens_the_details(): void
+    {
+        [$ama, , $amaOrder] = $this->twoOrders();
+        $this->actingAs($ama);
+
+        Livewire::test(Orders::class)
+            ->assertSee($amaOrder->code)
+            ->assertSee('Amas Customer')
+            ->assertSee('GH₵ 30.00')
+            ->assertSee('View')
+            ->assertDontSee('1x Club Beer') // items and phone are not on the card
+            ->assertDontSee('0241111111')
+            ->call('openViewOrder', $amaOrder->id)
+            ->assertSet('showViewModal', true)
+            ->assertSee('1x Club Beer')
+            ->assertSee('0241111111')
+            ->assertSeeHtml('href="tel:+233241111111"')
+            ->assertSee('Pending');
+    }
 }
