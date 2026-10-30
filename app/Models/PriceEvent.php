@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\SessionClock;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -41,13 +42,49 @@ class PriceEvent extends Model
         return $query->whereNull('cancelled_at');
     }
 
-    /** @param  string  $today  business date, Y-m-d */
-    public function statusOn(string $today): string
+    /** The start time as HH:MM, or null when the event starts with the first session. */
+    public function startTime(): ?string
     {
+        return $this->starts_time ? substr((string) $this->starts_time, 0, 5) : null;
+    }
+
+    /** The end time as HH:MM, or null when the event runs to the end of the last session. */
+    public function endTime(): ?string
+    {
+        return $this->ends_time ? substr((string) $this->ends_time, 0, 5) : null;
+    }
+
+    public function hasTimes(): bool
+    {
+        return $this->startTime() !== null || $this->endTime() !== null;
+    }
+
+    /**
+     * The part of a business date this event covers, as [start, end) minutes into the session.
+     *
+     * @return array{0: int, 1: int}
+     */
+    public function windowOn(string $date): array
+    {
+        return SessionClock::window($date, (string) $this->starts_on, (string) $this->ends_on, $this->startTime(), $this->endTime());
+    }
+
+    /**
+     * @param  string  $today  business date, Y-m-d
+     * @param  int|null  $minute  minutes into today's session; lets a timed event be "upcoming" or "ended" within the day
+     */
+    public function statusOn(string $today, ?int $minute = null): string
+    {
+        $ended = $this->ends_on < $today
+            || ($minute !== null && $this->ends_on === $today && $this->endTime() !== null && $minute >= SessionClock::endMinute($this->endTime()));
+
+        $upcoming = $this->starts_on > $today
+            || ($minute !== null && $this->starts_on === $today && $this->startTime() !== null && $minute < SessionClock::sessionMinute($this->startTime()));
+
         return match (true) {
             $this->cancelled_at !== null => self::STATUS_CANCELLED,
-            $this->ends_on < $today => self::STATUS_ENDED,
-            $this->starts_on > $today => self::STATUS_UPCOMING,
+            $ended => self::STATUS_ENDED,
+            $upcoming => self::STATUS_UPCOMING,
             default => self::STATUS_ACTIVE,
         };
     }

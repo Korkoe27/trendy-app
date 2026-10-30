@@ -129,7 +129,7 @@
                 <tbody class="bg-white divide-y divide-gray-200">
                     @forelse($products as $prod)
     @php
-        $stockStatus = $this->getStockStatus($prod->id, $prod->stock_limit);
+        $stockStatus = $this->getStockStatus($prod->id, $prod->stock_limit, $prod);
         $margin = $prod?->currentStock?->cost_margin ?? 0;
     @endphp
                     <tr class="hover:bg-gray-50" wire:key="product-row-{{ $prod->id }}">
@@ -141,10 +141,17 @@
 
                             {{-- Stock --}}
                             <td class="px-6 py-2 whitespace-nowrap">
-                                <div class="text-base font-medium text-gray-900">{{ $stockStatus['current'] }} units
-                                </div>
-                                @if ($prod->stock_limit)
-                                    <div class="text-xs text-gray-500 mb-1">Limit: {{ $prod->stock_limit }}</div>
+                                @if (($stockStatus['tracked'] ?? true) === false)
+                                    {{-- Only drinks have stock. Games run on coins that come back every day. --}}
+                                    @if ($stockStatus['coins'])
+                                        <div class="text-base font-medium text-gray-900">{{ number_format($stockStatus['coins']) }} coins/day</div>
+                                    @endif
+                                @else
+                                    <div class="text-base font-medium text-gray-900">{{ $stockStatus['current'] }} units
+                                    </div>
+                                    @if ($prod->stock_limit)
+                                        <div class="text-xs text-gray-500 mb-1">Limit: {{ $prod->stock_limit }}</div>
+                                    @endif
                                 @endif
                                 <span
                                     class="inline-block px-2 py-1 text-xs font-medium rounded-full {{ $stockStatus['color'] }}">
@@ -168,7 +175,7 @@
                                             @if ($vip['active'])
                                                 VIP GH₵ {{ number_format($vip['price'], 2) }} ({{ $vip['label'] }})
                                             @else
-                                                {{ \Carbon\Carbon::parse($vip['event']->starts_on)->format('D j M') }}: GH₵ {{ number_format($vip['price'], 2) }} ({{ $vip['label'] }})
+                                                {{ \Carbon\Carbon::parse($vip['event']->starts_on)->format('D j M') }}{{ $vip['event']->startTime() ? ' '.$vip['event']->startTime() : '' }}: GH₵ {{ number_format($vip['price'], 2) }} ({{ $vip['label'] }})
                                             @endif
                                         </span>
                                     @elseif ($prod->is_vip)
@@ -301,10 +308,17 @@
                                     </p>
                                 @endif
                             </div>
+                            @if ($product->tracksStock())
                             <div>
                                 <label class="block text-sm font-medium text-gray-600">Stock Limit</label>
                                 <p class="text-base text-gray-900">{{ $product->stock_limit ?? 'No limit set' }}</p>
                             </div>
+                            @elseif ($product->isGame())
+                            <div>
+                                <label class="block text-sm font-medium text-gray-600">Coins per day</label>
+                                <p class="text-base text-gray-900">{{ number_format((int) $product->daily_coins) }} (back to full every day)</p>
+                            </div>
+                            @endif
                             <div>
                                 <label class="block text-sm font-medium text-gray-600">Status</label>
                                 <span
@@ -314,13 +328,14 @@
                             </div>
                         </div>
 
-                        {{-- Stock Info --}}
+                        {{-- Stock Info (drinks only) --}}
+                        @if ($product->tracksStock())
                         <div class="space-y-4">
                             <h4 class="text-md font-semibold text-gray-800 border-b pb-2">Stock Information</h4>
 
                             @php
                                 $currentStock = $this->getCurrentStock($product->id);
-                                $stockStatus = $this->getStockStatus($product->id, $product->stock_limit);
+                                $stockStatus = $this->getStockStatus($product->id, $product->stock_limit, $product);
                                 $latestStock = $stockHistory->first();
                             @endphp
 
@@ -356,10 +371,11 @@
                                 </div>
                             @endif
                         </div>
+                        @endif
                     </div>
 
-                    {{-- Stock History --}}
-                    @if ($stockHistory && $stockHistory->count() > 0)
+                    {{-- Stock History (drinks only) --}}
+                    @if ($product->tracksStock() && $stockHistory && $stockHistory->count() > 0)
                         <div class="mt-6">
                             <h4 class="text-md font-semibold text-gray-800 border-b pb-2 mb-4">Recent Stock History
                             </h4>
@@ -450,7 +466,7 @@
                                         <div>
                                             <label for="category_id"
                                                 class="block text-sm font-medium text-gray-700">Category</label>
-                                            <select wire:model="category_id" id="category_id"
+                                            <select wire:model.live="category_id" id="category_id"
                                                 class="w-full px-3 py-2 border border-gray-300 rounded-lg capitalize focus:ring-2 focus:ring-blue-500 focus:border-transparent">
                                                 <option value="">Select Category</option>
                                                 @foreach ($categories as $category)
@@ -503,7 +519,21 @@
                                             @enderror
                                         </div>
 
-                                        <!-- Stock Limit -->
+                                        @if (in_array((int) $category_id, $gamesCategoryIds, true))
+                                        <!-- Coins per day (games) -->
+                                        <div>
+                                            <label for="daily_coins"
+                                                class="block text-sm font-medium text-gray-700">Coins per day</label>
+                                            <input type="number" min="1" wire:model="daily_coins"
+                                                id="daily_coins"
+                                                class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                                            <p class="text-xs text-gray-500 mt-1">The coins come back every day, so there is no stock to count.</p>
+                                            @error('daily_coins')
+                                                <span class="text-red-500 text-sm">{{ $message }}</span>
+                                            @enderror
+                                        </div>
+                                        @elseif (in_array((int) $category_id, $stockedCategoryIds, true))
+                                        <!-- Stock Limit (drinks) -->
                                         <div>
                                             <label for="stock_limit"
                                                 class="block text-sm font-medium text-gray-700">Stock Limit
@@ -515,6 +545,7 @@
                                                 <span class="text-red-500 text-sm">{{ $message }}</span>
                                             @enderror
                                         </div>
+                                        @endif
 
                                         <!-- Status -->
                                         <div class="flex items-center">
@@ -710,7 +741,7 @@
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category <span class="text-red-600">*</span></th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">SKU</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Barcode<span class="text-red-600">*</span></th>
-                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stock Limit<span class="text-red-600">*</span></th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stock Limit / Coins per day</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Selling Price (GH₵)<span class="text-red-600">*</span></th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Units/Box</th>
                                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Action</th>
@@ -728,7 +759,7 @@
                                                 @enderror
                                             </td>
                                             <td class="px-4 py-3">
-                                                <select wire:model="newProducts.{{ $index }}.category_id"
+                                                <select wire:model.live="newProducts.{{ $index }}.category_id"
                                                     class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-sm" required>
                                                     <option value="">Select Category</option>
                                                     @foreach($categories as $category)
@@ -756,13 +787,28 @@
                                                 @enderror
                                             </td>
                                             <td class="px-4 py-3">
-                                                <input type="text"
-                                                oninput="this.value = this.value.replace(/[^0-9]/g, '');"
-                                                wire:model="newProducts.{{ $index }}.stock_limit" placeholder="100"
-                                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-sm" min="0" />
-                                                @error('newProducts.' . $index . '.stock_limit')
-                                                    <div class="text-red-500 text-xs mt-1">{{ $message }}</div>
-                                                @enderror
+                                                @php $rowCategory = (int) ($product['category_id'] ?? 0); @endphp
+                                                @if (in_array($rowCategory, $gamesCategoryIds, true))
+                                                    {{-- A game (snooker) has coins per day that come back every day, not stock --}}
+                                                    <input type="text"
+                                                    oninput="this.value = this.value.replace(/[^0-9]/g, '');"
+                                                    wire:model="newProducts.{{ $index }}.daily_coins" placeholder="e.g. 200" aria-label="Coins per day"
+                                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-sm" />
+                                                    <p class="text-xs text-gray-500 mt-1">Coins per day</p>
+                                                    @error('newProducts.' . $index . '.daily_coins')
+                                                        <div class="text-red-500 text-xs mt-1">{{ $message }}</div>
+                                                    @enderror
+                                                @elseif (in_array($rowCategory, $stockedCategoryIds, true))
+                                                    <input type="text"
+                                                    oninput="this.value = this.value.replace(/[^0-9]/g, '');"
+                                                    wire:model="newProducts.{{ $index }}.stock_limit" placeholder="100"
+                                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 text-sm" min="0" />
+                                                    @error('newProducts.' . $index . '.stock_limit')
+                                                        <div class="text-red-500 text-xs mt-1">{{ $message }}</div>
+                                                    @enderror
+                                                @else
+                                                    <span class="text-xs text-gray-500">{{ $rowCategory ? 'Not stocked' : 'Pick a category' }}</span>
+                                                @endif
                                             </td>
                                             <td class="px-4 py-3">
                                                 <input type="text" 
@@ -853,15 +899,31 @@
                         </div>
                         <div>
                             <label for="vipStart" class="block text-xs font-semibold text-gray-600 uppercase mb-1">First day</label>
-                            <input id="vipStart" type="date" wire:model.live="vipStart" min="{{ $today }}"
-                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-400" />
+                            <div class="flex gap-2">
+                                <input id="vipStart" type="date" wire:model.live="vipStart" min="{{ $today }}"
+                                    class="min-w-0 flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-400" />
+                                <input id="vipStartTime" type="time" wire:model.live="vipStartTime" aria-label="Start time (optional)" title="Start time (optional). Leave blank to start with the session."
+                                    class="w-32 px-2 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-400" />
+                            </div>
                             @error('vipStart') <div class="text-red-500 text-xs mt-1">{{ $message }}</div> @enderror
+                            @error('vipStartTime') <div class="text-red-500 text-xs mt-1">{{ $message }}</div> @enderror
                         </div>
                         <div>
                             <label for="vipEnd" class="block text-xs font-semibold text-gray-600 uppercase mb-1">Last day (same as first for one day)</label>
-                            <input id="vipEnd" type="date" wire:model.live="vipEnd" min="{{ $vipStart ?: $today }}"
-                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-400" />
+                            <div class="flex gap-2">
+                                <input id="vipEnd" type="date" wire:model.live="vipEnd" min="{{ $vipStart ?: $today }}"
+                                    class="min-w-0 flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-400" />
+                                <input id="vipEndTime" type="time" wire:model.live="vipEndTime" aria-label="End time (optional)" title="End time (optional). Leave blank to run to the end of the session."
+                                    class="w-32 px-2 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-400" />
+                            </div>
                             @error('vipEnd') <div class="text-red-500 text-xs mt-1">{{ $message }}</div> @enderror
+                            @error('vipEndTime') <div class="text-red-500 text-xs mt-1">{{ $message }}</div> @enderror
+                        </div>
+                        <div class="sm:col-span-2">
+                            <p class="text-xs text-gray-500">Times are optional. Leave them blank to cover the whole session (it runs past midnight, up to the closing hour). A time after midnight counts as the same night: Saturday until 01:00 means Sunday 01:00.</p>
+                            @if ($vipRunsText)
+                                <p class="mt-1 text-sm font-semibold text-amber-700" data-testid="vip-runs">Runs: {{ $vipRunsText }}</p>
+                            @endif
                         </div>
                         @if ($vipMode === 'percent')
                         <div class="sm:col-span-2">
@@ -964,7 +1026,7 @@
                     @error('vipEvents') <div class="text-red-500 text-xs mb-2">{{ $message }}</div> @enderror
                     @forelse ($vipEvents as $event)
                         @php
-                            $status = $event->statusOn($today);
+                            $status = $event->statusOn($today, $nowMinute);
                             $badge = ['active' => 'bg-green-100 text-green-800', 'upcoming' => 'bg-blue-100 text-blue-800', 'ended' => 'bg-gray-100 text-gray-600', 'cancelled' => 'bg-red-100 text-red-700'][$status];
                         @endphp
                         <div class="flex items-center justify-between gap-3 py-2 border-t border-gray-100 text-sm" wire:key="vip-event-{{ $event->id }}">

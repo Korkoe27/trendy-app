@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\ActivityLogs;
 use App\Models\DebtPayment;
 use App\Models\User;
+use App\Support\DailyDifference;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -60,13 +61,8 @@ class DebtLedger
             ->orderBy('sales_date')
             ->get()
             ->map(function ($summary) {
-                $expected = (float) $summary->drinks_total
-                    + (float) $summary->food_total
-                    - (float) $summary->on_the_house;
-
-                $collected = (float) $summary->total_cash
-                    + (float) $summary->total_momo
-                    + (float) $summary->total_hubtel;
+                $expected = DailyDifference::expected($summary);
+                $collected = DailyDifference::collected($summary);
 
                 return [
                     'date' => $summary->sales_date,

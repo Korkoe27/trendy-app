@@ -36,7 +36,8 @@ class AnalyticsSummarySheet implements FromCollection, WithHeadings, WithTitle, 
                 DB::raw('SUM(total_hubtel) as hubtel'),
                 DB::raw('SUM(total_cash + total_momo + total_hubtel) as total_collected'),
                 DB::raw('SUM(drinks_total + food_total) as expected'),
-                DB::raw('SUM(on_the_house) as on_the_house')
+                DB::raw('SUM(on_the_house) as on_the_house'),
+                DB::raw('SUM(CASE WHEN snooker_expected IS NOT NULL AND snooker_expected > snooker THEN snooker_expected - snooker ELSE 0 END) as snooker_shortfall')
             )
             ->groupBy('sales_date')
             ->orderBy('sales_date')
@@ -54,7 +55,7 @@ class AnalyticsSummarySheet implements FromCollection, WithHeadings, WithTitle, 
 
     public function map($row): array
     {
-        $difference = $row->total_collected - ($row->expected - $row->on_the_house);
+        $difference = $row->total_collected - ($row->expected - $row->on_the_house) - ($row->snooker_shortfall ?? 0);
 
         return [
             $row->sales_date,

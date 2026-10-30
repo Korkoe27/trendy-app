@@ -38,7 +38,8 @@ class Dashboard extends Component
 
     public function getLowStockProductsProperty()
 {
-    return Product::where(function ($query) {
+    // Only drinks have stock; games and food never raise a low-stock alert.
+    return Product::stocked()->where(function ($query) {
             $query->whereDoesntHave('stocks')
                   ->orWhereHas('stocks', function ($q) {
                       $q->whereColumn('stocks.total_units', '<=', 'products.stock_limit');

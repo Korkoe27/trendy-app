@@ -437,15 +437,8 @@ private function calculateLossMetrics()
     // Accumulated collection discrepancies
     $this->accumulatedLosses = 0;
     foreach ($summaries as $summary) {
-        $collected = ($summary->total_cash ?? 0) 
-                   + ($summary->total_momo ?? 0) 
-                   + ($summary->total_hubtel ?? 0);
-
-        $expected = ($summary->drinks_total ?? 0) 
-                  + ($summary->food_total ?? 0) 
-                  - ($summary->on_the_house ?? 0);
-
-        $this->accumulatedLosses += ($collected - $expected);
+        // Same rule as Debt Payments (includes a snooker shortfall against the coins given).
+        $this->accumulatedLosses += \App\Support\DailyDifference::difference($summary);
     }
 
     // Debt payments recorded against these days' shortfalls bring the loss back down.
@@ -540,7 +533,12 @@ private function calculateSnookerMetrics()
 
 private function calculateInventoryMetrics()
 {
+    // Only drinks have stock; food, games and the rest are left out of every stock figure.
+    $stockedIds = \App\Models\Categories::stockedIds() ?: [0];
+    $stockedProducts = DB::table('products')->whereIn('category_id', $stockedIds)->select('id');
+
     $latestStocks = DB::table('stocks as s1')
+        ->whereIn('s1.product_id', $stockedProducts)
         ->whereRaw('s1.id = (SELECT MAX(s2.id) FROM stocks s2 WHERE s2.product_id = s1.product_id)')
         ->where('s1.total_units', '>', 0)
         ->select('s1.*')
@@ -554,6 +552,7 @@ private function calculateInventoryMetrics()
                  ->whereRaw('s.id = (SELECT MAX(s2.id) FROM stocks s2 WHERE s2.product_id = p.id)');
         })
         ->where('p.is_active', true)
+        ->whereIn('p.category_id', $stockedIds)
         ->where('s.total_units', '>', 0)
         ->whereNotNull('p.stock_limit')
         ->where('p.stock_limit', '>', 0)
@@ -562,6 +561,7 @@ private function calculateInventoryMetrics()
 
     $this->outOfStockProducts = DB::table('products as p')
         ->where('p.is_active', true)
+        ->whereIn('p.category_id', $stockedIds)
         ->whereNotExists(function ($q) {
             $q->select(DB::raw(1))
               ->from('stocks')
@@ -590,6 +590,7 @@ private function calculateInventoryMetrics()
     {
         // Get stock snapshot at specific date
         $stocks = Stock::where('created_at', '<=', $date)
+            ->whereIn('product_id', \App\Models\Product::stocked()->select('id'))
             ->whereIn('id', function ($query) use ($date) {
                 $query->select(DB::raw('MAX(id)'))
                     ->from('stocks')
@@ -767,9 +768,10 @@ $this->leastPerformingProducts = $leastPerforming->toArray();
             DB::raw('SUM(total_profit) as profit'),
             DB::raw('SUM(items_sold) as items'),
             DB::raw('SUM(total_cash + total_momo + total_hubtel) as total_collected'),
-            DB::raw('SUM(drinks_total + food_total + snooker) as expected_total'),
+            DB::raw('SUM(drinks_total + food_total) as expected_total'),
             DB::raw('SUM(food_total) as food_sales'),
-            DB::raw('SUM(on_the_house) as on_the_house')
+            DB::raw('SUM(on_the_house) as on_the_house'),
+            DB::raw('SUM(CASE WHEN snooker_expected IS NOT NULL AND snooker_expected > snooker THEN snooker_expected - snooker ELSE 0 END) as snooker_shortfall')
         )
         ->groupBy('sales_date')
         ->orderBy('sales_date')
@@ -799,7 +801,8 @@ $this->leastPerformingProducts = $leastPerforming->toArray();
         $expected  = $day->expected_total ?? 0;
         $onHouse   = $day->on_the_house ?? 0;
 
-        $difference = $collected - $expected + $onHouse;
+        // Snooker money is kept separate from the collected total; only a shortfall against the coins given counts.
+        $difference = $collected - $expected + $onHouse - ($day->snooker_shortfall ?? 0);
 
         return [
             'date' => Carbon::parse($day->sales_date)->format('M d'),

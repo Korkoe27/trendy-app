@@ -5,6 +5,7 @@ use App\Http\Controllers\PinResetController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\UserAuthController;
 use App\Livewire\Pages\Analytics;
+use App\Livewire\Pages\CoinRequests;
 use App\Livewire\Pages\Dashboard;
 use App\Livewire\Pages\DebtPayments;
 use App\Livewire\Pages\Inventory;
@@ -40,6 +41,8 @@ Route::middleware(['auth', 'must.change.password'])->group(function () {
     Route::get('/', Dashboard::class)->name('dashboard');
 
     Route::get('orders', Orders::class)->name('orders')->middleware('permission:orders,view');
+
+    Route::get('coin-requests', CoinRequests::class)->name('coin-requests')->middleware('permission:coin_requests,view');
 
     Route::get('products', Products::class)->name('products')->middleware('permission:products,view');
 

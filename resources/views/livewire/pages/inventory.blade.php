@@ -118,7 +118,7 @@
                             @haspermission('modify','inventory')
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <div class="text-sm font-medium text-blue-600">
-                                        GH₵ {{ number_format($record->total_momo + $record->total_cash+$record->total_hubtel-($record->drinks_total+$record->food_total)+$record->on_the_house, 2) }}
+                                        GH₵ {{ number_format(\App\Support\DailyDifference::difference($record), 2) }}
                                         {{-- GH₵ {{ number_format($record->total_momo + $record->total_cash+$record->total_hubtel-($record->drinks_total+$record->food_total+$record->snooker)+$record->on_the_house, 2) }} --}}
                                     </div>
                                 </td>
@@ -465,9 +465,24 @@
                         </span>
                     </label>
                     <input type="text" pattern="[0-9]*" oninput="this.value = this.value.replace(/[^0-9]/g, '');"
-                        wire:model.defer="snooker" placeholder="0.00"
+                        wire:model.live.debounce.500ms="snooker" placeholder="0.00"
                         class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
                     @error('snooker') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
+
+                    {{-- Snooker has no stock: coins given from the bar are the record to match --}}
+                    @php $snookerCheck = $this->snookerSummary; @endphp
+                    <div class="mt-2 rounded-lg border px-3 py-2 text-sm
+                        {{ $snookerCheck['difference'] < 0 ? 'bg-rose-50 border-rose-200 text-rose-800' : ($snookerCheck['difference'] > 0 ? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-green-50 border-green-200 text-green-800') }}"
+                        data-testid="snooker-check">
+                        <p>Coins given: <strong>{{ $snookerCheck['coins'] }}</strong> = GH₵ {{ number_format($snookerCheck['expected'], 2) }} expected</p>
+                        @if ($snookerCheck['difference'] < 0)
+                            <p class="font-semibold">Short by GH₵ {{ number_format(-$snookerCheck['difference'], 2) }} (counted as a loss)</p>
+                        @elseif ($snookerCheck['difference'] > 0)
+                            <p class="font-semibold">Over by GH₵ {{ number_format($snookerCheck['difference'], 2) }} (flagged, not counted)</p>
+                        @else
+                            <p class="font-semibold">Matches the coins given</p>
+                        @endif
+                    </div>
                 </div>
             </div>
         </div>
@@ -654,7 +669,7 @@
 
                     $expectedVal = ($selectedRecord['drinks_total'] ?? 0) + ($selectedRecord['food_total'] ?? 0);
                     // $expectedVal = ($selectedRecord['drinks_total'] ?? 0) + ($selectedRecord['food_total'] ?? 0) + ($selectedRecord['snooker']);
-                    $difference = $collected - $expectedVal + $onTheHouse;
+                    $difference = $collected - $expectedVal + $onTheHouse - ($selectedRecord['snooker_shortfall'] ?? 0);
                     $diffFormatted = number_format($difference, 2);
 
                     // Decide color classes and icons

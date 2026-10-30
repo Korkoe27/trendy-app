@@ -8,6 +8,7 @@ use App\Models\PriceEvent;
 use App\Models\Product;
 use App\Models\Stock;
 use App\Services\PriceService;
+use App\Support\SessionClock;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Livewire\Component;
@@ -49,6 +50,9 @@ class Products extends Component
 
     public $stock_limit = '';
 
+    /** Coins per day for a game product (snooker); not used for anything else. */
+    public $daily_coins = '';
+
     public $is_active = true;
 
     public $editModal = false;
@@ -67,6 +71,11 @@ class Products extends Component
     public string $vipStart = '';
 
     public string $vipEnd = '';
+
+    /** Optional HH:MM on the first / last day. Blank = the edge of the session. */
+    public string $vipStartTime = '';
+
+    public string $vipEndTime = '';
 
     public $vipPercent = '';
 
@@ -88,6 +97,7 @@ class Products extends Component
             'newProducts.*.sku' => 'nullable|string|max:255',
             'newProducts.*.barcode' => 'nullable|string|max:255',
             'newProducts.*.stock_limit' => 'nullable|integer|min:0',
+            'newProducts.*.daily_coins' => 'nullable|integer|min:1|max:100000',
             'newProducts.*.selling_price' => 'required|numeric|min:0',
             'newProducts.*.units_per_box' => 'nullable|numeric|min:0',
         ];
@@ -129,6 +139,7 @@ class Products extends Component
             'sku' => '',
             'barcode' => '',
             'stock_limit' => '',
+            'daily_coins' => '',
             'selling_price' => '',
             'units_per_box' => '',
         ]];
@@ -150,6 +161,7 @@ class Products extends Component
             'sku' => '',
             'barcode' => '',
             'stock_limit' => '',
+            'daily_coins' => '',
             'selling_price' => '',
             'units_per_box' => '',
         ]];
@@ -164,6 +176,7 @@ class Products extends Component
             'sku' => '',
             'barcode' => '',
             'stock_limit' => '',
+            'daily_coins' => '',
             'selling_price' => '',
             'units_per_box' => '',
         ];
@@ -182,9 +195,7 @@ class Products extends Component
 
         // dd('Method called!', $this->newProducts);
         if (! $this->validateProducts()) {
-            dd('Validation failed');
-
-            return; // Stop if validation fails
+            return; // Stop if validation fails; the errors are shown under each field
         }
 
         Log::debug('Validated');
@@ -215,6 +226,18 @@ class Products extends Component
                 $cleanedData = array_filter($productData, function ($value) {
                     return $value !== '' && $value !== null;
                 });
+
+                // Coins per day belong to games only; stock limits to drinks only.
+                $isGame = in_array((int) ($cleanedData['category_id'] ?? 0), Categories::gamesIds(), true);
+                $isDrink = in_array((int) ($cleanedData['category_id'] ?? 0), Categories::stockedIds(), true);
+
+                if (! $isGame) {
+                    unset($cleanedData['daily_coins']);
+                }
+
+                if (! $isDrink) {
+                    unset($cleanedData['stock_limit']);
+                }
 
                 $cleanedData['selling_price'] = $cleanedData['selling_price'] ?? 0.00;
                 $cleanedData['units_per_box'] = $cleanedData['units_per_box'] ?? 0.00;
@@ -262,7 +285,15 @@ class Products extends Component
         $barcodes = [];
         $hasErrors = false;
 
+        $gamesIds = Categories::gamesIds();
+
         foreach ($this->newProducts as $index => $product) {
+            // A game (snooker) needs its coins per day; nothing else uses them.
+            if (! empty($product['name']) && in_array((int) ($product['category_id'] ?? 0), $gamesIds, true) && (int) ($product['daily_coins'] ?? 0) < 1) {
+                $this->addError("newProducts.{$index}.daily_coins", 'Enter the coins per day for this game');
+                $hasErrors = true;
+            }
+
             if (! empty($product['name'])) {
                 if (in_array(strtolower($product['name']), $names)) {
                     $this->addError("newProducts.{$index}.name", 'Duplicate product name in form');
@@ -348,7 +379,7 @@ class Products extends Component
         // Filter by stock status if needed
         if ($this->exportFilters['stock_status'] !== 'all') {
             $products = $products->filter(function ($product) {
-                $stockStatus = $this->getStockStatus($product->id, $product->stock_limit);
+                $stockStatus = $this->getStockStatus($product->id, $product->stock_limit, $product);
 
                 return match ($this->exportFilters['stock_status']) {
                     'low' => $stockStatus['text'] === 'Low Stock',
@@ -608,8 +639,17 @@ class Products extends Component
         return $stock?->total_units ?? 0;
     }
 
-    public function getStockStatus(int $productId, ?int $stockLimit): array
+    public function getStockStatus(int $productId, ?int $stockLimit, ?Product $product = null): array
     {
+        // Only drinks have a stock process. Games work on coins per day; everything else is not stocked.
+        $product ??= Product::with('category')->find($productId);
+
+        if ($product && ! $product->tracksStock()) {
+            return $product->isGame()
+                ? ['text' => 'Coins reset daily', 'color' => 'text-indigo-700 bg-indigo-100', 'current' => 0, 'tracked' => false, 'coins' => (int) $product->daily_coins]
+                : ['text' => 'Not stocked', 'color' => 'text-gray-600 bg-gray-100', 'current' => 0, 'tracked' => false, 'coins' => null];
+        }
+
         $currentStock = $this->getCurrentStock($productId);
 
         if ($currentStock <= 0) {
@@ -655,6 +695,7 @@ class Products extends Component
             $this->barcode = $product->barcode;
             $this->selling_price = $product->selling_price;
             $this->stock_limit = $product->stock_limit;
+            $this->daily_coins = $product->daily_coins;
             $this->is_active = $product->is_active;
             $this->editModal = true;
         }
@@ -663,6 +704,16 @@ class Products extends Component
     public function updateProduct()
     {
         $this->validate();
+        $this->validate(['daily_coins' => 'nullable|integer|min:1|max:100000']);
+
+        $isGame = in_array((int) $this->category_id, Categories::gamesIds(), true);
+        $isDrink = in_array((int) $this->category_id, Categories::stockedIds(), true);
+
+        if ($isGame && (int) $this->daily_coins < 1) {
+            $this->addError('daily_coins', 'Enter the coins per day for this game');
+
+            return;
+        }
 
         $product = Product::find($this->productId);
 
@@ -673,7 +724,8 @@ class Products extends Component
                 'barcode' => $this->barcode,
                 'units_per_box' => $this->units_per_box,
                 'selling_price' => $this->selling_price,
-                'stock_limit' => $this->stock_limit,
+                'stock_limit' => $isDrink && $this->stock_limit !== '' ? $this->stock_limit : null,
+                'daily_coins' => $isGame ? (int) $this->daily_coins : null,
                 'is_active' => $this->is_active,
             ]);
 
@@ -706,7 +758,7 @@ class Products extends Component
     public function closeEditModal()
     {
         $this->editModal = false;
-        $this->reset(['name', 'units_per_box', 'category_id', 'barcode', 'selling_price', 'stock_limit', 'is_active']);
+        $this->reset(['name', 'units_per_box', 'category_id', 'barcode', 'selling_price', 'stock_limit', 'daily_coins', 'is_active']);
         $this->resetValidation();
     }
 
@@ -775,6 +827,7 @@ class Products extends Component
         $this->vipPercent = '';
         $this->vipMode = 'percent';
         $this->customPrices = [];
+        $this->vipStartTime = $this->vipEndTime = '';
         $this->vipStart = $this->vipEnd = app(PriceService::class)->businessDate()->toDateString();
         $this->showVipModal = true;
     }
@@ -815,6 +868,8 @@ class Products extends Component
             'vipName' => ['nullable', 'string', 'max:255'],
             'vipStart' => ['required', 'date'],
             'vipEnd' => ['required', 'date', 'after_or_equal:vipStart'],
+            'vipStartTime' => ['nullable', 'date_format:H:i'],
+            'vipEndTime' => ['nullable', 'date_format:H:i'],
             'vipPercent' => ['required', 'numeric', 'not_in:0'],
         ], [
             'vipStart.required' => 'Pick the first day.',
@@ -823,10 +878,12 @@ class Products extends Component
             'vipPercent.required' => 'Enter the percentage.',
             'vipPercent.numeric' => 'The percentage must be a number.',
             'vipPercent.not_in' => 'Enter a percentage other than 0.',
+            'vipStartTime.date_format' => 'Enter the start time as hours and minutes, for example 18:00.',
+            'vipEndTime.date_format' => 'Enter the end time as hours and minutes, for example 01:00.',
         ]);
 
         try {
-            $event = app(PriceService::class)->schedule(Auth::user(), $this->vipStart, $this->vipEnd, (float) $this->vipPercent, $this->vipName);
+            $event = app(PriceService::class)->schedule(Auth::user(), $this->vipStart, $this->vipEnd, (float) $this->vipPercent, $this->vipName, $this->vipStartTime ?: null, $this->vipEndTime ?: null);
         } catch (\DomainException $e) {
             $this->addError('vipPercent', $e->getMessage());
 
@@ -843,6 +900,8 @@ class Products extends Component
             'vipName' => ['nullable', 'string', 'max:255'],
             'vipStart' => ['required', 'date'],
             'vipEnd' => ['required', 'date', 'after_or_equal:vipStart'],
+            'vipStartTime' => ['nullable', 'date_format:H:i'],
+            'vipEndTime' => ['nullable', 'date_format:H:i'],
             'customPrices' => ['array'],
             'customPrices.*' => ['nullable', 'numeric', 'gt:0'],
         ], [
@@ -851,10 +910,12 @@ class Products extends Component
             'vipEnd.after_or_equal' => 'The last day cannot be before the first day.',
             'customPrices.*.numeric' => 'Every custom price must be a number.',
             'customPrices.*.gt' => 'A custom price must be more than 0.',
+            'vipStartTime.date_format' => 'Enter the start time as hours and minutes, for example 18:00.',
+            'vipEndTime.date_format' => 'Enter the end time as hours and minutes, for example 01:00.',
         ]);
 
         try {
-            $event = app(PriceService::class)->scheduleCustom(Auth::user(), $this->vipStart, $this->vipEnd, $this->customPrices, $this->vipName);
+            $event = app(PriceService::class)->scheduleCustom(Auth::user(), $this->vipStart, $this->vipEnd, $this->customPrices, $this->vipName, $this->vipStartTime ?: null, $this->vipEndTime ?: null);
         } catch (\DomainException $e) {
             $this->addError('customPrices', $e->getMessage());
 
@@ -887,6 +948,20 @@ class Products extends Component
         session()->flash('message', 'The VIP price day was cancelled. Prices are back to normal.');
     }
 
+    /** What the dates and times in the form mean in real calendar moments. */
+    private function vipRunsText(PriceService $prices): string
+    {
+        try {
+            if (! $this->vipStart || ! $this->vipEnd || $this->vipEnd < $this->vipStart) {
+                return '';
+            }
+
+            return $prices->describeRun($this->vipStart, $this->vipEnd, preg_match('/^\d{2}:\d{2}$/', $this->vipStartTime) ? $this->vipStartTime : null, preg_match('/^\d{2}:\d{2}$/', $this->vipEndTime) ? $this->vipEndTime : null);
+        } catch (\Throwable) {
+            return '';
+        }
+    }
+
     public function render()
     {
         $products = $this->filteredProducts;
@@ -911,8 +986,12 @@ class Products extends Component
             'vipPrices' => $prices->upcomingFor($products),
             'vipPreview' => $vipPreview,
             'customProducts' => $customProducts,
+            'stockedCategoryIds' => \App\Models\Categories::stockedIds(),
+            'gamesCategoryIds' => \App\Models\Categories::gamesIds(),
             'vipEvents' => $vipEvents,
             'today' => $prices->businessDate()->toDateString(),
+            'nowMinute' => SessionClock::minuteOf(now()),
+            'vipRunsText' => $this->showVipModal ? $this->vipRunsText($prices) : '',
             'vipPercentValue' => is_numeric($this->vipPercent) ? (float) $this->vipPercent : null,
         ]);
     }

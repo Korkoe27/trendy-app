@@ -106,7 +106,8 @@ use Livewire\WithPagination;
         {
             $this->selectedDate = Carbon::today()->format('Y-m-d');
             $this->restockDate = Carbon::today()->format('Y-m-d');
-            $this->products = Product::with('category')->where('is_active', true)->get();
+            // Only drinks have a stock process; food, games and the rest are never restocked.
+            $this->products = Product::with('category')->stocked()->where('is_active', true)->get();
 
             $this->suppliers = Supplier::with('stocks')->orderBy('name')->get();
 
@@ -653,6 +654,15 @@ use Livewire\WithPagination;
 
             if (! empty($missingIds)) {
                 $this->addError('newStockItems', 'Products not found: '.implode(', ', $missingIds));
+
+                return;
+            }
+
+            // Refuse anything that is not a drink, even if a request sends it.
+            $notStocked = Product::whereIn('id', $productIds)->whereNotIn('id', Product::stocked()->select('id'))->pluck('name')->all();
+
+            if (! empty($notStocked)) {
+                $this->addError('newStockItems', 'Only drinks are stocked. These products do not use stock: '.implode(', ', $notStocked));
 
                 return;
             }

@@ -6,6 +6,7 @@ use App\Models\ActivityLogs;
 use App\Models\PriceEvent;
 use App\Models\Product;
 use App\Models\User;
+use App\Support\SessionClock;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
@@ -29,7 +30,7 @@ class PriceService
 
     public const MAX_CUSTOM_PRICE = 100000;
 
-    /** @var array<string, array<int, array{event: PriceEvent, custom: ?float}>> product id => event and its custom price, per date */
+    /** @var array<string, array<int, list<array{event: PriceEvent, custom: mixed, start: int, end: int}>>> product id => the events (and the part of the session they cover) per date */
     private array $eventsByDate = [];
 
     /**
@@ -40,7 +41,7 @@ class PriceService
     {
         $at = $at ? Carbon::instance($at) : now();
 
-        [$hour, $minute] = array_map('intval', explode(':', (string) config('pricing.day_ends_at', '05:00')) + [0, 0]);
+        [$hour, $minute] = array_map('intval', explode(':', (string) config('pricing.day_ends_at', '03:00')) + [0, 0]);
 
         $cutoff = $at->copy()->setTime($hour, $minute);
 
@@ -48,23 +49,66 @@ class PriceService
     }
 
     /**
+     * The price of a product on a business date.
+     *
+     * With `$minute` (minutes into the session, for a live order) a timed event only applies while
+     * its window is open. Without it (the end-of-day stock count, which knows the day but not when
+     * each unit sold) the event price is weighed by the share of trading hours the event covers,
+     * so a whole-session event gives exactly the event price.
+     *
      * `label` is the change from the normal price ("+20%", "-10%") and `increase` its direction,
      * both set only while an event applies.
      *
      * @return array{price: float, base: float, event: ?PriceEvent, label: ?string, increase: bool}
      */
-    public function quoteOn(int $productId, float|int|string|null $basePrice, Carbon|string $date): array
+    public function quoteOn(int $productId, float|int|string|null $basePrice, Carbon|string $date, ?int $minute = null): array
     {
         $base = round((float) $basePrice, 2);
-        $hit = $this->eventsOn($date)[$productId] ?? null;
+        $none = ['price' => $base, 'base' => $base, 'event' => null, 'label' => null, 'increase' => false];
+        $hits = $this->eventsOn($date)[$productId] ?? [];
 
-        if (! $hit || $base <= 0) {
-            return ['price' => $base, 'base' => $base, 'event' => null, 'label' => null, 'increase' => false];
+        if ($hits === [] || $base <= 0) {
+            return $none;
         }
 
-        $price = $this->eventPrice($hit['event'], $hit['custom'], $base);
+        if ($minute !== null) {
+            foreach ($hits as $hit) {
+                if ($minute >= $hit['start'] && $minute < $hit['end']) {
+                    $price = $this->eventPrice($hit['event'], $hit['custom'], $base);
 
-        return ['price' => $price, 'base' => $base, 'event' => $hit['event']] + $this->describeChange($hit['event'], $price, $base);
+                    return ['price' => $price, 'base' => $base, 'event' => $hit['event']] + $this->describeChange($hit['event'], $price, $base);
+                }
+            }
+
+            return $none;
+        }
+
+        $delta = 0.0;
+        $main = null;
+        $mainShare = 0.0;
+
+        foreach ($hits as $hit) {
+            $share = $this->tradingShare($hit['start'], $hit['end']);
+
+            if ($share <= 0) {
+                continue;
+            }
+
+            $delta += ($this->eventPrice($hit['event'], $hit['custom'], $base) - $base) * $share;
+
+            if ($share > $mainShare) {
+                $main = $hit;
+                $mainShare = $share;
+            }
+        }
+
+        if (! $main) {
+            return $none;
+        }
+
+        $price = round($base + $delta, 2);
+
+        return ['price' => $price, 'base' => $base, 'event' => $main['event']] + $this->describeChange($main['event'], $price, $base);
     }
 
     public function priceOn(int $productId, float|int|string|null $basePrice, Carbon|string $date): float
@@ -75,7 +119,9 @@ class PriceService
     /** @return array{price: float, base: float, event: ?PriceEvent} */
     public function quoteNow(Product $product, ?CarbonInterface $at = null): array
     {
-        return $this->quoteOn($product->id, $product->selling_price, $this->businessDate($at));
+        $at = $at ? Carbon::instance($at) : now();
+
+        return $this->quoteOn($product->id, $product->selling_price, $this->businessDate($at), SessionClock::minuteOf($at));
     }
 
     /**
@@ -86,11 +132,13 @@ class PriceService
      */
     public function quotesNow(iterable $products, ?CarbonInterface $at = null): array
     {
+        $at = $at ? Carbon::instance($at) : now();
         $date = $this->businessDate($at);
+        $minute = SessionClock::minuteOf($at);
         $quotes = [];
 
         foreach ($products as $product) {
-            $quotes[$product->id] = $this->quoteOn($product->id, $product->selling_price, $date);
+            $quotes[$product->id] = $this->quoteOn($product->id, $product->selling_price, $date, $minute);
         }
 
         return $quotes;
@@ -127,7 +175,15 @@ class PriceService
 
         $result = [];
 
+        $minute = SessionClock::minuteOf(now());
+
         foreach ($events as $event) {
+            $status = $event->statusOn($today, $minute);
+
+            if ($status === PriceEvent::STATUS_ENDED) {
+                continue;
+            }
+
             foreach ($event->products as $product) {
                 if (isset($result[$product->id])) {
                     continue;
@@ -139,7 +195,7 @@ class PriceService
                 $result[$product->id] = [
                     'event' => $event,
                     'price' => $price,
-                    'active' => $event->starts_on <= $today,
+                    'active' => $status === PriceEvent::STATUS_ACTIVE,
                 ] + $this->describeChange($event, $price, $base);
             }
         }
@@ -154,7 +210,7 @@ class PriceService
      *
      * @throws \DomainException
      */
-    public function schedule(User $by, Carbon|string $start, Carbon|string $end, float $percent, ?string $name = null): PriceEvent
+    public function schedule(User $by, Carbon|string $start, Carbon|string $end, float $percent, ?string $name = null, ?string $startTime = null, ?string $endTime = null): PriceEvent
     {
         $start = Carbon::parse($start)->startOfDay();
         $end = Carbon::parse($end)->startOfDay();
@@ -174,20 +230,23 @@ class PriceService
         }
 
         $this->assertDays($start, $end);
+        [$startTime, $endTime] = $this->normalizeTimes($start, $end, $startTime, $endTime);
 
-        return DB::transaction(function () use ($by, $start, $end, $percent, $name) {
+        return DB::transaction(function () use ($by, $start, $end, $percent, $name, $startTime, $endTime) {
             $productIds = Product::where('is_vip', true)->pluck('id')->all();
 
             if ($productIds === []) {
                 throw new \DomainException('Add at least one product to the VIP list first.');
             }
 
-            $this->assertNoClash($start, $end, $productIds);
+            $this->assertNoClash($start, $end, $startTime, $endTime, $productIds);
 
             $event = PriceEvent::create([
                 'name' => $name,
                 'starts_on' => $start->toDateString(),
                 'ends_on' => $end->toDateString(),
+                'starts_time' => $startTime,
+                'ends_time' => $endTime,
                 'percent' => $percent,
                 'created_by' => $by->id,
             ]);
@@ -198,6 +257,8 @@ class PriceService
                 'name' => $name,
                 'starts_on' => $event->starts_on,
                 'ends_on' => $event->ends_on,
+                'starts_time' => $startTime,
+                'ends_time' => $endTime,
                 'percent' => $percent,
                 'product_ids' => $productIds,
             ]);
@@ -215,7 +276,7 @@ class PriceService
      *
      * @throws \DomainException
      */
-    public function scheduleCustom(User $by, Carbon|string $start, Carbon|string $end, array $prices, ?string $name = null): PriceEvent
+    public function scheduleCustom(User $by, Carbon|string $start, Carbon|string $end, array $prices, ?string $name = null, ?string $startTime = null, ?string $endTime = null): PriceEvent
     {
         $start = Carbon::parse($start)->startOfDay();
         $end = Carbon::parse($end)->startOfDay();
@@ -246,8 +307,9 @@ class PriceService
         }
 
         $this->assertDays($start, $end);
+        [$startTime, $endTime] = $this->normalizeTimes($start, $end, $startTime, $endTime);
 
-        return DB::transaction(function () use ($by, $start, $end, $entered, $name) {
+        return DB::transaction(function () use ($by, $start, $end, $entered, $name, $startTime, $endTime) {
             $products = Product::where('is_active', true)->whereIn('id', array_keys($entered))->get(['id', 'selling_price'])->keyBy('id');
 
             $changed = [];
@@ -268,12 +330,14 @@ class PriceService
                 throw new \DomainException('Enter a custom price for at least one product (one that differs from its normal price).');
             }
 
-            $this->assertNoClash($start, $end, array_keys($changed));
+            $this->assertNoClash($start, $end, $startTime, $endTime, array_keys($changed));
 
             $event = PriceEvent::create([
                 'name' => $name,
                 'starts_on' => $start->toDateString(),
                 'ends_on' => $end->toDateString(),
+                'starts_time' => $startTime,
+                'ends_time' => $endTime,
                 'percent' => null,
                 'created_by' => $by->id,
             ]);
@@ -284,6 +348,8 @@ class PriceService
                 'name' => $name,
                 'starts_on' => $event->starts_on,
                 'ends_on' => $event->ends_on,
+                'starts_time' => $startTime,
+                'ends_time' => $endTime,
                 'custom_prices' => $changed,
             ]);
 
@@ -301,7 +367,9 @@ class PriceService
                 throw new \DomainException('This price day is already cancelled.');
             }
 
-            if ($event->ends_on < $this->businessDate()->toDateString()) {
+            $now = now();
+
+            if ($event->statusOn($this->businessDate($now)->toDateString(), SessionClock::minuteOf($now)) === PriceEvent::STATUS_ENDED) {
                 throw new \DomainException('This price day has already ended.');
             }
 
@@ -333,6 +401,10 @@ class PriceService
 
     public function describeDays(PriceEvent $event): string
     {
+        if ($event->hasTimes()) {
+            return $this->describeRun($event->starts_on, $event->ends_on, $event->startTime(), $event->endTime());
+        }
+
         $start = Carbon::parse($event->starts_on);
 
         if ($event->starts_on === $event->ends_on) {
@@ -340,6 +412,34 @@ class PriceService
         }
 
         return $start->format('D j M').' to '.Carbon::parse($event->ends_on)->format('D j M Y');
+    }
+
+    /**
+     * What a price day means in real calendar moments, for the form and the list:
+     * "Sat 8 Nov 18:00 to Sun 9 Nov 01:00". Without times it is the whole sessions, up to the
+     * closing hour after the last one ("Sat 8 Nov session, until Sun 9 Nov 03:00").
+     */
+    public function describeRun(Carbon|string $startsOn, Carbon|string $endsOn, ?string $startTime = null, ?string $endTime = null): string
+    {
+        $startsOn = Carbon::parse($startsOn)->startOfDay();
+        $endsOn = Carbon::parse($endsOn)->startOfDay();
+        $startTime = $startTime ? substr($startTime, 0, 5) : null;
+        $endTime = $endTime ? substr($endTime, 0, 5) : null;
+
+        $format = 'D j M H:i';
+        $until = SessionClock::instant($endsOn, $endTime ? SessionClock::endMinute($endTime) : SessionClock::MINUTES);
+
+        if ($startTime || $endTime) {
+            $from = SessionClock::instant($startsOn, $startTime ? SessionClock::sessionMinute($startTime) : 0);
+
+            return $from->format($format).' to '.$until->format($format);
+        }
+
+        $days = $startsOn->equalTo($endsOn)
+            ? $startsOn->format('D j M').' session'
+            : $startsOn->format('D j M').' to '.$endsOn->format('D j M').' sessions';
+
+        return $days.', until '.$until->format($format);
     }
 
     // ------------------------------------------------------------------ internals
@@ -387,25 +487,83 @@ class PriceService
     }
 
     /**
+     * Times are optional and must be HH:MM. Both are placed on the session, so a one-day event must
+     * end after it starts ("01:00" is after "18:00" because it falls after midnight).
+     *
+     * @return array{0: ?string, 1: ?string}
+     *
+     * @throws \DomainException
+     */
+    private function normalizeTimes(Carbon $start, Carbon $end, ?string $startTime, ?string $endTime): array
+    {
+        $clean = [];
+
+        foreach ([$startTime, $endTime] as $time) {
+            $time = $time === null ? '' : trim($time);
+
+            if ($time !== '' && ! preg_match('/^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/', $time)) {
+                throw new \DomainException('Enter the time as hours and minutes, for example 18:00.');
+            }
+
+            $clean[] = $time === '' ? null : substr($time, 0, 5);
+        }
+
+        [$startTime, $endTime] = $clean;
+
+        if ($start->equalTo($end) && $startTime && $endTime && SessionClock::endMinute($endTime) <= SessionClock::sessionMinute($startTime)) {
+            throw new \DomainException('The end time must be after the start time (times after midnight, up to the closing hour, count as the same night).');
+        }
+
+        return [$startTime, $endTime];
+    }
+
+    /**
+     * Two events clash only if they share a product on a business date AND their windows overlap
+     * that day, so a 15:00 to 18:00 event and an 18:00 to closing event can sit side by side.
+     *
      * @param  array<int, int>  $productIds
      *
      * @throws \DomainException
      */
-    private function assertNoClash(Carbon $start, Carbon $end, array $productIds): void
+    private function assertNoClash(Carbon $start, Carbon $end, ?string $startTime, ?string $endTime, array $productIds): void
     {
-        $clash = PriceEvent::active()
+        $candidates = PriceEvent::active()
             ->where('starts_on', '<=', $end->toDateString())
             ->where('ends_on', '>=', $start->toDateString())
             ->whereHas('products', fn ($q) => $q->whereIn('products.id', $productIds))
-            ->first();
+            ->get();
 
-        if ($clash) {
-            throw new \DomainException('These days overlap another VIP price day ('
-                .($clash->name ?: $this->describeDays($clash)).') that covers some of the same products. Cancel it first or pick other days.');
+        foreach ($candidates as $other) {
+            $from = max($start->toDateString(), $other->starts_on);
+            $to = min($end->toDateString(), $other->ends_on);
+
+            for ($day = Carbon::parse($from); $day->lte(Carbon::parse($to)); $day->addDay()) {
+                $date = $day->toDateString();
+                [$s1, $e1] = SessionClock::window($date, $start->toDateString(), $end->toDateString(), $startTime, $endTime);
+                [$s2, $e2] = $other->windowOn($date);
+
+                if (max($s1, $s2) < min($e1, $e2)) {
+                    throw new \DomainException('These days overlap another VIP price day ('
+                        .($other->name ?: $this->describeDays($other)).') that covers some of the same products. Cancel it first or pick other days or times.');
+                }
+            }
         }
     }
 
-    /** @return array<int, array{event: PriceEvent, custom: ?float}> product id => the event that sets its price that day */
+    /** Share of the pub's trading hours (opening to closing) that a [start, end) session window covers. */
+    private function tradingShare(int $start, int $end): float
+    {
+        $opens = SessionClock::opensMinute();
+        $trading = SessionClock::MINUTES - $opens;
+
+        if ($trading <= 0) {
+            return 0.0;
+        }
+
+        return max(0, min($end, SessionClock::MINUTES) - max($start, $opens)) / $trading;
+    }
+
+    /** @return array<int, list<array{event: PriceEvent, custom: mixed, start: int, end: int}>> product id => the events that set its price that day */
     private function eventsOn(Carbon|string $date): array
     {
         $day = Carbon::parse($date)->toDateString();
@@ -423,9 +581,11 @@ class PriceService
             ->with(['products' => fn ($q) => $q->select('products.id')])
             ->orderBy('id')
             ->get()
-            ->each(function (PriceEvent $event) use (&$map) {
+            ->each(function (PriceEvent $event) use (&$map, $day) {
+                [$start, $end] = $event->windowOn($day);
+
                 foreach ($event->products as $product) {
-                    $map[$product->id] = ['event' => $event, 'custom' => $product->pivot->custom_price];
+                    $map[$product->id][] = ['event' => $event, 'custom' => $product->pivot->custom_price, 'start' => $start, 'end' => $end];
                 }
             });
 

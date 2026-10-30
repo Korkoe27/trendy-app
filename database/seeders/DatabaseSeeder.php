@@ -30,6 +30,7 @@ class DatabaseSeeder extends Seeder
                 ['name' => 'debt_payments', 'description' => 'Debt Payments'],
                 ['name' => 'orders', 'description' => 'Orders'],
                 ['name' => 'order_debts', 'description' => 'Unpaid Tabs / Order Debts'],
+                ['name' => 'coin_requests', 'description' => 'Coin Requests (snooker)'],
             ];
 
             // firstOrCreate: the debt_payments module is also inserted by a migration.
@@ -156,6 +157,16 @@ class DatabaseSeeder extends Seeder
                 'can_view' => true,
                 'can_modify' => true,
                 'can_delete' => false,
+            ]);
+
+            // Managers run the coin requests screen (request, give, cancel, void).
+            Permission::create([
+                'role_id' => $manager->id,
+                'module_id' => $createdModules['coin_requests']->id,
+                'can_create' => true,
+                'can_view' => true,
+                'can_modify' => true,
+                'can_delete' => true,
             ]);
 
             Permission::create([

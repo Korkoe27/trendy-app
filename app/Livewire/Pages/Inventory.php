@@ -8,6 +8,7 @@ use App\Models\DailySales;
 use App\Models\DailySalesSummary;
 use App\Models\Product;
 use App\Models\Stock;
+use App\Services\CoinRequestService;
 use App\Services\PriceService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -30,8 +31,8 @@ class Inventory extends Component
 
     public $allStocks;
 
-    /** Categories of food products: never part of the end-of-day stock count. */
-    public $foodCategoryIds = [];
+    /** Categories whose products are stocked (only drinks). Everything else is never part of the end-of-day stock count. */
+    public $stockedCategoryIds = [];
 
     // public $errors = [];
     public $dateError = null;
@@ -78,7 +79,7 @@ class Inventory extends Component
             ->get()
             ->keyBy('id');
 
-        $this->foodCategoryIds = Categories::foodIds();
+        $this->stockedCategoryIds = Categories::stockedIds();
 
         $productIds = $this->allProducts->pluck('id')->toArray();
 
@@ -150,23 +151,51 @@ class Inventory extends Component
         }
     }
 
-    private function isFood($product): bool
+    /**
+     * Coins given for a sales date and the snooker money they should have brought in. Games have
+     * no stock; the coin requests are the record. The snapshot is stored with the day.
+     *
+     * @return array{coins: int, expected: float}
+     */
+    private function snookerCheck($date): array
     {
-        return $product && in_array((int) ($product->category_id ?? 0), $this->foodCategoryIds, true);
+        $given = app(CoinRequestService::class)->givenOn($date ?: $this->defaultRecordDate());
+
+        return ['coins' => $given['coins'], 'expected' => $given['amount']];
+    }
+
+    /** What the form shows under the Snooker box for the chosen sales date. */
+    public function getSnookerSummaryProperty(): array
+    {
+        $check = $this->snookerCheck($this->salesDate);
+        $typed = is_numeric($this->snooker) ? (float) $this->snooker : 0.0;
+
+        return [
+            'coins' => $check['coins'],
+            'expected' => $check['expected'],
+            'difference' => round($typed - $check['expected'], 2), // negative = short
+        ];
+    }
+
+    /** True for anything that is not a drink: food, games, snacks, services. They have no stock process. */
+    private function isUnstocked($product): bool
+    {
+        return $product && ! in_array((int) ($product->category_id ?? 0), $this->stockedCategoryIds, true);
     }
 
     /**
-     * Food is not counted at end of day. A new day never carries food, even if a request adds it;
-     * an old day being edited keeps the food rows it already has, so editing never erases them.
+     * Only drinks are counted at end of day. A new day never carries other products, even if a
+     * request adds them; an old day being edited keeps the rows it already has, so editing never
+     * erases history.
      */
-    private function dropFoodStocks(): void
+    private function dropUnstockedStocks(): void
     {
         if ($this->isEditing) {
             return;
         }
 
         foreach (array_keys($this->productStocks) as $productId) {
-            if ($this->isFood($this->allProducts[$productId] ?? null)) {
+            if ($this->isUnstocked($this->allProducts[$productId] ?? null)) {
                 unset($this->productStocks[$productId]);
             }
         }
@@ -174,7 +203,7 @@ class Inventory extends Component
 
     protected function validateStockInputs()
     {
-        $this->dropFoodStocks();
+        $this->dropUnstockedStocks();
         $this->stockErrors = [];
         $hasErrors = false;
 
@@ -675,6 +704,8 @@ class Inventory extends Component
                 'total_hubtel' => (float) $this->hubtelAmount,
                 'food_total' => (float) $this->foodTotal,
                 'snooker' => (float) $this->snooker,
+                'snooker_coins' => $this->snookerCheck($salesDate)['coins'],
+                'snooker_expected' => $this->snookerCheck($salesDate)['expected'],
                 'on_the_house' => (float) $this->onTheHouse,
                 'total_money' => $totalMoney, // This is correct now
                 'sales_date' => $salesDate, // Update date if changed
@@ -731,7 +762,7 @@ class Inventory extends Component
             $product = $this->allProducts[$stock->product_id] ?? null;
 
             Log::debug('Loading stock for product ID '.$stock->product_id.': '.($product ? $product->name : 'not found'));
-            if (! $product || $stock->total_units <= 0 || $this->isFood($product)) {
+            if (! $product || $stock->total_units <= 0 || $this->isUnstocked($product)) {
                 continue;
             }
 
@@ -843,7 +874,7 @@ class Inventory extends Component
 
     public function actuallySubmitInventory()
     {
-        $this->dropFoodStocks();
+        $this->dropUnstockedStocks();
 
         $recordDate = $this->salesDate ?: now()->format('Y-m-d');
 
@@ -1075,6 +1106,8 @@ class Inventory extends Component
                     'food_total' => (float) $this->foodTotal,
                     'on_the_house' => (float) $this->onTheHouse,
                     'snooker' => (float) $this->snooker,
+                    'snooker_coins' => $this->snookerCheck($recordDate)['coins'],
+                    'snooker_expected' => $this->snookerCheck($recordDate)['expected'],
                     'product_id' => $mostSoldProductId,
                     'metadata' => json_encode([
                         'recorded_by' => Auth::id(),
@@ -1129,6 +1162,7 @@ class Inventory extends Component
                 'total_momo',
                 'total_hubtel',
                 'snooker',
+                'snooker_expected',
                 'drinks_total',
                 'food_total',
                 'on_the_house',
@@ -1179,6 +1213,8 @@ class Inventory extends Component
             'total_hubtel' => $summary->total_hubtel,
             'drinks_total' => $summary->drinks_total,
             'snooker' => $summary->snooker,
+            'snooker_expected' => $summary->snooker_expected,
+            'snooker_shortfall' => \App\Support\DailyDifference::snookerShortfall($summary),
             'total_money' => $summary->total_money,
             'on_the_house' => $summary->on_the_house,
             'food_total' => $summary->food_total,
@@ -1196,8 +1232,8 @@ class Inventory extends Component
             ->filter(function ($product) {
                 $stock = $this->allStocks[$product->id] ?? null;
 
-                // Food is never listed for a new count; a day being edited keeps the food it already has.
-                if ($this->isFood($product) && ! ($this->isEditing && isset($this->productStocks[$product->id]))) {
+                // Only drinks are listed for a new count; a day being edited keeps the rows it already has.
+                if ($this->isUnstocked($product) && ! ($this->isEditing && isset($this->productStocks[$product->id]))) {
                     return false;
                 }
 

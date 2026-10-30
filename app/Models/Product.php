@@ -21,6 +21,7 @@ class Product extends Model
         "selling_price",
         "units_per_box",
         "is_vip",
+        "daily_coins",
     ];
 
     protected $table = 'products';
@@ -34,6 +35,28 @@ class Product extends Model
     public function category()
     {
         return $this->belongsTo(Categories::class, 'category_id');
+    }
+
+    /** Only drinks have a stock process. */
+    public function scopeStocked($query)
+    {
+        return $query->whereIn('category_id', Categories::stockedIds() ?: [0]);
+    }
+
+    /** Games products (snooker) have coins per day instead of stock. */
+    public function scopeGames($query)
+    {
+        return $query->whereIn('category_id', Categories::gamesIds() ?: [0]);
+    }
+
+    public function tracksStock(): bool
+    {
+        return (bool) $this->category?->isStocked();
+    }
+
+    public function isGame(): bool
+    {
+        return (bool) $this->category?->isGames();
     }
 
     public function stocks(){
