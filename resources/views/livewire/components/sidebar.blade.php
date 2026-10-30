@@ -15,7 +15,8 @@
     @endif
 
     <!-- Sidebar -->
-    <div class="fixed lg:relative inset-y-0 left-0 min-h-screen md:rounded-2xl z-50 w-72 bg-white shadow-lg transform transition-transform duration-300 ease-in-out {{ $isOpen ? 'translate-x-0' : '-translate-x-full' }} lg:translate-x-0">
+    {{-- On mobile the whole panel scrolls (header, links and footer together), so Logout is always reachable; on desktop it keeps the fixed-height layout. --}}
+    <div class="fixed lg:relative inset-y-0 left-0 flex flex-col lg:block overflow-y-auto overscroll-contain lg:overflow-visible lg:min-h-screen md:rounded-2xl z-50 w-72 bg-white shadow-lg transform transition-transform duration-300 ease-in-out {{ $isOpen ? 'translate-x-0' : '-translate-x-full' }} lg:translate-x-0">
         
         <!-- Header -->
         <div class="flex items-center justify-between p-4 border-b border-gray-200">
@@ -28,7 +29,7 @@
         </div>
 
         <!-- Navigation -->
-        <nav class="flex-1 p-4 space-y-2 overflow-y-auto" style="max-height: calc(100vh - 200px);">
+        <nav class="flex-1 p-4 space-y-2 lg:overflow-y-auto lg:max-h-[calc(100vh-200px)]">
             <!-- Dashboard Link -->
             <a href="{{ route('dashboard') }}"
                wire:navigate 
@@ -182,7 +183,7 @@
         </nav>
 
         <!-- Footer -->
-        <div class="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200 bg-white">
+        <div class="relative lg:absolute bottom-0 left-0 right-0 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-gray-200 bg-white">
             <div class="flex items-center">
                 <span class="rounded-full bg-gray-200 text-gray-600 w-10 h-10 flex items-center justify-center font-semibold">
                     {{ $initials }}

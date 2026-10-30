@@ -235,11 +235,11 @@
                                         <p class="text-xs text-gray-500 capitalize">{{ $product->category?->name }}</p>
                                         @php $quote = $quotes[$product->id] ?? null; @endphp
                                         @if ($quote && $quote['event'])
-                                            <p class="mt-1 font-bold {{ $quote['event']->isIncrease() ? 'text-amber-700' : 'text-green-700' }}">
+                                            <p class="mt-1 font-bold {{ $quote['increase'] ? 'text-amber-700' : 'text-green-700' }}">
                                                 GH₵ {{ number_format($quote['price'], 2) }}
                                                 <span class="text-xs font-normal text-gray-400 line-through normal-case">{{ number_format($quote['base'], 2) }}</span>
                                             </p>
-                                            <span class="inline-block mt-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold {{ $quote['event']->isIncrease() ? 'bg-amber-100 text-amber-800' : 'bg-green-100 text-green-800' }}">VIP {{ $quote['event']->percentLabel() }}</span>
+                                            <span class="inline-block mt-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold {{ $quote['increase'] ? 'bg-amber-100 text-amber-800' : 'bg-green-100 text-green-800' }}">VIP {{ $quote['label'] }}</span>
                                         @else
                                             <p class="mt-1 font-bold text-blue-700">GH₵ {{ number_format((float) $product->selling_price, 2) }}</p>
                                         @endif
@@ -285,7 +285,7 @@
                                     <div wire:key="cart-{{ $line['id'] }}" class="flex items-center justify-between gap-2">
                                         <div class="text-sm">
                                             <p class="font-semibold text-gray-900">{{ $line['name'] }}</p>
-                                            <p class="text-xs text-blue-700 font-semibold">GH₵ {{ number_format($line['total'], 2) }} <span class="text-gray-400">(@ {{ number_format($line['price'], 2) }})</span>@if ($line['event']) <span class="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold {{ $line['event']->isIncrease() ? 'bg-amber-100 text-amber-800' : 'bg-green-100 text-green-800' }}">VIP {{ $line['event']->percentLabel() }}</span>@endif</p>
+                                            <p class="text-xs text-blue-700 font-semibold">GH₵ {{ number_format($line['total'], 2) }} <span class="text-gray-400">(@ {{ number_format($line['price'], 2) }})</span>@if ($line['event']) <span class="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold {{ $line['increase'] ? 'bg-amber-100 text-amber-800' : 'bg-green-100 text-green-800' }}">VIP {{ $line['label'] }}</span>@endif</p>
                                         </div>
                                         <div class="flex items-center gap-1 bg-gray-100 rounded-lg">
                                             <button type="button" wire:click="decrementCart({{ $line['id'] }})" class="px-2.5 py-1 text-gray-600 hover:bg-gray-200 rounded-l-lg">−</button>

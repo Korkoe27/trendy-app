@@ -70,6 +70,12 @@ class Products extends Component
 
     public $vipPercent = '';
 
+    /** 'percent' (the VIP list, one percentage) or 'custom' (an exact price per product). */
+    public string $vipMode = 'percent';
+
+    /** @var array<int, string> product id => custom price typed in the form */
+    public array $customPrices = [];
+
     protected $listeners = ['editProduct'];
 
     protected $queryString = ['searchTerm', 'selectedCategory'];
@@ -767,6 +773,8 @@ class Products extends Component
         $this->resetErrorBag();
         $this->vipName = '';
         $this->vipPercent = '';
+        $this->vipMode = 'percent';
+        $this->customPrices = [];
         $this->vipStart = $this->vipEnd = app(PriceService::class)->businessDate()->toDateString();
         $this->showVipModal = true;
     }
@@ -785,9 +793,23 @@ class Products extends Component
         }
     }
 
+    public function setVipMode(string $mode)
+    {
+        $this->authorizeVip();
+
+        $this->vipMode = $mode === 'custom' ? 'custom' : 'percent';
+        $this->resetErrorBag();
+    }
+
     public function scheduleVipPrices()
     {
         $this->authorizeVip();
+
+        if ($this->vipMode === 'custom') {
+            $this->scheduleCustomPrices();
+
+            return;
+        }
 
         $this->validate([
             'vipName' => ['nullable', 'string', 'max:255'],
@@ -813,6 +835,35 @@ class Products extends Component
 
         $this->showVipModal = false;
         session()->flash('message', 'VIP prices '.$event->percentLabel().' scheduled for '.app(PriceService::class)->describeDays($event).'.');
+    }
+
+    private function scheduleCustomPrices(): void
+    {
+        $this->validate([
+            'vipName' => ['nullable', 'string', 'max:255'],
+            'vipStart' => ['required', 'date'],
+            'vipEnd' => ['required', 'date', 'after_or_equal:vipStart'],
+            'customPrices' => ['array'],
+            'customPrices.*' => ['nullable', 'numeric', 'gt:0'],
+        ], [
+            'vipStart.required' => 'Pick the first day.',
+            'vipEnd.required' => 'Pick the last day.',
+            'vipEnd.after_or_equal' => 'The last day cannot be before the first day.',
+            'customPrices.*.numeric' => 'Every custom price must be a number.',
+            'customPrices.*.gt' => 'A custom price must be more than 0.',
+        ]);
+
+        try {
+            $event = app(PriceService::class)->scheduleCustom(Auth::user(), $this->vipStart, $this->vipEnd, $this->customPrices, $this->vipName);
+        } catch (\DomainException $e) {
+            $this->addError('customPrices', $e->getMessage());
+
+            return;
+        }
+
+        $this->showVipModal = false;
+        $this->customPrices = [];
+        session()->flash('message', 'Custom prices for '.$event->products()->count().' '.\Illuminate\Support\Str::plural('product', $event->products()->count()).' scheduled for '.app(PriceService::class)->describeDays($event).'.');
     }
 
     public function cancelVipEvent($eventId)
@@ -843,9 +894,14 @@ class Products extends Component
 
         $vipPreview = collect();
         $vipEvents = collect();
+        $customProducts = collect();
 
         if ($this->showVipModal) {
             $vipPreview = Product::where('is_vip', true)->orderBy('name')->get();
+            // Custom mode lists every active product so any of them can be given its own price.
+            $customProducts = $this->vipMode === 'custom'
+                ? Product::where('is_active', true)->with('category:id,name')->orderBy('name')->get(['id', 'name', 'category_id', 'selling_price'])
+                : collect();
             $vipEvents = PriceEvent::withCount('products')->orderByDesc('starts_on')->orderByDesc('id')->limit(15)->get();
         }
 
@@ -854,6 +910,7 @@ class Products extends Component
             'categories' => $this->categories,
             'vipPrices' => $prices->upcomingFor($products),
             'vipPreview' => $vipPreview,
+            'customProducts' => $customProducts,
             'vipEvents' => $vipEvents,
             'today' => $prices->businessDate()->toDateString(),
             'vipPercentValue' => is_numeric($this->vipPercent) ? (float) $this->vipPercent : null,

@@ -25,7 +25,7 @@ class InventoryNoCreditTest extends TestCase
     {
         parent::setUp();
 
-        Carbon::setTestNow('2026-10-28 16:00:00'); // a Wednesday, after the 3pm cut-off
+        Carbon::setTestNow('2026-10-28 16:00:00'); // a Wednesday afternoon
 
         $category = DB::table('categories')->insertGetId(['name' => 'drinks', 'created_at' => now(), 'updated_at' => now()]);
         $this->productId = DB::table('products')->insertGetId([
@@ -114,6 +114,33 @@ class InventoryNoCreditTest extends TestCase
             $this->assertArrayNotHasKey('damaged_units', $meta);
         }
         $this->assertSame(60, (int) $movementMeta['units_sold']);
+    }
+
+    public function test_inventory_can_be_taken_and_edited_at_any_time_of_day(): void
+    {
+        foreach (['2026-10-28 02:15:00', '2026-10-28 09:30:00', '2026-10-28 14:59:00'] as $time) {
+            Carbon::setTestNow($time);
+
+            // Start each pass from the same opening position.
+            foreach (['daily_sales', 'daily_sales_summaries', 'stock_movements', 'stocks'] as $table) {
+                DB::table($table)->delete();
+            }
+            DB::table('stocks')->insert([
+                'product_id' => $this->productId, 'total_units' => 100, 'cost_price' => 6, 'cost_margin' => 4, 'total_cost' => 600,
+                'created_at' => now()->subDays(2), 'updated_at' => now()->subDays(2),
+            ]);
+
+            $this->takeInventory('40')->assertHasNoErrors();
+            $this->assertSame(1, DB::table('daily_sales')->count(), "taking inventory at $time");
+
+            Livewire::test(Inventory::class)
+                ->call('openEditModal', DB::table('daily_sales_summaries')->value('id'))
+                ->set("productStocks.{$this->productId}.closing_units", '30')
+                ->call('updateInventory')
+                ->assertHasNoErrors();
+
+            $this->assertSame(30.0, (float) DB::table('daily_sales')->value('closing_stock'), "editing at $time");
+        }
     }
 
     public function test_closing_stock_above_opening_is_still_refused(): void

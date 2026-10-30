@@ -3,6 +3,7 @@
 namespace App\Livewire\Pages;
 
 use App\Models\ActivityLogs;
+use App\Models\Categories;
 use App\Models\DailySales;
 use App\Models\DailySalesSummary;
 use App\Models\Product;
@@ -17,8 +18,6 @@ class Inventory extends Component
 {
     public $showTakeInventoryModal = false;
 
-    public $inventoryRestricted = false;
-
     public $showDetailsModal = false;
 
     public $selectedRecord = null;
@@ -30,6 +29,9 @@ class Inventory extends Component
     public $allProducts;
 
     public $allStocks;
+
+    /** Categories of food products: never part of the end-of-day stock count. */
+    public $foodCategoryIds = [];
 
     // public $errors = [];
     public $dateError = null;
@@ -69,14 +71,14 @@ class Inventory extends Component
         $this->selectedDate = $this->defaultRecordDate();
         $this->salesDate = $this->defaultRecordDate();
 
-        $this->inventoryRestricted = $this->isInventoryRestricted();
-
         // OPTIMIZATION: Preload ALL data in 2 queries instead of N queries
         $this->allProducts = DB::table('products')
-            ->select('id', 'name', 'units_per_box', 'selling_price', 'is_active')
+            ->select('id', 'name', 'units_per_box', 'selling_price', 'is_active', 'category_id')
             ->where('is_active', true)
             ->get()
             ->keyBy('id');
+
+        $this->foodCategoryIds = Categories::foodIds();
 
         $productIds = $this->allProducts->pluck('id')->toArray();
 
@@ -93,15 +95,6 @@ class Inventory extends Component
         foreach ($this->allStocks as $stock) {
             $this->productStockMap[$stock->product_id] = $stock->id;
         }
-    }
-
-    private function isInventoryRestricted(): bool
-    {
-        $currentHour = (int) now()->format('H');
-        Log::debug('Checking inventory restriction - Current Hour: '.$currentHour);
-        $isSuperAdmin = Auth::user()?->role?->name === 'Super Admin';
-
-        return $currentHour < 15 && ! $isSuperAdmin;
     }
 
     private const CLOSED_DAYS = [1]; // Carbon 'N': 1 = Monday (pub closed)
@@ -157,8 +150,31 @@ class Inventory extends Component
         }
     }
 
+    private function isFood($product): bool
+    {
+        return $product && in_array((int) ($product->category_id ?? 0), $this->foodCategoryIds, true);
+    }
+
+    /**
+     * Food is not counted at end of day. A new day never carries food, even if a request adds it;
+     * an old day being edited keeps the food rows it already has, so editing never erases them.
+     */
+    private function dropFoodStocks(): void
+    {
+        if ($this->isEditing) {
+            return;
+        }
+
+        foreach (array_keys($this->productStocks) as $productId) {
+            if ($this->isFood($this->allProducts[$productId] ?? null)) {
+                unset($this->productStocks[$productId]);
+            }
+        }
+    }
+
     protected function validateStockInputs()
     {
+        $this->dropFoodStocks();
         $this->stockErrors = [];
         $hasErrors = false;
 
@@ -232,24 +248,6 @@ class Inventory extends Component
 
     public function openTakeInventoryModal()
     {
-        if ($this->isInventoryRestricted()) {
-            ActivityLogs::create([
-                'user_id' => Auth::id(),
-                'action_type' => 'inventory_restricted',
-                'description' => 'Attempted to take inventory before 3:00 PM',
-                'entity_type' => 'inventory',
-                'entity_id' => null,
-                'metadata' => json_encode([
-                    'hour' => (int) now()->format('H'),
-                    'reason' => 'Time restriction: inventory not allowed before 3:00 PM',
-                ]),
-            ]);
-
-            session()->flash('error', 'Inventory can only be taken after 3:00 PM. Please try again later.');
-
-            return;
-        }
-
         $this->showTakeInventoryModal = true;
         $this->resetForm();
         $this->loadProductStocks();
@@ -345,12 +343,6 @@ class Inventory extends Component
 
     public function updateInventory()
     {
-        if ($this->isInventoryRestricted()) {
-            session()->flash('error', 'Inventory can only be edited after 3:00 PM.');
-
-            return;
-        }
-
         if (! $this->isEditing || ! $this->editingRecordId) {
             session()->flash('error', 'Invalid edit operation');
 
@@ -739,7 +731,7 @@ class Inventory extends Component
             $product = $this->allProducts[$stock->product_id] ?? null;
 
             Log::debug('Loading stock for product ID '.$stock->product_id.': '.($product ? $product->name : 'not found'));
-            if (! $product || $stock->total_units <= 0) {
+            if (! $product || $stock->total_units <= 0 || $this->isFood($product)) {
                 continue;
             }
 
@@ -851,11 +843,7 @@ class Inventory extends Component
 
     public function actuallySubmitInventory()
     {
-        if ($this->isInventoryRestricted()) {
-            session()->flash('error', 'Inventory can only be taken after 3:00 PM.');
-
-            return;
-        }
+        $this->dropFoodStocks();
 
         $recordDate = $this->salesDate ?: now()->format('Y-m-d');
 
@@ -1207,6 +1195,11 @@ class Inventory extends Component
         $products = collect($this->allProducts->values())
             ->filter(function ($product) {
                 $stock = $this->allStocks[$product->id] ?? null;
+
+                // Food is never listed for a new count; a day being edited keeps the food it already has.
+                if ($this->isFood($product) && ! ($this->isEditing && isset($this->productStocks[$product->id]))) {
+                    return false;
+                }
 
                 return $stock && $stock->total_units > 0;
             })

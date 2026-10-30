@@ -479,7 +479,7 @@ class Orders extends Component
                 if ($product = $cartProducts->get($productId)) {
                     $price = $quotes[$product->id]['price'];
                     $line = round($price * $quantity, 2);
-                    $cartLines[] = ['id' => $product->id, 'name' => $product->name, 'price' => $price, 'quantity' => $quantity, 'total' => $line, 'event' => $quotes[$product->id]['event']];
+                    $cartLines[] = ['id' => $product->id, 'name' => $product->name, 'price' => $price, 'quantity' => $quantity, 'total' => $line, 'event' => $quotes[$product->id]['event'], 'label' => $quotes[$product->id]['label'], 'increase' => $quotes[$product->id]['increase']];
                     $cartTotal += $line;
                 }
             }

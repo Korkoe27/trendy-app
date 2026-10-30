@@ -32,7 +32,7 @@ class PriceEvent extends Model
 
     public function products(): BelongsToMany
     {
-        return $this->belongsToMany(Product::class, 'price_event_products');
+        return $this->belongsToMany(Product::class, 'price_event_products')->withPivot('custom_price');
     }
 
     /** Events that have not been cancelled. */
@@ -52,9 +52,19 @@ class PriceEvent extends Model
         };
     }
 
-    /** "+20%" or "-10%". */
+    /** A custom-price event carries an exact price per product instead of one percentage. */
+    public function isCustom(): bool
+    {
+        return $this->percent === null;
+    }
+
+    /** "+20%" or "-10%", or "Custom prices" when each product has its own price. */
     public function percentLabel(): string
     {
+        if ($this->isCustom()) {
+            return 'Custom prices';
+        }
+
         $percent = (float) $this->percent;
 
         return ($percent > 0 ? '+' : '-').rtrim(rtrim(number_format(abs($percent), 2, '.', ''), '0'), '.').'%';

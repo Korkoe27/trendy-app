@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\DB;
  *
  * products.selling_price is always the normal price and is never rewritten. On a day covered by
  * a (non-cancelled) price event that includes the product, the price is the normal price changed
- * by the event's percentage. After the last day the event simply stops matching, so prices go
+ * by the event's percentage, or set to the exact custom price the event gives it. After the last day the event simply stops matching, so prices go
  * back to normal on their own: there is nothing to schedule and nothing to restore.
  *
  * Resolve a fresh instance per use (app(PriceService::class)): it remembers the events it has
@@ -27,7 +27,9 @@ class PriceService
 {
     public const MAX_PERCENT = 500;
 
-    /** @var array<string, array<int, PriceEvent>> product id => event, per date */
+    public const MAX_CUSTOM_PRICE = 100000;
+
+    /** @var array<string, array<int, array{event: PriceEvent, custom: ?float}>> product id => event and its custom price, per date */
     private array $eventsByDate = [];
 
     /**
@@ -46,18 +48,23 @@ class PriceService
     }
 
     /**
-     * @return array{price: float, base: float, event: ?PriceEvent}
+     * `label` is the change from the normal price ("+20%", "-10%") and `increase` its direction,
+     * both set only while an event applies.
+     *
+     * @return array{price: float, base: float, event: ?PriceEvent, label: ?string, increase: bool}
      */
     public function quoteOn(int $productId, float|int|string|null $basePrice, Carbon|string $date): array
     {
         $base = round((float) $basePrice, 2);
-        $event = $this->eventsOn($date)[$productId] ?? null;
+        $hit = $this->eventsOn($date)[$productId] ?? null;
 
-        if (! $event || $base <= 0) {
-            return ['price' => $base, 'base' => $base, 'event' => null];
+        if (! $hit || $base <= 0) {
+            return ['price' => $base, 'base' => $base, 'event' => null, 'label' => null, 'increase' => false];
         }
 
-        return ['price' => $this->applyPercent($base, (float) $event->percent), 'base' => $base, 'event' => $event];
+        $price = $this->eventPrice($hit['event'], $hit['custom'], $base);
+
+        return ['price' => $price, 'base' => $base, 'event' => $hit['event']] + $this->describeChange($hit['event'], $price, $base);
     }
 
     public function priceOn(int $productId, float|int|string|null $basePrice, Carbon|string $date): float
@@ -75,7 +82,7 @@ class PriceService
      * Quotes for many products at the current moment.
      *
      * @param  iterable<Product>  $products
-     * @return array<int, array{price: float, base: float, event: ?PriceEvent}> keyed by product id
+     * @return array<int, array{price: float, base: float, event: ?PriceEvent, label: ?string, increase: bool}> keyed by product id
      */
     public function quotesNow(iterable $products, ?CarbonInterface $at = null): array
     {
@@ -93,7 +100,7 @@ class PriceService
      * For the product list: each product's current or next price event, if it has one.
      *
      * @param  iterable<Product>  $products
-     * @return array<int, array{event: PriceEvent, price: float, active: bool}> keyed by product id
+     * @return array<int, array{event: PriceEvent, price: float, active: bool, label: string, increase: bool}> keyed by product id
      */
     public function upcomingFor(iterable $products): array
     {
@@ -122,11 +129,18 @@ class PriceService
 
         foreach ($events as $event) {
             foreach ($event->products as $product) {
-                $result[$product->id] ??= [
+                if (isset($result[$product->id])) {
+                    continue;
+                }
+
+                $base = round($prices[$product->id], 2);
+                $price = $this->eventPrice($event, $product->pivot->custom_price, $base);
+
+                $result[$product->id] = [
                     'event' => $event,
-                    'price' => $this->applyPercent(round($prices[$product->id], 2), (float) $event->percent),
+                    'price' => $price,
                     'active' => $event->starts_on <= $today,
-                ];
+                ] + $this->describeChange($event, $price, $base);
             }
         }
 
@@ -159,13 +173,7 @@ class PriceService
             throw new \DomainException('The increase cannot be more than '.self::MAX_PERCENT.'%.');
         }
 
-        if ($end->lt($start)) {
-            throw new \DomainException('The last day cannot be before the first day.');
-        }
-
-        if ($start->lt($this->businessDate())) {
-            throw new \DomainException('The first day cannot be in the past.');
-        }
+        $this->assertDays($start, $end);
 
         return DB::transaction(function () use ($by, $start, $end, $percent, $name) {
             $productIds = Product::where('is_vip', true)->pluck('id')->all();
@@ -174,16 +182,7 @@ class PriceService
                 throw new \DomainException('Add at least one product to the VIP list first.');
             }
 
-            $clash = PriceEvent::active()
-                ->where('starts_on', '<=', $end->toDateString())
-                ->where('ends_on', '>=', $start->toDateString())
-                ->whereHas('products', fn ($q) => $q->whereIn('products.id', $productIds))
-                ->first();
-
-            if ($clash) {
-                throw new \DomainException('These days overlap another VIP price day ('
-                    .($clash->name ?: $this->describeDays($clash)).') that covers some of the same products. Cancel it first or pick other days.');
-            }
+            $this->assertNoClash($start, $end, $productIds);
 
             $event = PriceEvent::create([
                 'name' => $name,
@@ -201,6 +200,91 @@ class PriceService
                 'ends_on' => $event->ends_on,
                 'percent' => $percent,
                 'product_ids' => $productIds,
+            ]);
+
+            return $event;
+        });
+    }
+
+    /**
+     * Schedule a price day (or range) with an exact price per product instead of a percentage.
+     * Blank prices and prices equal to the normal price mean "unchanged" and are left out; the
+     * products that remain are the event's products (the VIP flag is not used).
+     *
+     * @param  array<int|string, mixed>  $prices  product id => price
+     *
+     * @throws \DomainException
+     */
+    public function scheduleCustom(User $by, Carbon|string $start, Carbon|string $end, array $prices, ?string $name = null): PriceEvent
+    {
+        $start = Carbon::parse($start)->startOfDay();
+        $end = Carbon::parse($end)->startOfDay();
+        $name = $name !== null && trim($name) !== '' ? mb_substr(trim($name), 0, 255) : null;
+
+        $entered = [];
+
+        foreach ($prices as $productId => $price) {
+            if ($price === null || trim((string) $price) === '') {
+                continue;
+            }
+
+            if (! is_numeric($price)) {
+                throw new \DomainException('Every custom price must be a number.');
+            }
+
+            $price = round((float) $price, 2);
+
+            if ($price <= 0) {
+                throw new \DomainException('A custom price must be more than 0.');
+            }
+
+            if ($price > self::MAX_CUSTOM_PRICE) {
+                throw new \DomainException('A custom price cannot be more than '.number_format(self::MAX_CUSTOM_PRICE).'.');
+            }
+
+            $entered[(int) $productId] = $price;
+        }
+
+        $this->assertDays($start, $end);
+
+        return DB::transaction(function () use ($by, $start, $end, $entered, $name) {
+            $products = Product::where('is_active', true)->whereIn('id', array_keys($entered))->get(['id', 'selling_price'])->keyBy('id');
+
+            $changed = [];
+
+            foreach ($entered as $productId => $price) {
+                $product = $products[$productId] ?? null;
+
+                if (! $product) {
+                    throw new \DomainException('One of the products you priced is no longer available. Close this window and open it again.');
+                }
+
+                if (abs($price - round((float) $product->selling_price, 2)) >= 0.005) {
+                    $changed[$productId] = $price;
+                }
+            }
+
+            if ($changed === []) {
+                throw new \DomainException('Enter a custom price for at least one product (one that differs from its normal price).');
+            }
+
+            $this->assertNoClash($start, $end, array_keys($changed));
+
+            $event = PriceEvent::create([
+                'name' => $name,
+                'starts_on' => $start->toDateString(),
+                'ends_on' => $end->toDateString(),
+                'percent' => null,
+                'created_by' => $by->id,
+            ]);
+
+            $event->products()->attach(collect($changed)->map(fn ($price) => ['custom_price' => $price])->all());
+
+            $this->log($by, 'price_event_create', 'Scheduled VIP price day with custom prices', $event, [
+                'name' => $name,
+                'starts_on' => $event->starts_on,
+                'ends_on' => $event->ends_on,
+                'custom_prices' => $changed,
             ]);
 
             return $event;
@@ -227,7 +311,7 @@ class PriceService
                 'name' => $event->name,
                 'starts_on' => $event->starts_on,
                 'ends_on' => $event->ends_on,
-                'percent' => (float) $event->percent,
+                'percent' => $event->isCustom() ? null : (float) $event->percent,
             ]);
 
             return $event;
@@ -265,7 +349,63 @@ class PriceService
         return round($base * (1 + $percent / 100), 2);
     }
 
-    /** @return array<int, PriceEvent> product id => the event that sets its price that day */
+    /** The price an event sets for a product: its custom price, or the event's percentage on the base. */
+    private function eventPrice(PriceEvent $event, float|string|null $custom, float $base): float
+    {
+        if ($custom !== null) {
+            return round((float) $custom, 2);
+        }
+
+        return $this->applyPercent($base, (float) $event->percent);
+    }
+
+    /** @return array{label: string, increase: bool} how the event's price differs from the normal price */
+    private function describeChange(PriceEvent $event, float $price, float $base): array
+    {
+        if (! $event->isCustom()) {
+            return ['label' => $event->percentLabel(), 'increase' => $event->isIncrease()];
+        }
+
+        $change = $base > 0 ? round(($price / $base - 1) * 100, 1) : 0.0;
+
+        return [
+            'label' => ($change > 0 ? '+' : '-').rtrim(rtrim(number_format(abs($change), 1, '.', ''), '0'), '.').'%',
+            'increase' => $price > $base,
+        ];
+    }
+
+    /** @throws \DomainException */
+    private function assertDays(Carbon $start, Carbon $end): void
+    {
+        if ($end->lt($start)) {
+            throw new \DomainException('The last day cannot be before the first day.');
+        }
+
+        if ($start->lt($this->businessDate())) {
+            throw new \DomainException('The first day cannot be in the past.');
+        }
+    }
+
+    /**
+     * @param  array<int, int>  $productIds
+     *
+     * @throws \DomainException
+     */
+    private function assertNoClash(Carbon $start, Carbon $end, array $productIds): void
+    {
+        $clash = PriceEvent::active()
+            ->where('starts_on', '<=', $end->toDateString())
+            ->where('ends_on', '>=', $start->toDateString())
+            ->whereHas('products', fn ($q) => $q->whereIn('products.id', $productIds))
+            ->first();
+
+        if ($clash) {
+            throw new \DomainException('These days overlap another VIP price day ('
+                .($clash->name ?: $this->describeDays($clash)).') that covers some of the same products. Cancel it first or pick other days.');
+        }
+    }
+
+    /** @return array<int, array{event: PriceEvent, custom: ?float}> product id => the event that sets its price that day */
     private function eventsOn(Carbon|string $date): array
     {
         $day = Carbon::parse($date)->toDateString();
@@ -285,7 +425,7 @@ class PriceService
             ->get()
             ->each(function (PriceEvent $event) use (&$map) {
                 foreach ($event->products as $product) {
-                    $map[$product->id] = $event;
+                    $map[$product->id] = ['event' => $event, 'custom' => $product->pivot->custom_price];
                 }
             });
 
