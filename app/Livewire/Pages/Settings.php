@@ -4,6 +4,7 @@ namespace App\Livewire\Pages;
 
 use App\Http\Controllers\UserAuthController;
 use App\Models\ActivityLogs;
+use App\Models\BlockedNumber;
 use App\Rules\SixDigitPin;
 use App\Support\Phone;
 use Illuminate\Support\Facades\Auth;
@@ -25,6 +26,11 @@ class Settings extends Component
     public string $newPin = '';
 
     public string $newPinConfirmation = '';
+
+    // Block list (Super Admin only)
+    public string $blockPhone = '';
+
+    public string $blockReason = '';
 
     public function mount(): void
     {
@@ -122,6 +128,88 @@ class Settings extends Component
         session()->flash('message', 'Your PIN has been changed. Use the new PIN next time you sign in.');
     }
 
+    // ------------------------------------------------------------------ block list (Super Admin only)
+
+    private function authorizeBlockList(): void
+    {
+        abort_unless(Auth::user()?->isSuperAdmin(), 403);
+    }
+
+    public function blockNumber(): void
+    {
+        $this->authorizeBlockList();
+
+        $this->validate([
+            'blockPhone' => ['required', 'string', 'max:30'],
+            'blockReason' => ['nullable', 'string', 'max:150'],
+        ], [
+            'blockPhone.required' => 'Enter the mobile number to block.',
+        ]);
+
+        $phone = Phone::normalize($this->blockPhone);
+
+        if (! $phone) {
+            $this->addError('blockPhone', 'Enter a valid Ghana mobile number.');
+
+            return;
+        }
+
+        if (BlockedNumber::where('phone', $phone)->exists()) {
+            $this->addError('blockPhone', 'That number is already on the block list.');
+
+            return;
+        }
+
+        $user = Auth::user();
+        $reason = trim($this->blockReason) !== '' ? trim($this->blockReason) : null;
+
+        $entry = BlockedNumber::create([
+            'phone' => $phone,
+            'reason' => $reason,
+            'blocked_by' => $user->id,
+            'blocked_by_name' => $user->name,
+        ]);
+
+        ActivityLogs::create([
+            'user_id' => $user->id,
+            'action_type' => 'block_number_add',
+            'description' => 'Added '.Phone::mask($phone).' to the block list',
+            'entity_type' => 'blocked_number',
+            'entity_id' => $entry->id,
+            'metadata' => json_encode(['phone' => $phone, 'reason' => $reason]),
+        ]);
+
+        $this->reset(['blockPhone', 'blockReason']);
+        $this->resetErrorBag();
+
+        session()->flash('message', Phone::local($phone).' is now on the block list.');
+    }
+
+    public function unblockNumber(int $id): void
+    {
+        $this->authorizeBlockList();
+
+        $entry = BlockedNumber::find($id);
+
+        if (! $entry) {
+            return;
+        }
+
+        $user = Auth::user();
+        $entry->delete();
+
+        ActivityLogs::create([
+            'user_id' => $user->id,
+            'action_type' => 'block_number_remove',
+            'description' => 'Removed '.Phone::mask($entry->phone).' from the block list',
+            'entity_type' => 'blocked_number',
+            'entity_id' => $entry->id,
+            'metadata' => json_encode(['phone' => $entry->phone]),
+        ]);
+
+        session()->flash('message', Phone::local($entry->phone).' was removed from the block list.');
+    }
+
     public function render()
     {
         $user = Auth::user();
@@ -130,6 +218,8 @@ class Settings extends Component
             'phone' => $user->phone ? Phone::local($user->phone) : null,
             'roleName' => $user->role?->name,
             'pinChangedAt' => $user->password_changed_at,
+            'isSuperAdmin' => $user->isSuperAdmin(),
+            'blockedNumbers' => $user->isSuperAdmin() ? BlockedNumber::orderByDesc('id')->get() : collect(),
         ]);
     }
 }

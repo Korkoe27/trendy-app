@@ -56,6 +56,12 @@ class User extends Authenticatable
         return $this->belongsTo(Role::class, 'role_id');
     }
 
+    /** Only the Super Admin role manages the block list (and other owner-only settings). */
+    public function isSuperAdmin(): bool
+    {
+        return $this->role !== null && mb_strtolower(trim((string) $this->role->name)) === 'super admin';
+    }
+
     /** Phones are always stored in one format (+233...), however they were typed. */
     protected function phone(): Attribute
     {

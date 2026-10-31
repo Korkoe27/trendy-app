@@ -513,6 +513,7 @@ class Orders extends Component
             'quotes' => $quotes,
             'editingOrder' => $editingOrder,
             'existingTab' => $existingTab,
+            'numberBlocked' => $this->showOrderModal && \App\Models\BlockedNumber::isBlocked($this->editingOrderId ? $editingOrder?->customer_phone : $this->customerPhone),
             'existingTabBlocked' => $existingTab && ! $existingTab->canBeManagedBy(Auth::user()),
             'closingOrder' => $closingOrder = $this->showCloseModal ? Order::with('items')->find($this->closingOrderId) : null,
             'activePayment' => $closingOrder?->payments()->active()->latest('id')->first(),

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\ActivityLogs;
+use App\Models\BlockedNumber;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\OrderPayment;
@@ -54,6 +55,8 @@ class OrderService
         if (! $phone) {
             throw new \DomainException('Enter a valid Ghana mobile number for the customer.');
         }
+
+        $this->assertNotBlocked($phone);
 
         $lines = $this->priceItems($items);
 
@@ -146,6 +149,8 @@ class OrderService
      */
     public function addItems(Order $order, User $staff, array $items, ?string $notes = null): Order
     {
+        $this->assertNotBlocked($order->customer_phone);
+
         $lines = $this->priceItems($items);
         $notes = $notes !== null ? trim($notes) : null;
 
@@ -486,6 +491,14 @@ class OrderService
             $order->update(['status' => Order::STATUS_PENDING]);
         } elseif ($order->status === Order::STATUS_PENDING) {
             $order->update(['status' => Order::STATUS_READY, 'ready_at' => $order->ready_at ?? now()]);
+        }
+    }
+
+    /** The block list: a blocked number cannot place orders or add to a tab (closing and paying are still allowed). */
+    private function assertNotBlocked(?string $phone): void
+    {
+        if (BlockedNumber::isBlocked($phone)) {
+            throw new \DomainException('This number is on the block list, so no orders can be placed for it.');
         }
     }
 

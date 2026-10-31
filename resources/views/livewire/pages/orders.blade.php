@@ -213,6 +213,12 @@
                         </div>
                     </div>
 
+                    @if ($numberBlocked)
+                        <div class="bg-red-50 border border-red-200 text-red-800 text-sm rounded-lg px-4 py-3 font-semibold" data-testid="blocked-number-notice">
+                            This number is on the block list. No orders can be placed for it.
+                        </div>
+                    @endif
+
                     @if ($existingTab && $existingTabBlocked)
                         <div class="bg-amber-50 border border-amber-200 text-amber-800 text-sm rounded-lg px-4 py-3">
                             This customer already has an open tab with another waiter, so you cannot add to it here.
@@ -331,7 +337,7 @@
 
                 <div class="p-4 sm:p-6 border-t flex items-center justify-end gap-3">
                     <button wire:click="closeOrderModal" class="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">Cancel</button>
-                    <button wire:click="saveOrder" wire:loading.attr="disabled" @disabled(empty($cart) || $existingTabBlocked)
+                    <button wire:click="saveOrder" wire:loading.attr="disabled" @disabled(empty($cart) || $existingTabBlocked || $numberBlocked)
                         class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold disabled:opacity-40 disabled:cursor-not-allowed">
                         {{ $editingOrder ? 'ADD TO ORDER' : ($existingTab ? 'ADD TO TAB' : 'PLACE ORDER') }} (GH₵ {{ number_format($cartTotal, 0) }})
                     </button>

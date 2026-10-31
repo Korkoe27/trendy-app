@@ -81,7 +81,7 @@ class WaiterSeesOwnOrdersTest extends TestCase
             ->assertDontSee('Kofis Customer');
     }
 
-    public function test_a_waiter_does_not_see_other_waiters_orders_in_history_or_search(): void
+    public function test_a_waiter_never_sees_completed_orders_and_search_stays_within_their_own(): void
     {
         [$ama, $kofi, $amaOrder, $kofiOrder] = $this->twoOrders();
         $bar = $this->userWith(['orders' => ['view', 'modify']], 'Akua');
@@ -92,13 +92,14 @@ class WaiterSeesOwnOrdersTest extends TestCase
             $this->orders->closeWithCash($o->fresh(), $mgr);
         }
 
+        // Waiters do not get the completed-orders strip at all, so neither waiter's finished orders show.
         $this->actingAs($ama);
+        Livewire::test(Orders::class)->assertDontSee('Completed orders')->assertDontSee('Kofis Customer');
 
-        Livewire::test(Orders::class)
-            ->assertSee('Amas Customer')
-            ->assertDontSee('Kofis Customer')
-            ->set('searchTerm', 'Kofis')
-            ->assertDontSee('Kofis Customer');
+        // The bartender and managers do see all of them, and the history query itself is scoped for waiters.
+        $this->actingAs($bar);
+        Livewire::test(Orders::class)->assertSee('Completed orders')->assertSee('Amas Customer')->assertSee('Kofis Customer');
+        $this->assertSame([$amaOrder->id], Order::visibleTo($ama)->pluck('id')->all());
     }
 
     public function test_managers_and_the_bartender_see_every_order(): void
@@ -182,15 +183,15 @@ class WaiterSeesOwnOrdersTest extends TestCase
             ->assertSee('1x Club Beer');
     }
 
-    public function test_the_completed_orders_panel_is_a_sticky_scrollable_40_percent_strip(): void
+    public function test_the_completed_orders_panel_is_a_sticky_scrollable_strip(): void
     {
-        [$ama] = $this->twoOrders();
-        $this->actingAs($ama);
+        $this->twoOrders();
+        $this->actingAs($this->userWith(['orders' => ['view', 'modify']], 'Akua'));
 
         Livewire::test(Orders::class)
             ->assertSeeHtml('data-testid="completed-orders"')
-            ->assertSeeHtml('h-[40vh]')
-            ->assertSeeHtml('sticky bottom-0')
+            ->assertSeeHtml('2xl:h-[40vh]')
+            ->assertSeeHtml('lg:sticky bottom-0')
             ->assertSeeHtml('overflow-auto');
     }
 

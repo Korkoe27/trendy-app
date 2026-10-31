@@ -445,8 +445,11 @@ class OrdersPageTest extends TestCase
         $order = $service->markReady($this->order($waiter), $this->bartender());
         $service->closeWithCash($order, $waiter);
 
+        // The completed-orders strip is for people who can modify orders (bartender, managers), not waiters.
         $this->actingAs($waiter);
+        Livewire::test(Orders::class)->assertDontSee('Completed orders');
 
+        $this->actingAs($this->bartender());
         Livewire::test(Orders::class)->assertSee('Completed orders')->assertSee('Cash')->assertSee('Paid')->assertSee('60.00');
     }
 
@@ -478,6 +481,7 @@ class OrdersPageTest extends TestCase
         $closed = app(OrderService::class)->markReady($this->order($waiter), $this->bartender());
         app(OrderService::class)->closeWithCash($closed, $waiter);
 
+        $this->actingAs($this->bartender());
         Livewire::test(Orders::class)->set('searchTerm', 'KWAME')->assertSee('Completed orders')->assertSee('Kwame Mensah');
     }
 }
