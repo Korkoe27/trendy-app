@@ -61,6 +61,10 @@ class OrderService
         $lines = $this->priceItems($items);
 
         $order = DB::transaction(function () use ($staff, $customerName, $phone, $lines, $notes) {
+            // One order at a time per waiter. Locking the waiter's row makes two submits from two devices queue up.
+            User::whereKey($staff->id)->lockForUpdate()->first();
+            $this->assertNoOtherUnservedOrder($staff);
+
             $order = Order::create([
                 'customer_name' => $customerName,
                 'customer_phone' => $phone,
@@ -155,8 +159,9 @@ class OrderService
         $notes = $notes !== null ? trim($notes) : null;
 
         return $this->locked($order, function (Order $order) use ($staff, $lines, $notes) {
-            $this->assertCanManage($order, $staff, 'add items to it');
+            $this->assertCanEdit($order, $staff, 'add items to it');
             $this->assertOpen($order);
+            $this->assertNoOtherUnservedOrder($staff, $order);
             $this->assertNoActivePayment($order);
 
             // Same drink again while it is still waiting: bump the quantity instead of a second row.
@@ -200,7 +205,7 @@ class OrderService
     public function setItemQuantity(Order $order, User $staff, int $itemId, int $quantity): Order
     {
         return $this->locked($order, function (Order $order) use ($staff, $itemId, $quantity) {
-            $this->assertCanManage($order, $staff, 'change it');
+            $this->assertCanEdit($order, $staff, 'change it');
             $this->assertOpen($order);
             $this->assertNoActivePayment($order);
 
@@ -262,6 +267,11 @@ class OrderService
     /** Waiter: the order has been taken to the table; the tab stays open until paid. */
     public function serve(Order $order, User $staff): Order
     {
+        // Serving is the waiter's job; the bartender prepares the order but does not hand it to the customer.
+        if (! $staff->hasPermission('create', 'orders')) {
+            throw new \DomainException('Only a waiter can serve an order to the customer.');
+        }
+
         return $this->locked($order, function (Order $order) use ($staff) {
             if ($order->status !== Order::STATUS_READY) {
                 throw new \DomainException('Only a ready order can be served.');
@@ -405,6 +415,42 @@ class OrderService
     {
         if (! $order->canBeManagedBy($staff)) {
             throw new \DomainException("Only the waiter who took this order, a manager or an admin can {$action}.");
+        }
+    }
+
+    /** Editing: managers, the order's waiter, and the bartender while the order is waiting to be prepared. */
+    public function assertCanEdit(Order $order, User $staff, string $action = 'change it'): void
+    {
+        if (! $order->canBeEditedBy($staff)) {
+            throw new \DomainException("Only the waiter who took this order, a manager or an admin can {$action}. The bartender can only change an order that is still waiting to be prepared.");
+        }
+    }
+
+    /**
+     * A waiter works one order at a time: while one of their orders is still pending or ready (not
+     * yet served to the customer) they cannot take another. Admins, managers and the bartender
+     * (everyone who sees all orders) are not held by this.
+     */
+    public function unservedOrderFor(?User $staff, ?Order $except = null): ?Order
+    {
+        if (! $staff || Order::seesAll($staff)) {
+            return null;
+        }
+
+        return Order::where('taken_by', $staff->id)
+            ->whereIn('status', [Order::STATUS_PENDING, Order::STATUS_READY])
+            ->when($except, fn ($q) => $q->whereKeyNot($except->id))
+            ->orderBy('id')
+            ->first();
+    }
+
+    /**
+     * @throws \DomainException
+     */
+    private function assertNoOtherUnservedOrder(User $staff, ?Order $except = null): void
+    {
+        if ($pending = $this->unservedOrderFor($staff, $except)) {
+            throw new \DomainException("You still have {$pending->code} for {$pending->customer_name} that has not been served. Serve it to the customer before taking another order.");
         }
     }
 

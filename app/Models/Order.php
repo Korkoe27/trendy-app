@@ -111,6 +111,21 @@ class Order extends Model
      * Who may add items to, edit and close this order: anyone who can settle tabs on behalf of
      * others (admins and managers: order_debts, modify), or the waiter who created the order.
      */
+    /**
+     * Who may change what is on this order (add, remove or change items): everyone who manages it,
+     * plus the bartender (orders, modify) while it is still waiting to be prepared, so a customer
+     * who changes their mind can be accommodated. Closing stays with canBeManagedBy.
+     */
+    public function canBeEditedBy(?User $user): bool
+    {
+        if (! $user) {
+            return false;
+        }
+
+        return $this->canBeManagedBy($user)
+            || ($this->status === self::STATUS_PENDING && $user->hasPermission('modify', 'orders'));
+    }
+
     public function canBeManagedBy(?User $user): bool
     {
         if (! $user) {

@@ -51,7 +51,8 @@
 
         <div class="flex flex-wrap justify-end gap-2">
             @if ($status === 'pending')
-                @if ($manage)
+                {{-- The bartender can change an order that is still waiting to be prepared (customers change their minds). --}}
+                @if ($manage || $canReady)
                     <button wire:click="openAddItems({{ $order['id'] }})" class="px-3 py-2 text-sm font-semibold border border-gray-300 rounded-lg bg-gray-50 hover:bg-gray-100">Edit</button>
                 @endif
                 @if ($canReady)

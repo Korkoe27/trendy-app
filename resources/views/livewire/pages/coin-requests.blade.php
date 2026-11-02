@@ -80,6 +80,13 @@
                 </div>
 
                 <div>
+                    <label for="coinCustomer" class="block text-xs font-semibold text-gray-600 uppercase mb-1">Player's name</label>
+                    <input id="coinCustomer" type="text" wire:model="customerName" maxlength="100" placeholder="Who is the coin for?" autocomplete="off"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                    @error('customerName') <div class="text-red-500 text-sm mt-1">{{ $message }}</div> @enderror
+                </div>
+
+                <div>
                     <label for="coinNote" class="block text-xs font-semibold text-gray-600 uppercase mb-1">Note (optional)</label>
                     <input id="coinNote" type="text" wire:model="note" maxlength="255" placeholder="e.g. Table 2"
                         class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
@@ -109,8 +116,8 @@
             <div class="px-4 py-3 border rounded-lg font-bold text-sm uppercase bg-yellow-50 border-yellow-200 text-yellow-800">Waiting for the bar ({{ $waiting->count() }})</div>
             @forelse ($waiting as $request)
                 <div class="bg-white border border-gray-200 rounded-xl p-4 shadow-sm" wire:key="coin-wait-{{ $request->id }}">
-                    <p class="text-lg font-bold text-gray-900">{{ $request->quantity }} × {{ $request->product_name }}</p>
-                    <p class="text-sm text-gray-500">{{ $request->requested_by_name }} · {{ $request->requested_at->diffForHumans(null, true, true) }} ago{{ $request->note ? ' · '.$request->note : '' }}</p>
+                    <p class="text-lg font-bold text-gray-900">{{ $request->quantity }} × {{ $request->product_name }}@if ($request->customer_name) <span class="font-semibold text-blue-700">for {{ $request->customer_name }}</span>@endif</p>
+                    <p class="text-sm text-gray-500">Requested by {{ $request->requested_by_name }} · {{ $request->requested_at->diffForHumans(null, true, true) }} ago{{ $request->note ? ' · '.$request->note : '' }}</p>
                     <div class="mt-3 flex flex-wrap gap-2">
                         @if ($canGive)
                             <button wire:click="give({{ $request->id }})" wire:loading.attr="disabled"
@@ -135,6 +142,7 @@
             @forelse ($given as $request)
                 <div class="bg-white border border-gray-200 rounded-xl p-4 shadow-sm {{ $request->status === 'voided' ? 'opacity-60' : '' }}" wire:key="coin-given-{{ $request->id }}">
                     <p class="text-base font-bold text-gray-900 {{ $request->status === 'voided' ? 'line-through' : '' }}">{{ $request->quantity }} × {{ $request->product_name }} · GH₵ {{ number_format((float) $request->total, 2) }}</p>
+                    @if ($request->customer_name)<p class="text-sm font-semibold text-blue-700">{{ $request->customer_name }}</p>@endif
                     <p class="text-sm text-gray-500">{{ $request->requested_by_name }} · given by {{ $request->given_by_name }} at {{ $request->given_at?->format('H:i') }}</p>
                     @if ($request->status === 'voided')
                         <p class="text-xs text-red-600 mt-1">Voided: {{ $request->void_reason }}</p>
@@ -264,7 +272,7 @@
                                     @endphp
                                     <tr wire:key="coin-detail-{{ $request->id }}">
                                         <td class="py-2 pr-3 whitespace-nowrap">{{ $request->requested_at?->format('H:i') }}</td>
-                                        <td class="py-2 pr-3">{{ $request->quantity }} × {{ $request->product_name }}@if ($request->note)<span class="block text-xs text-gray-400">{{ $request->note }}</span>@endif</td>
+                                        <td class="py-2 pr-3">{{ $request->quantity }} × {{ $request->product_name }}@if ($request->customer_name)<span class="block text-xs font-semibold text-blue-700">{{ $request->customer_name }}</span>@endif @if ($request->note)<span class="block text-xs text-gray-400">{{ $request->note }}</span>@endif</td>
                                         <td class="py-2 pr-3">{{ $request->requested_by_name }}</td>
                                         <td class="py-2 pr-3">
                                             <span class="px-2 py-0.5 rounded-full text-xs font-semibold {{ $badge }}">{{ ucfirst($request->status) }}</span>

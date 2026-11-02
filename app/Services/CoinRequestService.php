@@ -78,9 +78,15 @@ class CoinRequestService
     /**
      * @throws \DomainException
      */
-    public function request(User $by, Product $game, int $quantity, ?string $note = null): CoinRequest
+    public function request(User $by, Product $game, int $quantity, ?string $note = null, ?string $customerName = null): CoinRequest
     {
         $this->assertGame($game);
+
+        $customerName = trim((string) $customerName);
+
+        if ($customerName === '') {
+            throw new \DomainException('Enter the name of the player the coin is for.');
+        }
 
         if ($quantity < 1) {
             throw new \DomainException('Ask for at least one coin.');
@@ -94,7 +100,7 @@ class CoinRequestService
                 : "You can only request {$max} coins at a time.");
         }
 
-        return DB::transaction(function () use ($by, $game, $quantity, $note) {
+        return DB::transaction(function () use ($by, $game, $quantity, $note, $customerName) {
             // Lock the game so two attendants cannot both take the last coins.
             $game = Product::whereKey($game->id)->lockForUpdate()->firstOrFail();
             $this->assertGame($game);
@@ -125,10 +131,11 @@ class CoinRequestService
                 'requested_by' => $by->id,
                 'requested_by_name' => $by->name ?? 'Unknown',
                 'requested_at' => now(),
+                'customer_name' => mb_substr($customerName, 0, 100),
                 'note' => $note !== null && trim($note) !== '' ? mb_substr(trim($note), 0, 255) : null,
             ]);
 
-            $this->log($by, 'coin_request_create', "Requested {$quantity} {$game->name} ".($quantity === 1 ? 'coin' : 'coins'), $request);
+            $this->log($by, 'coin_request_create', "Requested {$quantity} {$game->name} ".($quantity === 1 ? 'coin' : 'coins').' for '.$request->customer_name, $request);
 
             return $request;
         });

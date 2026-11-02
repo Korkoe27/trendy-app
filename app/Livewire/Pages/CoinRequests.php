@@ -22,6 +22,8 @@ class CoinRequests extends Component
 
     public int $quantity = 1;
 
+    public string $customerName = '';
+
     public string $note = '';
 
     public bool $showVoidModal = false;
@@ -67,15 +69,15 @@ class CoinRequests extends Component
         }
 
         try {
-            $coins->request(Auth::user(), $game, (int) $this->quantity, $this->note);
+            $coins->request(Auth::user(), $game, (int) $this->quantity, $this->note, $this->customerName);
         } catch (\DomainException $e) {
-            $this->addError('quantity', $e->getMessage());
+            $this->addError(str_contains($e->getMessage(), 'name of the player') ? 'customerName' : 'quantity', $e->getMessage());
 
             return;
         }
 
         $this->resetErrorBag();
-        $this->reset('note');
+        $this->reset('note', 'customerName');
         $this->quantity = 1;
         session()->flash('message', 'Coins requested. The bar has been notified.');
     }

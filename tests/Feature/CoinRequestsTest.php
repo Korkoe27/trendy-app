@@ -103,7 +103,7 @@ class CoinRequestsTest extends TestCase
 
     private function request(int $quantity, ?User $by = null): CoinRequest
     {
-        return $this->coins->request($by ?? $this->attendant, $this->game(), $quantity);
+        return $this->coins->request($by ?? $this->attendant, $this->game(), $quantity, null, 'Kojo');
     }
 
     // ------------------------------------------------------------------ availability
@@ -340,18 +340,18 @@ class CoinRequestsTest extends TestCase
 
         $page = Livewire::test(CoinRequests::class)
             ->assertDontSee('Your coin is waiting for the bar')
-            ->call('requestCoins')
+            ->set('customerName', 'Kojo')->call('requestCoins')
             ->assertHasNoErrors()
             ->assertSee('Your coin is waiting for the bar')
             ->assertSeeHtml('disabled');
 
         // Even if the button is bypassed, the server refuses.
-        $page->call('requestCoins')->assertHasErrors('quantity')->assertSee('already have a coin waiting');
+        $page->set('customerName', 'Kojo')->call('requestCoins')->assertHasErrors('quantity')->assertSee('already have a coin waiting');
         $this->assertSame(1, CoinRequest::count());
 
         // The bar gives it: the attendant can request again.
         $this->coins->give(CoinRequest::firstOrFail(), $this->bartender);
-        Livewire::test(CoinRequests::class)->assertDontSee('Your coin is waiting for the bar')->call('requestCoins')->assertHasNoErrors();
+        Livewire::test(CoinRequests::class)->assertDontSee('Your coin is waiting for the bar')->set('customerName', 'Kojo')->call('requestCoins')->assertHasNoErrors();
         $this->assertSame(2, CoinRequest::count());
     }
 
@@ -367,9 +367,9 @@ class CoinRequestsTest extends TestCase
             ->assertSet('quantity', 1);
 
         // A tampered request that sets a larger number is still refused by the server.
-        $page->set('quantity', 5)->call('requestCoins')->assertHasErrors('quantity')->assertSee('only request 1 coin at a time');
+        $page->set('quantity', 5)->set('customerName', 'Kojo')->call('requestCoins')->assertHasErrors('quantity')->assertSee('only request 1 coin at a time');
 
-        $page->set('quantity', 1)->call('requestCoins')->assertHasNoErrors();
+        $page->set('quantity', 1)->set('customerName', 'Kojo')->call('requestCoins')->assertHasNoErrors();
         $this->assertSame(1, CoinRequest::count());
         $this->assertSame(1, (int) CoinRequest::first()->quantity);
     }
@@ -382,7 +382,7 @@ class CoinRequestsTest extends TestCase
         Livewire::test(CoinRequests::class)
             ->assertSee('Available today: 200 of 200')
             ->set('quantity', 2)
-            ->call('requestCoins')
+            ->set('customerName', 'Kojo')->call('requestCoins')
             ->assertHasNoErrors()
             ->assertSee('Available today: 198 of 200')
             ->assertSee('Waiting for the bar (1)')
@@ -396,7 +396,7 @@ class CoinRequestsTest extends TestCase
         Livewire::test(CoinRequests::class)
             ->assertSee('Given ✓')
             ->assertDontSee('REQUEST')
-            ->call('requestCoins')->assertForbidden();
+            ->set('customerName', 'Kojo')->call('requestCoins')->assertForbidden();
 
         Livewire::test(CoinRequests::class)->call('give', $request->id)->assertSee('Marked as given.');
         $this->assertSame('given', $request->fresh()->status);
@@ -411,7 +411,7 @@ class CoinRequestsTest extends TestCase
 
         Livewire::test(CoinRequests::class)
             ->set('quantity', 201)
-            ->call('requestCoins')
+            ->set('customerName', 'Kojo')->call('requestCoins')
             ->assertHasErrors('quantity')
             ->assertSee('Only 200');
 
@@ -570,4 +570,59 @@ class CoinRequestsTest extends TestCase
         $this->assertEquals(['can_view' => 1, 'can_create' => 1, 'can_modify' => 0, 'can_delete' => 0], $rights('Snooker Attendant'));
         $this->assertSame(1, DB::table('roles')->where('name', 'Snooker Attendant')->count());
     }
+
+    // ------------------------------------------------------------------ the player's name
+
+    public function test_a_request_needs_the_name_of_the_player_and_stores_it_trimmed(): void
+    {
+        foreach ([null, '', '   '] as $blank) {
+            try {
+                $this->coins->request($this->attendant, $this->game(), 1, null, $blank);
+                $this->fail('A coin request without a name must be refused.');
+            } catch (\DomainException $e) {
+                $this->assertSame('Enter the name of the player the coin is for.', $e->getMessage());
+            }
+        }
+
+        $this->assertSame(0, CoinRequest::count());
+
+        $request = $this->coins->request($this->attendant, $this->game(), 1, null, '  Kwabena Boateng ');
+
+        $this->assertSame('Kwabena Boateng', $request->customer_name);
+        $this->assertDatabaseHas('activity_logs', ['action_type' => 'coin_request_create', 'description' => 'Requested 1 Snooker coin for Kwabena Boateng']);
+    }
+
+    public function test_the_screen_asks_for_the_name_shows_it_to_the_bar_and_clears_it_after_a_request(): void
+    {
+        $this->actingAs($this->attendant);
+
+        $page = Livewire::test(CoinRequests::class)
+            ->assertSeeHtml('placeholder="Who is the coin for?"')
+            ->call('requestCoins')
+            ->assertHasErrors('customerName');
+
+        $this->assertSame(0, CoinRequest::count());
+
+        $page->set('customerName', 'Kwabena Boateng')
+            ->call('requestCoins')
+            ->assertHasNoErrors()
+            ->assertSet('customerName', '')
+            ->assertSee('Kwabena Boateng');
+
+        $request = CoinRequest::first();
+        $this->assertSame('Kwabena Boateng', $request->customer_name);
+
+        $this->actingAs($this->bartender);
+        Livewire::test(CoinRequests::class)->assertSee('for Kwabena Boateng')->call('give', $request->id)->assertSee('Kwabena Boateng');
+    }
+
+    public function test_the_sidebar_calls_the_screen_snooker(): void
+    {
+        $this->actingAs($this->attendant);
+
+        Livewire::test(\App\Livewire\Components\Sidebar::class)
+            ->assertSee('Snooker')
+            ->assertDontSee('Coin Requests');
+    }
 }
+

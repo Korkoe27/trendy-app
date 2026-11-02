@@ -152,7 +152,8 @@ class WaiterSeesOwnOrdersTest extends TestCase
 
     public function test_the_blocked_tab_notice_does_not_reveal_the_other_waiters_customer(): void
     {
-        [$ama, , , ] = $this->twoOrders();
+        [$ama, , $amaOrder, ] = $this->twoOrders();
+        $amaOrder->update(['status' => 'served']); // a waiter with an unserved order cannot open the take-order screen
         $this->actingAs($ama);
 
         Livewire::test(Orders::class)

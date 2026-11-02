@@ -433,6 +433,121 @@
                 </div>
             </div>
         </div>
+
+        {{-- Staff performance (from orders) --}}
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6" data-testid="staff-performance">
+            <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2 mb-4">
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-900">Staff Performance</h3>
+                    <p class="text-sm text-gray-500">Orders taken by each waiter in this period. Cancelled orders are not counted as sales.</p>
+                </div>
+                @if (! empty($staffTotals) && $staffTotals['orders'] > 0)
+                    <p class="text-sm text-gray-600">{{ number_format($staffTotals['orders']) }} orders · GH₵ {{ number_format($staffTotals['revenue'], 2) }}</p>
+                @endif
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="min-w-full text-sm">
+                    <thead>
+                        <tr class="text-left text-xs uppercase text-gray-500 border-b">
+                            <th class="py-2 pr-3 font-semibold">Waiter</th>
+                            <th class="py-2 pr-3 font-semibold text-right">Orders</th>
+                            <th class="py-2 pr-3 font-semibold text-right hidden sm:table-cell">Items</th>
+                            <th class="py-2 pr-3 font-semibold text-right">Sales</th>
+                            <th class="py-2 pr-3 font-semibold text-right hidden md:table-cell">Avg order</th>
+                            <th class="py-2 pr-3 font-semibold text-right hidden lg:table-cell">Cancelled</th>
+                            <th class="py-2 pr-3 font-semibold text-right hidden md:table-cell">Unpaid</th>
+                            <th class="py-2 font-semibold text-right hidden lg:table-cell">Ready to served</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        @forelse ($waiterPerformance as $waiter)
+                            <tr wire:key="waiter-{{ $waiter['user_id'] ?? 'x' }}-{{ $loop->index }}">
+                                <td class="py-2 pr-3">
+                                    <p class="font-semibold text-gray-900">{{ $waiter['name'] }}</p>
+                                    <div class="w-24 bg-gray-200 rounded-full h-1.5 mt-1"><div class="bg-blue-600 h-1.5 rounded-full" style="width: {{ $waiter['share'] }}%"></div></div>
+                                </td>
+                                <td class="py-2 pr-3 text-right">{{ number_format($waiter['orders']) }}</td>
+                                <td class="py-2 pr-3 text-right hidden sm:table-cell">{{ number_format($waiter['items']) }}</td>
+                                <td class="py-2 pr-3 text-right font-semibold">GH₵ {{ number_format($waiter['revenue'], 2) }}<span class="block text-xs font-normal text-gray-400">{{ $waiter['share'] }}%</span></td>
+                                <td class="py-2 pr-3 text-right hidden md:table-cell">GH₵ {{ number_format($waiter['average_order'], 2) }}</td>
+                                <td class="py-2 pr-3 text-right hidden lg:table-cell {{ $waiter['cancelled'] > 0 ? 'text-red-600' : 'text-gray-500' }}">{{ $waiter['cancelled'] }}</td>
+                                <td class="py-2 pr-3 text-right hidden md:table-cell {{ $waiter['outstanding'] > 0 ? 'text-yellow-700' : 'text-gray-500' }}">GH₵ {{ number_format($waiter['outstanding'], 2) }}</td>
+                                <td class="py-2 text-right hidden lg:table-cell">{{ $waiter['serve_minutes'] === null ? '—' : number_format($waiter['serve_minutes'], 1).' min' }}</td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="8" class="py-8 text-center text-gray-500">No orders in this period.</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+
+            @if (! empty($barPerformance))
+                <h4 class="mt-6 mb-2 text-sm font-semibold text-gray-900">Bar: preparing orders</h4>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3" data-testid="bar-performance">
+                    @foreach ($barPerformance as $bar)
+                        <div class="p-3 bg-gray-50 rounded-lg" wire:key="bar-{{ $bar['user_id'] }}">
+                            <p class="font-semibold text-gray-900">{{ $bar['name'] }}</p>
+                            <p class="text-sm text-gray-600">{{ number_format($bar['orders']) }} {{ $bar['orders'] === 1 ? 'order' : 'orders' }} prepared · {{ number_format($bar['prep_minutes'], 1) }} min average wait</p>
+                        </div>
+                    @endforeach
+                </div>
+            @endif
+        </div>
+
+        {{-- Customer performance (from orders) --}}
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6" data-testid="customer-performance">
+            <div class="mb-4">
+                <h3 class="text-lg font-semibold text-gray-900">Customer Performance</h3>
+                <p class="text-sm text-gray-500">Customers are matched by phone number across all their orders in this period.</p>
+            </div>
+
+            @if (! empty($customerSummary))
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+                    <div class="p-4 bg-blue-50 rounded-lg"><p class="text-2xl font-bold text-blue-600">{{ number_format($customerSummary['customers']) }}</p><p class="text-sm text-gray-600 mt-1">Customers</p></div>
+                    <div class="p-4 bg-green-50 rounded-lg"><p class="text-2xl font-bold text-green-600">{{ $customerSummary['repeat_rate'] }}%</p><p class="text-sm text-gray-600 mt-1">Came back ({{ number_format($customerSummary['repeat']) }} with 2+ orders)</p></div>
+                    <div class="p-4 bg-purple-50 rounded-lg"><p class="text-2xl font-bold text-purple-600">GH₵ {{ number_format($customerSummary['average_spend'], 2) }}</p><p class="text-sm text-gray-600 mt-1">Average spend each</p></div>
+                    <div class="p-4 bg-yellow-50 rounded-lg"><p class="text-2xl font-bold text-yellow-600">GH₵ {{ number_format($customerSummary['outstanding'], 2) }}</p><p class="text-sm text-gray-600 mt-1">Still unpaid</p></div>
+                </div>
+            @endif
+
+            <div class="flex gap-2 mb-3">
+                <button wire:click="$set('customerView', 'spent')" class="px-3 py-1.5 rounded-lg text-sm font-medium {{ $customerView === 'spent' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">Top spenders</button>
+                <button wire:click="$set('customerView', 'visits')" class="px-3 py-1.5 rounded-lg text-sm font-medium {{ $customerView === 'visits' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' }}">Most frequent</button>
+            </div>
+
+            @php $customerRows = $customerView === 'visits' ? $mostFrequentCustomers : $topSpenders; @endphp
+            <div class="overflow-x-auto">
+                <table class="min-w-full text-sm">
+                    <thead>
+                        <tr class="text-left text-xs uppercase text-gray-500 border-b">
+                            <th class="py-2 pr-3 font-semibold">Customer</th>
+                            <th class="py-2 pr-3 font-semibold text-right">Orders</th>
+                            <th class="py-2 pr-3 font-semibold text-right hidden sm:table-cell">Items</th>
+                            <th class="py-2 pr-3 font-semibold text-right">Spent</th>
+                            <th class="py-2 pr-3 font-semibold text-right hidden md:table-cell">Avg order</th>
+                            <th class="py-2 pr-3 font-semibold text-right hidden md:table-cell">Unpaid</th>
+                            <th class="py-2 font-semibold text-right hidden sm:table-cell">Last visit</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        @forelse ($customerRows as $customer)
+                            <tr wire:key="customer-{{ $customerView }}-{{ $customer['phone'] }}">
+                                <td class="py-2 pr-3"><p class="font-semibold text-gray-900">{{ $customer['name'] }}</p><p class="text-xs text-gray-500">{{ $customer['phone'] }}</p></td>
+                                <td class="py-2 pr-3 text-right">{{ number_format($customer['orders']) }}</td>
+                                <td class="py-2 pr-3 text-right hidden sm:table-cell">{{ number_format($customer['items']) }}</td>
+                                <td class="py-2 pr-3 text-right font-semibold">GH₵ {{ number_format($customer['spent'], 2) }}</td>
+                                <td class="py-2 pr-3 text-right hidden md:table-cell">GH₵ {{ number_format($customer['average_order'], 2) }}</td>
+                                <td class="py-2 pr-3 text-right hidden md:table-cell {{ $customer['outstanding'] > 0 ? 'text-yellow-700' : 'text-gray-500' }}">GH₵ {{ number_format($customer['outstanding'], 2) }}</td>
+                                <td class="py-2 text-right hidden sm:table-cell">{{ \Carbon\Carbon::parse($customer['last_visit'])->format('j M') }}</td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="7" class="py-8 text-center text-gray-500">No customers in this period.</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </div>
         @endif
     </div>
 

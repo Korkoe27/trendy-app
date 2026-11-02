@@ -265,8 +265,14 @@ class OrdersPageTest extends TestCase
         $this->actingAs($this->bartender());
 
         Livewire::test(Orders::class)->call('openTakeOrder')->assertForbidden();
-        Livewire::test(Orders::class)->call('addToCart', $this->beer)->assertForbidden();
         Livewire::test(Orders::class)->call('openCloseModal', $order->id)->assertForbidden();
+
+        // The bartender can change an order, but a brand new one is still not theirs to take.
+        Livewire::test(Orders::class)
+            ->set('customerName', 'Walk In')->set('customerPhone', '0249998888')
+            ->call('addToCart', $this->beer)
+            ->call('saveOrder')
+            ->assertForbidden();
     }
 
     public function test_a_waiter_cannot_mark_orders_ready_or_cancel_them(): void

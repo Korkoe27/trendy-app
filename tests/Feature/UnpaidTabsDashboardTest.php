@@ -56,9 +56,12 @@ class UnpaidTabsDashboardTest extends TestCase
     public function test_users_who_can_view_debts_see_open_unpaid_tabs_with_the_total(): void
     {
         $service = app(OrderService::class);
-        $service->place($this->waiter, 'Kwame Mensah', '0241234567', [$this->beer => 2]);                       // 60
-        $ready = $service->markReady($service->place($this->waiter, 'Esi Boateng', '0245550000', [$this->beer => 1]), $this->bartender); // 30
-        $paid = $service->markReady($service->place($this->waiter, 'Paid Person', '0205550000', [$this->beer => 5]), $this->bartender);
+        // A waiter takes one order at a time, so each one is served before the next is placed.
+        $serve = fn ($order) => $service->serve($service->markReady($order, $this->bartender), $this->waiter);
+
+        $serve($service->place($this->waiter, 'Kwame Mensah', '0241234567', [$this->beer => 2]));                       // 60
+        $serve($service->place($this->waiter, 'Esi Boateng', '0245550000', [$this->beer => 1]));                       // 30
+        $paid = $serve($service->place($this->waiter, 'Paid Person', '0205550000', [$this->beer => 5]));
         $service->closeWithCash($paid, $this->cashier());
         $service->cancel($service->place($this->waiter, 'Cancelled Person', '0205550001', [$this->beer => 9]), $this->waiter, 'Left');
 

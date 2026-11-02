@@ -95,9 +95,8 @@ class Orders extends Component
 
     private function canServe(): bool
     {
-        $user = Auth::user();
-
-        return $user?->hasPermission('create', 'orders') || $user?->hasPermission('modify', 'orders');
+        // Serving to the customer is the waiter's job: the bartender prepares, but does not serve.
+        return (bool) Auth::user()?->hasPermission('create', 'orders');
     }
 
     /** May this user ever close tabs? (Which tabs is decided per order: see Order::canBeSettledBy.) */
@@ -134,11 +133,27 @@ class Orders extends Component
         return $order;
     }
 
+    /** The order being edited (items added, changed or removed): managers, its waiter, or the bartender while it is pending. */
+    private function editableOrder(?int $orderId): Order
+    {
+        $order = $this->visibleOrder($orderId);
+
+        abort_unless($order->canBeEditedBy(Auth::user()), 403);
+
+        return $order;
+    }
+
     // ------------------------------------------------------------------ take order / add items
 
-    public function openTakeOrder(): void
+    public function openTakeOrder(OrderService $orders): void
     {
         $this->allow('create');
+
+        if ($pending = $orders->unservedOrderFor(Auth::user())) {
+            $this->failWith("Serve {$pending->code} to the customer before taking another order.");
+
+            return;
+        }
 
         $this->resetOrderForm();
         $this->showOrderModal = true;
@@ -146,7 +161,7 @@ class Orders extends Component
 
     public function openAddItems(int $orderId): void
     {
-        $order = $this->manageableOrder($orderId);
+        $order = $this->editableOrder($orderId);
 
         if (! $order->isOpen()) {
             $this->failWith('This order is already '.$order->status.'.');
@@ -225,7 +240,7 @@ class Orders extends Component
     public function addToCart(int $productId): void
     {
         // Managers may add to someone else's order without being able to take new ones; saving re-checks.
-        abort_unless(Auth::user()?->hasPermission('create', 'orders') || $this->canSettleAny(), 403);
+        abort_unless(Auth::user()?->hasPermission('create', 'orders') || Auth::user()?->hasPermission('modify', 'orders') || $this->canSettleAny(), 403);
 
         $product = Product::with(['category', 'currentStock'])->find($productId);
 
@@ -261,7 +276,7 @@ class Orders extends Component
     public function saveOrder(OrderService $orders): void
     {
         if ($this->editingOrderId) {
-            $this->manageableOrder($this->editingOrderId);
+            $this->editableOrder($this->editingOrderId);
         } else {
             $this->allow('create');
         }
@@ -309,7 +324,7 @@ class Orders extends Component
             return;
         }
 
-        $this->manageableOrder($this->editingOrderId);
+        $this->editableOrder($this->editingOrderId);
 
         $this->resetErrorBag('cart');
 
@@ -609,6 +624,7 @@ class Orders extends Component
             'canCancel' => Auth::user()->hasPermission('delete', 'orders'),
             'modalOpen' => $this->showOrderModal || $this->showCloseModal || $this->showCancelModal || $this->showViewModal || $this->showAvailability,
             'canToggleAvailability' => $this->canToggleAvailability(),
+            'unservedOrder' => $orders->unservedOrderFor(Auth::user()),
             'availabilityProducts' => $this->showAvailability ? $this->availabilityList() : collect(),
         ]);
     }

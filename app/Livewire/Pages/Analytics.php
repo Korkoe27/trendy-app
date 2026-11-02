@@ -5,6 +5,7 @@ namespace App\Livewire\Pages;
 use App\Models\{DailySales, DailySalesSummary, Product, Stock, Categories};
 use App\Exports\AnalyticsMultiSheetExport;
 use App\Services\DebtLedger;
+use App\Services\OrderStatistics;
 use Carbon\Carbon;
 use Livewire\Component;
 use Illuminate\Support\Facades\DB;
@@ -88,6 +89,15 @@ public $chartsLoaded = false;
     public $dailyLossesData = []; // NEW
     public $paymentMethodDistribution = [];
 
+    // Staff and customer performance (from orders)
+    public $waiterPerformance = [];
+    public $barPerformance = [];
+    public $staffTotals = [];
+    public $customerSummary = [];
+    public $topSpenders = [];
+    public $mostFrequentCustomers = [];
+    public $customerView = 'spent'; // spent | visits
+
     public function mount()
     {
         $this->setDateRange();
@@ -146,6 +156,7 @@ public function loadCharts()
     $this->calculateCategoryPerformance();
     $this->calculateDailyData();
     $this->calculatePaymentMethodDistribution();
+    $this->calculateOrderPerformance();
     
     $this->chartsLoaded = true;
     $this->dispatch('chartsLoaded');
@@ -997,6 +1008,23 @@ private function calculateGrowthRates()
 
 
     // Helper method to get available months for dropdown
+    /** Waiter, bar and customer performance for the selected dates, from the orders taken in that time. */
+    private function calculateOrderPerformance(): void
+    {
+        $stats = app(OrderStatistics::class);
+        [$from, $to] = $stats->window($this->startDate, $this->endDate);
+
+        $staff = $stats->staff($from, $to);
+        $this->waiterPerformance = $staff['waiters'];
+        $this->barPerformance = $staff['bar'];
+        $this->staffTotals = $staff['totals'];
+
+        $customers = $stats->customers($from, $to);
+        $this->customerSummary = $customers['summary'];
+        $this->topSpenders = $customers['top_spenders'];
+        $this->mostFrequentCustomers = $customers['most_frequent'];
+    }
+
     public function getAvailableMonths()
     {
         $months = DailySalesSummary::selectRaw("TO_CHAR(sales_date, 'YYYY-MM') as month")

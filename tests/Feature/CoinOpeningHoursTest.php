@@ -89,7 +89,7 @@ class CoinOpeningHoursTest extends TestCase
 
     private function request(int $quantity = 1, ?User $by = null): CoinRequest
     {
-        return $this->coins->request($by ?? $this->attendant, $this->game(), $quantity);
+        return $this->coins->request($by ?? $this->attendant, $this->game(), $quantity, null, 'Kojo');
     }
 
     private function given(int $quantity, ?User $by = null): CoinRequest
@@ -150,7 +150,7 @@ class CoinOpeningHoursTest extends TestCase
         Livewire::test(CoinRequests::class)
             ->assertSeeHtml('data-testid="coin-not-open"')
             ->assertSee('Opens at 3:00 PM')
-            ->call('requestCoins')
+            ->set('customerName', 'Kojo')->call('requestCoins')
             ->assertHasErrors('quantity');
 
         $this->assertSame(0, CoinRequest::count());
@@ -160,7 +160,7 @@ class CoinOpeningHoursTest extends TestCase
         Livewire::test(CoinRequests::class)
             ->assertDontSeeHtml('data-testid="coin-not-open"')
             ->assertSee('Requests open')
-            ->call('requestCoins')
+            ->set('customerName', 'Kojo')->call('requestCoins')
             ->assertHasNoErrors();
 
         $this->assertSame(1, CoinRequest::count());

@@ -34,8 +34,8 @@
                 @endif
 
                 @if ($canOrder)
-                    <button wire:click="openTakeOrder"
-                        class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors font-semibold flex items-center justify-center space-x-2 whitespace-nowrap">
+                    <button wire:click="openTakeOrder" @disabled($unservedOrder)
+                        class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-semibold flex items-center justify-center space-x-2 whitespace-nowrap">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
                         </svg>
@@ -45,6 +45,13 @@
             </div>
         </div>
     </div>
+
+    @if ($unservedOrder)
+        <div class="bg-yellow-50 border border-yellow-300 text-yellow-900 px-4 py-3 rounded-lg text-sm" data-testid="unserved-order-notice">
+            You still have <span class="font-semibold">{{ $unservedOrder->code }}</span> for {{ $unservedOrder->customer_name }} that has not been served.
+            Serve it to the customer before taking another order.
+        </div>
+    @endif
 
     <!-- Board: tabs on small screens, three columns on large -->
     @php
