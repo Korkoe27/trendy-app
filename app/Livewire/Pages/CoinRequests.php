@@ -8,6 +8,7 @@ use App\Services\CoinRequestService;
 use App\Services\PriceService;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
+use Livewire\WithPagination;
 
 /**
  * Snooker coins: the attendant requests coins, the bar gives them. Every change goes through
@@ -15,6 +16,8 @@ use Livewire\Component;
  */
 class CoinRequests extends Component
 {
+    use WithPagination;
+
     public $productId = '';
 
     public int $quantity = 1;
@@ -26,6 +29,9 @@ class CoinRequests extends Component
     public ?int $voidingId = null;
 
     public string $voidReason = '';
+
+    /** The business day (Y-m-d) open in the View window. */
+    public ?string $viewDate = null;
 
     public function mount(): void
     {
@@ -137,6 +143,60 @@ class CoinRequests extends Component
         session()->flash('message', 'The coins were voided and no longer count.');
     }
 
+    public function closeNight(CoinRequestService $coins): void
+    {
+        $this->allow('modify');
+
+        try {
+            $day = $coins->closeDay(Auth::user());
+        } catch (\DomainException $e) {
+            session()->flash('error', $e->getMessage());
+
+            return;
+        }
+
+        $cancelled = (int) $day->closed_cancelled;
+        session()->flash('message', 'Coin requests are closed for tonight.'.($cancelled ? " {$cancelled} waiting ".($cancelled === 1 ? 'request was' : 'requests were').' cancelled.' : ''));
+    }
+
+    public function reopenNight(CoinRequestService $coins): void
+    {
+        $this->allow('modify');
+
+        try {
+            $coins->reopenDay(Auth::user());
+        } catch (\DomainException $e) {
+            session()->flash('error', $e->getMessage());
+
+            return;
+        }
+
+        session()->flash('message', 'Coin requests are open again.');
+    }
+
+    private function mayViewHistory(): bool
+    {
+        $user = Auth::user();
+
+        return (bool) ($user?->hasPermission('modify', 'coin_requests') || $user?->hasPermission('delete', 'coin_requests'));
+    }
+
+    public function openDayDetail(string $date): void
+    {
+        abort_unless($this->mayViewHistory(), 403);
+
+        try {
+            $this->viewDate = \Carbon\Carbon::createFromFormat('Y-m-d', $date)->toDateString();
+        } catch (\Throwable) {
+            abort(404);
+        }
+    }
+
+    public function closeDayDetail(): void
+    {
+        $this->viewDate = null;
+    }
+
     public function render(CoinRequestService $coins)
     {
         $date = $coins->businessDate();
@@ -162,6 +222,11 @@ class CoinRequests extends Component
             'canManage' => Auth::user()->hasPermission('delete', 'coin_requests'),
             'userId' => (int) Auth::id(),
             'maxPerRequest' => $coins->maxPerRequest(),
+            'availability' => $coins->availability(),
+            'canClose' => Auth::user()->hasPermission('modify', 'coin_requests'),
+            'canHistory' => $this->mayViewHistory(),
+            'days' => $this->mayViewHistory() ? $coins->history() : null,
+            'detail' => $this->viewDate && $this->mayViewHistory() ? $coins->dayDetail($this->viewDate) : null,
             'hasWaiting' => $coins->blocksNewRequests() && $coins->waitingFor(Auth::user()) !== null,
         ]);
     }

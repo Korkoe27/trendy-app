@@ -59,10 +59,13 @@ class OrderServiceTest extends TestCase
 
     private function product(int $categoryId, string $name, float $price, bool $active = true): int
     {
-        return DB::table('products')->insertGetId([
+        $id = DB::table('products')->insertGetId([
             'name' => $name, 'category_id' => $categoryId, 'selling_price' => $price,
             'is_active' => $active, 'created_at' => now(), 'updated_at' => now(),
         ]);
+        DB::table('stocks')->insert(['product_id' => $id, 'total_units' => 100, 'created_at' => now(), 'updated_at' => now()]);
+
+        return $id;
     }
 
     private function place(?array $items = null): Order
@@ -239,15 +242,16 @@ class OrderServiceTest extends TestCase
 
     public function test_orders_never_touch_stock(): void
     {
-        DB::table('stocks')->insert(['product_id' => $this->beer, 'total_units' => 100, 'created_at' => now(), 'updated_at' => now()]);
+        $stocks = DB::table('stocks')->count();
+        $units = (int) DB::table('stocks')->sum('total_units');
         $movements = DB::table('stock_movements')->count();
 
         $order = $this->place();
         $this->orders->markReady($order, $this->bartender);
         $this->orders->closeWithCash($order, $this->waiter);
 
-        $this->assertSame(1, DB::table('stocks')->count());
-        $this->assertSame(100, (int) DB::table('stocks')->value('total_units'));
+        $this->assertSame($stocks, DB::table('stocks')->count());
+        $this->assertSame($units, (int) DB::table('stocks')->sum('total_units'));
         $this->assertSame($movements, DB::table('stock_movements')->count());
     }
 

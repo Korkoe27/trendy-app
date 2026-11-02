@@ -49,6 +49,11 @@ class Orders extends Component
 
     public string $productSearch = '';
 
+    // Product availability window (bar and managers)
+    public bool $showAvailability = false;
+
+    public string $availabilitySearch = '';
+
     // Close tab modal
     public bool $showCloseModal = false;
 
@@ -174,10 +179,62 @@ class Orders extends Component
         $this->resetOrderForm();
     }
 
+    private function canToggleAvailability(): bool
+    {
+        return Order::seesAll(Auth::user());
+    }
+
+    public function openAvailability(): void
+    {
+        abort_unless($this->canToggleAvailability(), 403);
+
+        $this->availabilitySearch = '';
+        $this->showAvailability = true;
+    }
+
+    public function closeAvailability(): void
+    {
+        $this->showAvailability = false;
+    }
+
+    /** Switch a product on or off for ordering (it ran out, or it is back). */
+    public function toggleAvailability(int $productId, OrderService $orders): void
+    {
+        abort_unless($this->canToggleAvailability(), 403);
+
+        $product = Product::with(['category', 'currentStock'])->findOrFail($productId);
+
+        // A drink with no stock is already off the list; it can only come back through a restock.
+        if ($product->isOutOfStock()) {
+            $this->addError('availability', "{$product->name} has no stock. Restock it on the Stocks page first.");
+
+            return;
+        }
+
+        try {
+            $orders->setAvailability(Auth::user(), $product, $product->isSoldOut());
+        } catch (\DomainException $e) {
+            $this->addError('availability', $e->getMessage());
+
+            return;
+        }
+
+        $this->resetErrorBag('availability');
+    }
+
     public function addToCart(int $productId): void
     {
         // Managers may add to someone else's order without being able to take new ones; saving re-checks.
         abort_unless(Auth::user()?->hasPermission('create', 'orders') || $this->canSettleAny(), 403);
+
+        $product = Product::with(['category', 'currentStock'])->find($productId);
+
+        if ($product?->isUnavailable()) {
+            unset($this->cart[$productId]);
+            $this->addError('cart', "{$product->name} is out of stock.");
+
+            return;
+        }
 
         $this->cart[$productId] = min(OrderService::MAX_QUANTITY, ($this->cart[$productId] ?? 0) + 1);
         $this->resetErrorBag('cart');
@@ -452,6 +509,20 @@ class Orders extends Component
 
     // ------------------------------------------------------------------ render
 
+    /** Every active product with its state, for the availability window. */
+    private function availabilityList()
+    {
+        $term = mb_strtolower(trim($this->availabilitySearch));
+
+        return Product::query()
+            ->where('is_active', true)
+            ->with(['category', 'currentStock'])
+            ->orderBy('name')
+            ->get()
+            ->when($term !== '', fn ($rows) => $rows->filter(fn (Product $product) => str_contains(mb_strtolower($product->name), $term)))
+            ->values();
+    }
+
     public function render(OrderService $orders, MobileMoneyService $momo)
     {
         $board = $this->filterBoard($this->ownOnly($orders->board()));
@@ -473,18 +544,24 @@ class Orders extends Component
         $quotes = [];
 
         if ($this->showOrderModal) {
-            $products = Product::query()
+            // Only what can be ordered right now: no stock or switched off means it is not listed at all.
+            $orderable = Product::query()
                 ->where('is_active', true)
                 ->where('selling_price', '>', 0)
-                ->with('category')
-                ->when($this->categoryFilter !== 'all', fn ($q) => $q->where('category_id', (int) $this->categoryFilter))
-                ->when(trim($this->productSearch) !== '', fn ($q) => $q->whereRaw('LOWER(name) LIKE ?', ['%'.mb_strtolower(trim($this->productSearch)).'%']))
+                ->with(['category', 'currentStock'])
                 ->orderBy('name')
-                ->get();
+                ->get()
+                ->reject(fn (Product $product) => $product->isUnavailable());
 
-            $categories = Categories::whereHas('products', fn ($q) => $q->where('is_active', true))->orderBy('name')->get();
+            $categories = $orderable->pluck('category')->filter()->unique('id')->sortBy('name')->values();
 
-            $cartProducts = Product::whereIn('id', array_keys($this->cart))->get()->keyBy('id');
+            $term = mb_strtolower(trim($this->productSearch));
+            $products = $orderable
+                ->when($this->categoryFilter !== 'all', fn ($rows) => $rows->where('category_id', (int) $this->categoryFilter))
+                ->when($term !== '', fn ($rows) => $rows->filter(fn (Product $product) => str_contains(mb_strtolower($product->name), $term)))
+                ->values();
+
+            $cartProducts = Product::whereIn('id', array_keys($this->cart))->with(['category', 'currentStock'])->get()->keyBy('id');
 
             // Same price rule as OrderService::place(), so the screen matches what will be charged.
             $prices = app(PriceService::class);
@@ -494,7 +571,7 @@ class Orders extends Component
                 if ($product = $cartProducts->get($productId)) {
                     $price = $quotes[$product->id]['price'];
                     $line = round($price * $quantity, 2);
-                    $cartLines[] = ['id' => $product->id, 'name' => $product->name, 'price' => $price, 'quantity' => $quantity, 'total' => $line, 'event' => $quotes[$product->id]['event'], 'label' => $quotes[$product->id]['label'], 'increase' => $quotes[$product->id]['increase']];
+                    $cartLines[] = ['id' => $product->id, 'name' => $product->name, 'price' => $price, 'quantity' => $quantity, 'total' => $line, 'event' => $quotes[$product->id]['event'], 'label' => $quotes[$product->id]['label'], 'increase' => $quotes[$product->id]['increase'], 'out_of_stock' => $product->isUnavailable()];
                     $cartTotal += $line;
                 }
             }
@@ -530,7 +607,9 @@ class Orders extends Component
             'canTakeCash' => Order::canTakeCash(Auth::user()),
             'userId' => (int) Auth::id(),
             'canCancel' => Auth::user()->hasPermission('delete', 'orders'),
-            'modalOpen' => $this->showOrderModal || $this->showCloseModal || $this->showCancelModal || $this->showViewModal,
+            'modalOpen' => $this->showOrderModal || $this->showCloseModal || $this->showCancelModal || $this->showViewModal || $this->showAvailability,
+            'canToggleAvailability' => $this->canToggleAvailability(),
+            'availabilityProducts' => $this->showAvailability ? $this->availabilityList() : collect(),
         ]);
     }
 

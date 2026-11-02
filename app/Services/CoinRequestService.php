@@ -3,10 +3,13 @@
 namespace App\Services;
 
 use App\Models\ActivityLogs;
+use App\Models\CoinDay;
 use App\Models\CoinRequest;
 use App\Models\Product;
 use App\Models\User;
 use Carbon\Carbon;
+use Carbon\CarbonInterface;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -99,6 +102,8 @@ class CoinRequestService
             if ($this->blocksNewRequests() && $this->waitingFor($by)) {
                 throw new \DomainException('You already have a coin waiting for the bar. Wait until it is given, or cancel it first.');
             }
+
+            $this->assertOpen();
 
             $date = $this->businessDate();
             $available = $this->available($game, $date);
@@ -243,6 +248,242 @@ class CoinRequestService
         return ['coins' => (int) $row->coins, 'amount' => round((float) $row->amount, 2)];
     }
 
+    // ------------------------------------------------------------------ opening and closing the night
+
+    /**
+     * Requests are open from the opening hour (pricing.opens_at, 15:00) until the closing hour
+     * (pricing.day_ends_at, 03:00, when the business day rolls over), unless the bar closed the night
+     * by hand. This is the single source for the screen and for request().
+     *
+     * @return array{open: bool, reason: ?string, date: Carbon, opens_at: Carbon, closed_by: ?string, closed_at: ?Carbon}
+     */
+    public function availability(?CarbonInterface $at = null): array
+    {
+        $at = $at ? Carbon::instance($at) : now();
+        $date = $this->businessDate($at);
+
+        [$hour, $minute] = array_map('intval', explode(':', (string) config('pricing.opens_at', '15:00')) + [0, 0]);
+        $opensAt = $date->copy()->setTime($hour, $minute);
+
+        $day = CoinDay::whereDate('business_date', $date->toDateString())->first();
+
+        $reason = null;
+
+        if ($day?->isClosed()) {
+            $reason = 'closed';
+        } elseif ($at->lt($opensAt)) {
+            $reason = 'before_opening';
+        }
+
+        return [
+            'open' => $reason === null,
+            'reason' => $reason,
+            'date' => $date,
+            'opens_at' => $opensAt,
+            'closed_by' => $day?->isClosed() ? $day->closed_by_name : null,
+            'closed_at' => $day?->isClosed() ? $day->closed_at : null,
+        ];
+    }
+
+    /**
+     * @throws \DomainException
+     */
+    private function assertOpen(): void
+    {
+        $state = $this->availability();
+
+        if ($state['reason'] === 'before_opening') {
+            throw new \DomainException('Coin requests open at '.$state['opens_at']->format('g:i A').'.');
+        }
+
+        if ($state['reason'] === 'closed') {
+            throw new \DomainException('Coin requests are closed for tonight.');
+        }
+    }
+
+    /**
+     * The bar ends the night: no more requests until tomorrow's opening. Coins still waiting for the
+     * bar are cancelled, and what had been given is stored as a snapshot on the day's entry.
+     *
+     * @throws \DomainException
+     */
+    public function closeDay(User $by): CoinDay
+    {
+        $this->assertMayClose($by);
+
+        return DB::transaction(function () use ($by) {
+            $date = $this->businessDate();
+            $day = $this->lockedDay($date);
+
+            if ($day->isClosed()) {
+                throw new \DomainException('Coin requests are already closed for tonight.');
+            }
+
+            if ($this->availability()['reason'] === 'before_opening') {
+                throw new \DomainException('Coin requests have not opened yet, so there is nothing to close.');
+            }
+
+            $waiting = CoinRequest::whereDate('business_date', $date->toDateString())
+                ->where('status', CoinRequest::STATUS_REQUESTED)
+                ->lockForUpdate()
+                ->get();
+
+            foreach ($waiting as $request) {
+                $request->update([
+                    'status' => CoinRequest::STATUS_CANCELLED,
+                    'cancelled_at' => now(),
+                    'cancelled_by' => $by->id,
+                    'note' => mb_substr(trim(($request->note ? $request->note.' · ' : '').'Closed for the night'), 0, 255),
+                ]);
+            }
+
+            $given = $this->givenOn($date);
+
+            $day->update([
+                'closed_at' => now(),
+                'closed_by' => $by->id,
+                'closed_by_name' => $by->name ?? 'Unknown',
+                'closed_coins' => $given['coins'],
+                'closed_amount' => $given['amount'],
+                'closed_cancelled' => $waiting->count(),
+            ]);
+
+            $this->logDay($by, 'coin_day_close', "Closed coin requests for {$date->format('D j M')}: {$given['coins']} coins given (₵".number_format($given['amount'], 2).")".($waiting->count() ? ", {$waiting->count()} waiting cancelled" : ''), $day, ['cancelled' => $waiting->count()]);
+
+            return $day;
+        });
+    }
+
+    /**
+     * Undo a close done by mistake. Only tonight's session can be reopened; a finished night stays closed.
+     *
+     * @throws \DomainException
+     */
+    public function reopenDay(User $by): CoinDay
+    {
+        $this->assertMayClose($by);
+
+        return DB::transaction(function () use ($by) {
+            $date = $this->businessDate();
+            $day = $this->lockedDay($date);
+
+            if (! $day->isClosed()) {
+                throw new \DomainException('Coin requests are not closed.');
+            }
+
+            $day->update(['closed_at' => null, 'closed_by' => null, 'closed_by_name' => null, 'closed_coins' => null, 'closed_amount' => null, 'closed_cancelled' => null]);
+
+            $this->logDay($by, 'coin_day_reopen', "Reopened coin requests for {$date->format('D j M')}", $day);
+
+            return $day;
+        });
+    }
+
+    private function assertMayClose(User $by): void
+    {
+        if (! $by->hasPermission('modify', 'coin_requests')) {
+            throw new \DomainException('Only the bar or a manager can close or reopen coin requests.');
+        }
+    }
+
+    private function lockedDay(Carbon $date): CoinDay
+    {
+        $day = CoinDay::whereDate('business_date', $date->toDateString())->lockForUpdate()->first();
+
+        return $day ?? CoinDay::create(['business_date' => $date->toDateString()]);
+    }
+
+    // ------------------------------------------------------------------ day by day
+
+    /**
+     * One row per business day that has requests or was closed by hand, newest first. The figures
+     * are read live from the requests, so a later void is reflected.
+     */
+    public function history(int $perPage = 10, string $pageName = 'daysPage'): LengthAwarePaginator
+    {
+        $dates = CoinRequest::query()->select('business_date')->toBase()
+            ->union(CoinDay::query()->select('business_date')->toBase());
+
+        $page = DB::query()->fromSub($dates, 'd')->select('business_date')->orderByDesc('business_date')->paginate($perPage, ['business_date'], $pageName);
+
+        $keys = collect($page->items())->map(fn ($row) => Carbon::parse($row->business_date)->toDateString())->all();
+
+        $totals = CoinRequest::query()
+            ->whereIn('business_date', $keys)
+            ->selectRaw("business_date, COUNT(*) as requests,
+                COALESCE(SUM(CASE WHEN status = 'given' THEN quantity ELSE 0 END), 0) as coins,
+                COALESCE(SUM(CASE WHEN status = 'given' THEN total ELSE 0 END), 0) as amount,
+                SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) as cancelled,
+                SUM(CASE WHEN status = 'voided' THEN 1 ELSE 0 END) as voided,
+                SUM(CASE WHEN status = 'requested' THEN 1 ELSE 0 END) as waiting")
+            ->groupBy('business_date')
+            ->get()
+            ->keyBy(fn ($row) => Carbon::parse($row->business_date)->toDateString());
+
+        $days = CoinDay::whereIn('business_date', $keys)->get()->keyBy(fn ($day) => $day->business_date->toDateString());
+
+        return $page->through(function ($row) use ($totals, $days) {
+            $key = Carbon::parse($row->business_date)->toDateString();
+            $t = $totals->get($key);
+            $day = $days->get($key);
+
+            return [
+                'date' => Carbon::parse($key),
+                'requests' => (int) ($t->requests ?? 0),
+                'coins' => (int) ($t->coins ?? 0),
+                'amount' => round((float) ($t->amount ?? 0), 2),
+                'cancelled' => (int) ($t->cancelled ?? 0),
+                'voided' => (int) ($t->voided ?? 0),
+                'waiting' => (int) ($t->waiting ?? 0),
+                'closed' => (bool) $day?->isClosed(),
+                'closed_by' => $day?->closed_by_name,
+                'closed_at' => $day?->closed_at,
+                'tonight' => $key === $this->businessDate()->toDateString(),
+            ];
+        });
+    }
+
+    /**
+     * Everything about one business day for the View window.
+     *
+     * @return array{date: Carbon, summary: array<string, mixed>, games: Collection, attendants: Collection, requests: Collection}
+     */
+    public function dayDetail(Carbon|string $date): array
+    {
+        $date = Carbon::parse($date)->startOfDay();
+        $requests = CoinRequest::whereDate('business_date', $date->toDateString())->orderBy('requested_at')->orderBy('id')->get();
+        $given = $requests->where('status', CoinRequest::STATUS_GIVEN);
+        $day = CoinDay::whereDate('business_date', $date->toDateString())->first();
+
+        return [
+            'date' => $date,
+            'summary' => [
+                'requests' => $requests->count(),
+                'coins' => (int) $given->sum('quantity'),
+                'amount' => round((float) $given->sum('total'), 2),
+                'cancelled' => $requests->where('status', CoinRequest::STATUS_CANCELLED)->count(),
+                'voided' => $requests->where('status', CoinRequest::STATUS_VOIDED)->count(),
+                'waiting' => $requests->where('status', CoinRequest::STATUS_REQUESTED)->count(),
+                'closed' => (bool) $day?->isClosed(),
+                'closed_by' => $day?->closed_by_name,
+                'closed_at' => $day?->closed_at,
+            ],
+            'games' => $requests->groupBy('product_name')->map(fn (Collection $rows, string $name) => [
+                'name' => $name,
+                'requests' => $rows->count(),
+                'coins' => (int) $rows->where('status', CoinRequest::STATUS_GIVEN)->sum('quantity'),
+                'amount' => round((float) $rows->where('status', CoinRequest::STATUS_GIVEN)->sum('total'), 2),
+            ])->values(),
+            'attendants' => $requests->groupBy(fn ($r) => $r->requested_by_name ?? 'Unknown')->map(fn (Collection $rows, string $name) => [
+                'name' => $name,
+                'requests' => $rows->count(),
+                'coins' => (int) $rows->where('status', CoinRequest::STATUS_GIVEN)->sum('quantity'),
+                'amount' => round((float) $rows->where('status', CoinRequest::STATUS_GIVEN)->sum('total'), 2),
+            ])->values(),
+            'requests' => $requests,
+        ];
+    }
+
     private function assertGame(Product $game): void
     {
         $game->loadMissing('category');
@@ -254,6 +495,18 @@ class CoinRequestService
         if (! $game->is_active || (int) $game->daily_coins < 1) {
             throw new \DomainException("{$game->name} is not set up with coins per day.");
         }
+    }
+
+    private function logDay(User $by, string $action, string $description, CoinDay $day, array $extra = []): void
+    {
+        ActivityLogs::create([
+            'user_id' => $by->id,
+            'action_type' => $action,
+            'description' => $description,
+            'entity_type' => 'coin_day',
+            'entity_id' => $day->id,
+            'metadata' => ['business_date' => $day->business_date->toDateString(), 'timestamp' => now()] + $extra,
+        ]);
     }
 
     private function log(User $by, string $action, string $description, CoinRequest $request): void

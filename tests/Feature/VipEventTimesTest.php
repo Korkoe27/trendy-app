@@ -52,10 +52,14 @@ class VipEventTimesTest extends TestCase
 
     private function product(int $categoryId, string $name, float $price, bool $vip = false): int
     {
-        return DB::table('products')->insertGetId([
+        $id = DB::table('products')->insertGetId([
             'name' => $name, 'category_id' => $categoryId, 'selling_price' => $price, 'units_per_box' => 12,
             'is_active' => true, 'is_vip' => $vip, 'created_at' => now(), 'updated_at' => now(),
         ]);
+        // An old stock row so the drink can be ordered; a test that counts its own stock writes a newer row.
+        DB::table('stocks')->insert(['product_id' => $id, 'total_units' => 100, 'created_at' => '2020-01-01', 'updated_at' => '2020-01-01']);
+
+        return $id;
     }
 
     /** @param array<string, list<string>> $grants module => actions */

@@ -28,6 +28,11 @@
                 <input type="text" wire:model.live.debounce.300ms="searchTerm" placeholder="Search customer, phone or order code"
                     class="w-full sm:w-72 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
 
+                @if ($canToggleAvailability)
+                    <button wire:click="openAvailability" data-testid="open-availability"
+                        class="px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-800 font-semibold hover:bg-gray-50 whitespace-nowrap">Product availability</button>
+                @endif
+
                 @if ($canOrder)
                     <button wire:click="openTakeOrder"
                         class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors font-semibold flex items-center justify-center space-x-2 whitespace-nowrap">
@@ -305,7 +310,7 @@
                                 @forelse ($cartLines as $line)
                                     <div wire:key="cart-{{ $line['id'] }}" class="flex items-center justify-between gap-2">
                                         <div class="text-sm">
-                                            <p class="font-semibold text-gray-900">{{ $line['name'] }}</p>
+                                            <p class="font-semibold text-gray-900">{{ $line['name'] }}@if ($line['out_of_stock']) <span class="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-700" data-testid="cart-out-of-stock">Out of stock, remove it</span>@endif</p>
                                             <p class="text-xs text-blue-700 font-semibold">GH₵ {{ number_format($line['total'], 2) }} <span class="text-gray-400">(@ {{ number_format($line['price'], 2) }})</span>@if ($line['event']) <span class="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold {{ $line['increase'] ? 'bg-amber-100 text-amber-800' : 'bg-green-100 text-green-800' }}">VIP {{ $line['label'] }}</span>@endif</p>
                                         </div>
                                         <div class="flex items-center gap-1 bg-gray-100 rounded-lg">
@@ -337,7 +342,7 @@
 
                 <div class="p-4 sm:p-6 border-t flex items-center justify-end gap-3">
                     <button wire:click="closeOrderModal" class="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">Cancel</button>
-                    <button wire:click="saveOrder" wire:loading.attr="disabled" @disabled(empty($cart) || $existingTabBlocked || $numberBlocked)
+                    <button wire:click="saveOrder" wire:loading.attr="disabled" @disabled(empty($cart) || $existingTabBlocked || $numberBlocked || collect($cartLines)->contains('out_of_stock', true))
                         class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold disabled:opacity-40 disabled:cursor-not-allowed">
                         {{ $editingOrder ? 'ADD TO ORDER' : ($existingTab ? 'ADD TO TAB' : 'PLACE ORDER') }} (GH₵ {{ number_format($cartTotal, 0) }})
                     </button>
@@ -568,6 +573,52 @@
                 <div class="flex justify-end gap-3">
                     <button wire:click="closeCancelModal" class="px-5 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">Keep order</button>
                     <button wire:click="confirmCancel" class="px-5 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold">Cancel order</button>
+                </div>
+            </div>
+        </div>
+    @endif
+    @if ($showAvailability)
+        <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4 py-6" role="dialog" aria-modal="true" data-testid="availability-modal">
+            <div class="bg-white rounded-lg p-4 sm:p-6 w-full max-w-2xl max-h-full flex flex-col">
+                <div class="flex items-start justify-between gap-3">
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-900">Product availability</h3>
+                        <p class="text-sm text-gray-500">Switch a product off when it runs out. It disappears from the order list straight away and comes back when you switch it on.</p>
+                    </div>
+                    <button wire:click="closeAvailability" class="px-3 py-1.5 text-sm border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">Close</button>
+                </div>
+
+                <input type="text" wire:model.live.debounce.250ms="availabilitySearch" placeholder="Search products"
+                    class="mt-4 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
+                @error('availability') <div class="mt-2 text-sm text-red-600" data-testid="availability-error">{{ $message }}</div> @enderror
+
+                <div class="mt-3 overflow-y-auto divide-y divide-gray-100 border border-gray-200 rounded-lg">
+                    @forelse ($availabilityProducts as $product)
+                        @php
+                            $noStock = $product->isOutOfStock();
+                            $off = $product->isSoldOut();
+                            $on = ! $off && ! $noStock;
+                        @endphp
+                        <div class="flex items-center justify-between gap-3 px-3 py-2" wire:key="avail-{{ $product->id }}" data-testid="availability-row">
+                            <div class="min-w-0">
+                                <p class="font-semibold text-gray-900 uppercase truncate">{{ $product->name }}</p>
+                                <p class="text-xs capitalize {{ $on ? 'text-green-700' : 'text-red-600' }}">
+                                    {{ $product->category?->name }} ·
+                                    @if ($noStock) No stock, restock it first
+                                    @elseif ($off) Off since {{ $product->sold_out_at->format('H:i') }}{{ $product->sold_out_by_name ? ' by '.$product->sold_out_by_name : '' }}
+                                    @else On
+                                    @endif
+                                </p>
+                            </div>
+                            <button type="button" wire:click="toggleAvailability({{ $product->id }})" wire:loading.attr="disabled" @disabled($noStock)
+                                role="switch" aria-checked="{{ $on ? 'true' : 'false' }}" aria-label="{{ $product->name }} available"
+                                class="shrink-0 relative inline-flex h-6 w-11 items-center rounded-full transition disabled:opacity-40 disabled:cursor-not-allowed {{ $on ? 'bg-green-600' : 'bg-gray-300' }}">
+                                <span class="inline-block h-5 w-5 transform rounded-full bg-white shadow transition {{ $on ? 'translate-x-5' : 'translate-x-0.5' }}"></span>
+                            </button>
+                        </div>
+                    @empty
+                        <p class="px-3 py-6 text-center text-sm text-gray-500">No products match.</p>
+                    @endforelse
                 </div>
             </div>
         </div>

@@ -26,7 +26,7 @@ class UnpaidTabsDashboardTest extends TestCase
 
         $category = DB::table('categories')->insertGetId(['name' => 'drinks', 'created_at' => now(), 'updated_at' => now()]);
         $this->beer = DB::table('products')->insertGetId(['name' => 'Club Beer', 'category_id' => $category, 'selling_price' => 30, 'is_active' => true, 'created_at' => now(), 'updated_at' => now()]);
-
+        DB::table('stocks')->insert(['product_id' => $this->beer, 'total_units' => 100, 'created_at' => now(), 'updated_at' => now()]);
         $this->waiter = $this->staff('Waiter', '0241000001');
         $this->bartender = $this->staff('Bartender', '0241000002');
     }

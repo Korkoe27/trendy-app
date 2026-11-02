@@ -54,10 +54,14 @@ class VipCustomPricingTest extends TestCase
 
     private function product(int $categoryId, string $name, float $price, bool $active = true): int
     {
-        return DB::table('products')->insertGetId([
+        $id = DB::table('products')->insertGetId([
             'name' => $name, 'category_id' => $categoryId, 'selling_price' => $price, 'units_per_box' => 12,
             'is_active' => $active, 'is_vip' => false, 'created_at' => now(), 'updated_at' => now(),
         ]);
+        // An old stock row so the drink can be ordered; a test that counts its own stock writes a newer row.
+        DB::table('stocks')->insert(['product_id' => $id, 'total_units' => 100, 'created_at' => '2020-01-01', 'updated_at' => '2020-01-01']);
+
+        return $id;
     }
 
     /** @param array<string, list<string>> $grants module => actions */
@@ -249,6 +253,7 @@ class VipCustomPricingTest extends TestCase
     public function test_end_of_day_revenue_and_profit_follow_a_custom_price(): void
     {
         $this->custom('2026-10-28', null, [$this->beer => '8']); // a discount below the normal price
+        DB::table('stocks')->delete(); // drop the fixture row, this test counts its own stock
         DB::table('stocks')->insert([
             'product_id' => $this->beer, 'total_units' => 100, 'cost_price' => 6, 'cost_margin' => 4, 'total_cost' => 600,
             'created_at' => now()->subDays(2), 'updated_at' => now()->subDays(2),

@@ -28,7 +28,7 @@ class Product extends Model
 
     protected function casts(): array
     {
-        return ['is_vip' => 'boolean'];
+        return ['is_vip' => 'boolean', 'sold_out_at' => 'datetime'];
     }
 
 
@@ -52,6 +52,27 @@ class Product extends Model
     public function tracksStock(): bool
     {
         return (bool) $this->category?->isStocked();
+    }
+
+    /**
+     * A drink whose latest stock figure is zero can't be ordered. Non-drinks have no stock process, so they never run out.
+     * Load `category` and `currentStock` first when checking many products.
+     */
+    public function isOutOfStock(): bool
+    {
+        return $this->tracksStock() && ($this->currentStock?->total_units ?? 0) <= 0;
+    }
+
+    /** Switched off by the bar during service (see OrderService::setAvailability). */
+    public function isSoldOut(): bool
+    {
+        return $this->sold_out_at !== null;
+    }
+
+    /** Cannot be ordered: no stock left (drinks) or switched off by the bar. */
+    public function isUnavailable(): bool
+    {
+        return $this->isSoldOut() || $this->isOutOfStock();
     }
 
     public function isGame(): bool

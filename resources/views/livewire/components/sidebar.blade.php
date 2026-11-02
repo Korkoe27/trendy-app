@@ -196,7 +196,7 @@
         </nav>
 
         <!-- Footer -->
-        <div class="relative lg:absolute bottom-0 left-0 right-0 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-gray-200 bg-white">
+        <div class="relative 2xl:absolute bottom-0 left-0 right-0 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-gray-200 bg-white">
             <div class="flex items-center">
                 <span class="rounded-full bg-gray-200 text-gray-600 w-10 h-10 flex items-center justify-center font-semibold">
                     {{ $initials }}

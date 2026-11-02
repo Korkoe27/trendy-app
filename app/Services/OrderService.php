@@ -431,7 +431,7 @@ class OrderService
             throw new \DomainException('Add at least one item to the order.');
         }
 
-        $products = Product::whereIn('id', array_keys($quantities))->where('is_active', true)->get()->keyBy('id');
+        $products = Product::whereIn('id', array_keys($quantities))->where('is_active', true)->with(['category', 'currentStock'])->get()->keyBy('id');
 
         // The price is the normal one, or the VIP price while a price day is running.
         $quotes = app(PriceService::class)->quotesNow($products);
@@ -449,6 +449,10 @@ class OrderService
                 throw new \DomainException("{$product->name} has no selling price yet.");
             }
 
+            if ($product->isUnavailable()) {
+                throw new \DomainException("{$product->name} is out of stock.");
+            }
+
             $lines[] = [
                 'product_id' => $product->id,
                 'product_name' => $product->name,
@@ -459,6 +463,45 @@ class OrderService
         }
 
         return $lines;
+    }
+
+    /**
+     * The bar (or a manager) switches a product off when it runs out during service, and back on
+     * when it returns. A drink with no stock figure cannot be switched on: restock it first.
+     *
+     * @throws \DomainException
+     */
+    public function setAvailability(User $by, Product $product, bool $available): Product
+    {
+        if (! Order::seesAll($by)) {
+            throw new \DomainException('Only the bar or a manager can switch products on or off.');
+        }
+
+        $product->loadMissing(['category', 'currentStock']);
+
+        if ($available && $product->isOutOfStock()) {
+            throw new \DomainException("{$product->name} has no stock. Restock it on the Stocks page first.");
+        }
+
+        if ($available === ! $product->isSoldOut()) {
+            return $product;
+        }
+
+        $product->forceFill([
+            'sold_out_at' => $available ? null : now(),
+            'sold_out_by_name' => $available ? null : ($by->name ?? 'Unknown'),
+        ])->save();
+
+        ActivityLogs::create([
+            'user_id' => $by->id,
+            'action_type' => $available ? 'product_switched_on' : 'product_switched_off',
+            'description' => ($available ? 'Switched on ' : 'Switched off ')."{$product->name} for orders",
+            'entity_type' => 'product',
+            'entity_id' => $product->id,
+            'metadata' => ['product' => $product->name, 'timestamp' => now()],
+        ]);
+
+        return $product;
     }
 
     private function insertItems(Order $order, array $lines, User $staff): void

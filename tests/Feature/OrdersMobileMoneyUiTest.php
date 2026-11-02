@@ -33,7 +33,7 @@ class OrdersMobileMoneyUiTest extends TestCase
 
         $category = DB::table('categories')->insertGetId(['name' => 'drinks', 'created_at' => now(), 'updated_at' => now()]);
         $beer = DB::table('products')->insertGetId(['name' => 'Club Beer', 'category_id' => $category, 'selling_price' => 30, 'is_active' => true, 'created_at' => now(), 'updated_at' => now()]);
-
+        DB::table('stocks')->insert(['product_id' => $beer, 'total_units' => 100, 'created_at' => now(), 'updated_at' => now()]);
         // A cashier: the seeded Waiter role plus the manager right to close with cash (order_debts -> modify).
         $cashierRole = DB::table('roles')->insertGetId(['name' => 'Cashier', 'created_at' => now(), 'updated_at' => now()]);
         foreach (['orders' => [true, true, false], 'order_debts' => [true, false, true]] as $module => [$view, $create, $modify]) {

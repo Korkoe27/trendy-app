@@ -27,6 +27,8 @@ class OrdersPageTest extends TestCase
         $food = DB::table('categories')->insertGetId(['name' => 'food', 'created_at' => now(), 'updated_at' => now()]);
 
         $this->beer = DB::table('products')->insertGetId(['name' => 'Club Beer', 'category_id' => $drinks, 'selling_price' => 30, 'is_active' => true, 'created_at' => now(), 'updated_at' => now()]);
+
+        DB::table('stocks')->insert(['product_id' => $this->beer, 'total_units' => 100, 'created_at' => now(), 'updated_at' => now()]);
         $this->jollof = DB::table('products')->insertGetId(['name' => 'Jollof Rice', 'category_id' => $food, 'selling_price' => 75, 'is_active' => true, 'created_at' => now(), 'updated_at' => now()]);
     }
 

@@ -161,6 +161,8 @@ class CoinRequestsTest extends TestCase
 
         Carbon::setTestNow('2026-10-29 03:00:00'); // the closing hour: coins are back
         $this->assertSame(200, $this->coins->available($this->game()));
+
+        Carbon::setTestNow('2026-10-29 15:00:00'); // requests open again at the opening hour
         $this->request(5);
     }
 

@@ -55,10 +55,14 @@ class VipPricingTest extends TestCase
 
     private function product(int $categoryId, string $name, float $price, bool $vip = false): int
     {
-        return DB::table('products')->insertGetId([
+        $id = DB::table('products')->insertGetId([
             'name' => $name, 'category_id' => $categoryId, 'selling_price' => $price, 'units_per_box' => 12,
             'is_active' => true, 'is_vip' => $vip, 'created_at' => now(), 'updated_at' => now(),
         ]);
+        // An old stock row so the drink can be ordered; a test that counts its own stock writes a newer row.
+        DB::table('stocks')->insert(['product_id' => $id, 'total_units' => 100, 'created_at' => '2020-01-01', 'updated_at' => '2020-01-01']);
+
+        return $id;
     }
 
     /** @param array<string, list<string>> $grants module => actions */
@@ -266,6 +270,7 @@ class VipPricingTest extends TestCase
     public function test_end_of_day_revenue_for_an_event_day_uses_the_vip_price_and_survives_an_edit_after_the_event(): void
     {
         $this->event('2026-10-28'); // the event day being recorded below
+        DB::table('stocks')->delete(); // drop the fixture row, this test counts its own stock
         DB::table('stocks')->insert([
             'product_id' => $this->beer, 'total_units' => 100, 'cost_price' => 6, 'cost_margin' => 4, 'total_cost' => 600,
             'created_at' => now()->subDays(2), 'updated_at' => now()->subDays(2),
@@ -299,6 +304,7 @@ class VipPricingTest extends TestCase
     public function test_profit_follows_a_discount_and_is_unchanged_on_an_ordinary_day(): void
     {
         $this->event('2026-10-28', percent: -10); // 9.00 instead of 10.00; the 27th is an ordinary day
+        DB::table('stocks')->delete(); // drop the fixture row, this test counts its own stock
         DB::table('stocks')->insert([
             'product_id' => $this->beer, 'total_units' => 100, 'cost_price' => 6, 'cost_margin' => 4, 'total_cost' => 600,
             'created_at' => now()->subDays(2), 'updated_at' => now()->subDays(2),
@@ -332,6 +338,7 @@ class VipPricingTest extends TestCase
     public function test_analytics_and_a_late_edit_keep_the_event_day_profit_and_losses_at_the_event_price(): void
     {
         $this->event('2026-10-28');
+        DB::table('stocks')->delete(); // drop the fixture row, this test counts its own stock
         DB::table('stocks')->insert([
             'product_id' => $this->beer, 'total_units' => 100, 'cost_price' => 6, 'cost_margin' => 4, 'total_cost' => 600,
             'created_at' => now()->subDays(2), 'updated_at' => now()->subDays(2),
