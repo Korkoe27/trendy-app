@@ -431,9 +431,10 @@ class CoinRequestsTest extends TestCase
         $this->coins->give($this->request($quantity), $this->bartender);
     }
 
-    public function test_the_stock_count_shows_the_snooker_money_expected_from_the_coins_given(): void
+    public function test_the_stock_count_shows_the_snooker_revenue_from_the_coins_instead_of_an_input(): void
     {
         $this->giveCoins(12); // 12 x 10 = 120
+        $this->request(1);    // still waiting for the bar
 
         Carbon::setTestNow('2026-10-29 16:00:00');
         $this->actingAs($this->manager);
@@ -441,17 +442,17 @@ class CoinRequestsTest extends TestCase
         Livewire::test(Inventory::class)
             ->call('openTakeInventoryModal')
             ->set('salesDate', '2026-10-28')
-            ->assertSeeHtml('Coins given: <strong>12</strong>')
-            ->assertSee('GH₵ 120.00 expected')
-            ->set('snooker', '100')
-            ->assertSee('Short by GH₵ 20.00')
-            ->set('snooker', '120')
-            ->assertSee('Matches the coins given')
-            ->set('snooker', '150')
-            ->assertSee('Over by GH₵ 30.00');
+            ->assertSeeHtml('data-testid="snooker-revenue"')
+            ->assertSee('GH₵ 120.00')
+            ->assertSeeHtml('<strong>12</strong> coins given')
+            ->assertSeeHtml('data-testid="snooker-waiting"')
+            ->assertDontSeeHtml('wire:model.live.debounce.500ms="snooker"')
+            ->set('salesDate', '2026-10-27') // a day with no coins
+            ->assertSee('GH₵ 0.00')
+            ->assertDontSeeHtml('data-testid="snooker-waiting"');
     }
 
-    private function takeDay(string $snooker): void
+    private function takeDay(?string $typedSnooker = null): void
     {
         DB::table('stocks')->insert([
             'product_id' => $this->beer, 'total_units' => 100, 'cost_price' => 6, 'cost_margin' => 4, 'total_cost' => 600,
@@ -461,33 +462,61 @@ class CoinRequestsTest extends TestCase
         Carbon::setTestNow('2026-10-29 16:00:00');
         $this->actingAs($this->manager);
 
-        Livewire::test(Inventory::class)
+        $page = Livewire::test(Inventory::class)
             ->call('openTakeInventoryModal')
             ->set('salesDate', '2026-10-28')
             ->set('cashAmount', '600') // 60 beers sold at 10
             ->set('momoAmount', '0')
             ->set('hubtelAmount', '0')
-            ->set('snooker', $snooker)
             ->set('foodTotal', '0')
-            ->set("productStocks.{$this->beer}.closing_units", '40')
-            ->call('submitInventory')
-            ->assertHasNoErrors();
+            ->set("productStocks.{$this->beer}.closing_units", '40');
+
+        if ($typedSnooker !== null) {
+            $page->set('snooker', $typedSnooker); // even a crafted value must be ignored
+        }
+
+        $page->call('submitInventory')->assertHasNoErrors();
     }
 
-    public function test_the_day_stores_a_snapshot_and_a_snooker_shortfall_counts_as_a_loss(): void
+    public function test_the_day_saves_the_coin_revenue_as_the_snooker_value_with_its_coins(): void
     {
-        $this->giveCoins(12); // expected 120
-        $this->takeDay('100');  // 20 short
+        $this->giveCoins(12); // 120
+        $this->takeDay();
 
         $summary = DB::table('daily_sales_summaries')->first();
+        $this->assertSame(120.0, (float) $summary->snooker, 'filled in automatically');
         $this->assertSame(12, (int) $summary->snooker_coins);
         $this->assertSame(120.0, (float) $summary->snooker_expected);
-        $this->assertSame(100.0, (float) $summary->snooker);
+        $this->assertEqualsWithDelta(0.0, DailyDifference::snookerShortfall($summary), 0.001, 'nothing to compare any more');
+        $this->assertEqualsWithDelta(0.0, DailyDifference::difference($summary), 0.001);
+    }
 
+    public function test_a_typed_or_crafted_snooker_value_is_ignored(): void
+    {
+        $this->giveCoins(12);
+        $this->takeDay('5');
+
+        $this->assertSame(120.0, (float) DB::table('daily_sales_summaries')->value('snooker'));
+    }
+
+    public function test_a_day_without_coins_saves_snooker_as_zero(): void
+    {
+        $this->takeDay();
+
+        $summary = DB::table('daily_sales_summaries')->first();
+        $this->assertSame(0.0, (float) $summary->snooker);
+        $this->assertSame(0, (int) $summary->snooker_coins);
+    }
+
+    public function test_an_older_snooker_shortfall_still_counts_as_a_loss_everywhere(): void
+    {
+        $this->giveCoins(12);
+        $this->takeDay();
+        DB::table('daily_sales_summaries')->update(['snooker' => 100]); // a day recorded by hand before snooker was filled in automatically
+
+        $summary = DB::table('daily_sales_summaries')->first();
         $this->assertEqualsWithDelta(20.0, DailyDifference::snookerShortfall($summary), 0.001);
-        $this->assertEqualsWithDelta(-20.0, DailyDifference::difference($summary), 0.001, 'drinks matched, snooker short by 20');
-
-        // Debt Payments and Analytics agree on the same figure.
+        $this->assertEqualsWithDelta(-20.0, DailyDifference::difference($summary), 0.001);
         $this->assertSame(20.0, (new DebtLedger)->monthlyDebt(Carbon::create(2026, 10, 1)));
 
         $analytics = Livewire::test(Analytics::class)->set('timeframe', 'custom')->set('startDate', '2026-10-01')->set('endDate', '2026-10-31');
@@ -495,21 +524,37 @@ class CoinRequestsTest extends TestCase
         $this->assertEqualsWithDelta(-(float) $analytics->get('accumulatedLosses'), (new DebtLedger)->monthlyDebt(Carbon::create(2026, 10, 1)), 0.01);
     }
 
-    public function test_a_matching_amount_is_no_loss_and_an_excess_does_not_offset_anything(): void
+    public function test_an_excess_does_not_offset_a_drinks_shortfall(): void
     {
         $this->giveCoins(12);
-        $this->takeDay('120');
+        $this->takeDay();
 
-        $summary = DB::table('daily_sales_summaries')->first();
-        $this->assertEqualsWithDelta(0.0, DailyDifference::difference($summary), 0.001);
-
-        // An excess is flagged on the form but never offsets a drinks shortfall.
         DB::table('daily_sales_summaries')->update(['snooker' => 300, 'total_cash' => 580]); // 20 short on drinks, 180 over on snooker
         $summary = DB::table('daily_sales_summaries')->first();
 
         $this->assertEqualsWithDelta(0.0, DailyDifference::snookerShortfall($summary), 0.001);
         $this->assertEqualsWithDelta(-20.0, DailyDifference::difference($summary), 0.001);
         $this->assertSame(20.0, (new DebtLedger)->monthlyDebt(Carbon::create(2026, 10, 1)));
+    }
+
+    public function test_editing_an_old_day_with_no_coin_data_keeps_the_snooker_amount_it_had(): void
+    {
+        $this->takeDay();
+        // A day recorded by hand before coin requests existed: a typed amount and no snapshot.
+        DB::table('daily_sales_summaries')->update(['snooker' => 250, 'snooker_coins' => null, 'snooker_expected' => null]);
+        $summaryId = DB::table('daily_sales_summaries')->value('id');
+
+        Livewire::test(Inventory::class)
+            ->call('openEditModal', $summaryId)
+            ->assertSee('Recorded earlier, before coin requests')
+            ->assertSee('GH₵ 250.00')
+            ->set("productStocks.{$this->beer}.closing_units", '40')
+            ->call('updateInventory')
+            ->assertHasNoErrors();
+
+        $summary = DB::table('daily_sales_summaries')->first();
+        $this->assertSame(250.0, (float) $summary->snooker);
+        $this->assertNull($summary->snooker_expected);
     }
 
     public function test_days_without_a_snooker_snapshot_are_unchanged(): void

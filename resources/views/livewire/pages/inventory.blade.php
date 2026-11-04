@@ -464,23 +464,17 @@
                             Snooker (GH₵)
                         </span>
                     </label>
-                    <input type="text" pattern="[0-9]*" oninput="this.value = this.value.replace(/[^0-9]/g, '');"
-                        wire:model.live.debounce.500ms="snooker" placeholder="0.00"
-                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
-                    @error('snooker') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
-
-                    {{-- Snooker has no stock: coins given from the bar are the record to match --}}
+                    {{-- Snooker has no stock and no typed amount: it is the revenue from the coins the bar gave that day --}}
                     @php $snookerCheck = $this->snookerSummary; @endphp
-                    <div class="mt-2 rounded-lg border px-3 py-2 text-sm
-                        {{ $snookerCheck['difference'] < 0 ? 'bg-rose-50 border-rose-200 text-rose-800' : ($snookerCheck['difference'] > 0 ? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-green-50 border-green-200 text-green-800') }}"
-                        data-testid="snooker-check">
-                        <p>Coins given: <strong>{{ $snookerCheck['coins'] }}</strong> = GH₵ {{ number_format($snookerCheck['expected'], 2) }} expected</p>
-                        @if ($snookerCheck['difference'] < 0)
-                            <p class="font-semibold">Short by GH₵ {{ number_format(-$snookerCheck['difference'], 2) }} (counted as a loss)</p>
-                        @elseif ($snookerCheck['difference'] > 0)
-                            <p class="font-semibold">Over by GH₵ {{ number_format($snookerCheck['difference'], 2) }} (flagged, not counted)</p>
+                    <div class="w-full px-4 py-3 border border-green-200 bg-green-50 rounded-lg" data-testid="snooker-revenue">
+                        <p class="text-2xl font-bold text-green-900">GH₵ {{ number_format($snookerCheck['amount'], 2) }}</p>
+                        @if ($snookerCheck['recorded_earlier'])
+                            <p class="text-sm text-green-800">Recorded earlier, before coin requests. It is kept as it was.</p>
                         @else
-                            <p class="font-semibold">Matches the coins given</p>
+                            <p class="text-sm text-green-800">From the coin requests: <strong>{{ $snookerCheck['coins'] }}</strong> {{ $snookerCheck['coins'] === 1 ? 'coin' : 'coins' }} given.</p>
+                        @endif
+                        @if ($snookerCheck['waiting'] > 0)
+                            <p class="mt-1 text-sm font-semibold text-amber-700" data-testid="snooker-waiting">{{ $snookerCheck['waiting'] }} {{ $snookerCheck['waiting'] === 1 ? 'coin request is' : 'coin requests are' }} still waiting for the bar and not counted yet.</p>
                         @endif
                     </div>
                 </div>

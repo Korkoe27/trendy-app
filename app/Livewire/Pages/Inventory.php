@@ -3,6 +3,7 @@
 namespace App\Livewire\Pages;
 
 use App\Models\ActivityLogs;
+use App\Models\CoinRequest;
 use App\Models\Categories;
 use App\Models\DailySales;
 use App\Models\DailySalesSummary;
@@ -10,6 +11,7 @@ use App\Models\Product;
 use App\Models\Stock;
 use App\Services\CoinRequestService;
 use App\Services\PriceService;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -116,7 +118,6 @@ class Inventory extends Component
         'hubtelAmount' => 'required|numeric|min:0',
         'foodTotal' => 'required|numeric|min:0',
         'onTheHouse' => 'nullable|numeric|min:0',
-        'snooker' => 'required|numeric|min:0',
     ];
 
     public function updatedCashAmount($value)
@@ -152,8 +153,9 @@ class Inventory extends Component
     }
 
     /**
-     * Coins given for a sales date and the snooker money they should have brought in. Games have
-     * no stock; the coin requests are the record. The snapshot is stored with the day.
+     * Coins given for a sales date and the snooker money they brought in. Games have no stock; the
+     * coin requests are the record, so the count never asks for a snooker amount: it is filled from
+     * the coins the bar gave that day.
      *
      * @return array{coins: int, expected: float}
      */
@@ -164,16 +166,37 @@ class Inventory extends Component
         return ['coins' => $given['coins'], 'expected' => $given['amount']];
     }
 
-    /** What the form shows under the Snooker box for the chosen sales date. */
+    /**
+     * What is stored on the day: the coin revenue, with its coins as the snapshot. The one exception
+     * is correcting an old day recorded before coin requests existed (a typed amount and no snapshot):
+     * if no coins were given that day, the amount it already had is kept instead of becoming 0.
+     *
+     * @return array{snooker: float, snooker_coins: ?int, snooker_expected: ?float}
+     */
+    private function snookerForSave($date): array
+    {
+        $check = $this->snookerCheck($date);
+        $original = $this->isEditing ? $this->editingOriginalRecord : null;
+
+        if ($original && $original['snooker_expected'] === null && $check['coins'] === 0) {
+            return ['snooker' => (float) $original['snooker'], 'snooker_coins' => null, 'snooker_expected' => null];
+        }
+
+        return ['snooker' => $check['expected'], 'snooker_coins' => $check['coins'], 'snooker_expected' => $check['expected']];
+    }
+
+    /** What the form shows in place of a Snooker box for the chosen sales date. */
     public function getSnookerSummaryProperty(): array
     {
-        $check = $this->snookerCheck($this->salesDate);
-        $typed = is_numeric($this->snooker) ? (float) $this->snooker : 0.0;
+        $date = $this->salesDate ?: $this->defaultRecordDate();
+        $check = $this->snookerCheck($date);
+        $save = $this->snookerForSave($date);
 
         return [
             'coins' => $check['coins'],
-            'expected' => $check['expected'],
-            'difference' => round($typed - $check['expected'], 2), // negative = short
+            'amount' => $save['snooker'],
+            'recorded_earlier' => $save['snooker_expected'] === null,
+            'waiting' => (int) CoinRequest::whereDate('business_date', Carbon::parse($date)->toDateString())->where('status', CoinRequest::STATUS_REQUESTED)->count(),
         ];
     }
 
@@ -259,16 +282,6 @@ class Inventory extends Component
     {
         if ($value < 0) {
             $this->onTheHouse = 0;
-
-            return;
-        }
-        $this->onTheHouse = $value;
-    }
-
-    public function updateSnooker($value)
-    {
-        if ($value < 0) {
-            $this->snooker = 0;
 
             return;
         }
@@ -388,7 +401,6 @@ class Inventory extends Component
                     'momoAmount' => 'required|numeric|min:0',
                     'hubtelAmount' => 'required|numeric|min:0',
                     'foodTotal' => 'required|numeric|min:0',
-                    'snooker' => 'required|numeric|min:0',
                     'onTheHouse' => 'nullable|numeric|min:0',
                 ]);
             } catch (\Illuminate\Validation\ValidationException $e) {
@@ -703,9 +715,7 @@ class Inventory extends Component
                 'total_momo' => (float) $this->momoAmount,
                 'total_hubtel' => (float) $this->hubtelAmount,
                 'food_total' => (float) $this->foodTotal,
-                'snooker' => (float) $this->snooker,
-                'snooker_coins' => $this->snookerCheck($salesDate)['coins'],
-                'snooker_expected' => $this->snookerCheck($salesDate)['expected'],
+                ...$this->snookerForSave($salesDate),
                 'on_the_house' => (float) $this->onTheHouse,
                 'total_money' => $totalMoney, // This is correct now
                 'sales_date' => $salesDate, // Update date if changed
@@ -783,7 +793,6 @@ class Inventory extends Component
                 'cashAmount' => 'required|numeric|min:0',
                 'momoAmount' => 'required|numeric|min:0',
                 'hubtelAmount' => 'required|numeric|min:0',
-                'snooker' => 'required|numeric|min:0',
                 'foodTotal' => 'required|numeric|min:0',
                 'onTheHouse' => 'nullable|numeric|min:0',
             ]);
@@ -862,7 +871,6 @@ class Inventory extends Component
             'cashAmount' => 'required|numeric|min:0',
             'momoAmount' => 'required|numeric|min:0',
             'hubtelAmount' => 'required|numeric|min:0',
-            'snooker' => 'required|numeric|min:0',
             'foodTotal' => 'required|numeric|min:0',
             'onTheHouse' => 'nullable|numeric|min:0',
         ]);
@@ -1105,9 +1113,7 @@ class Inventory extends Component
                     'total_hubtel' => (float) $this->hubtelAmount,
                     'food_total' => (float) $this->foodTotal,
                     'on_the_house' => (float) $this->onTheHouse,
-                    'snooker' => (float) $this->snooker,
-                    'snooker_coins' => $this->snookerCheck($recordDate)['coins'],
-                    'snooker_expected' => $this->snookerCheck($recordDate)['expected'],
+                    ...$this->snookerForSave($recordDate),
                     'product_id' => $mostSoldProductId,
                     'metadata' => json_encode([
                         'recorded_by' => Auth::id(),
