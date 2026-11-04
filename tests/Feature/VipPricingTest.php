@@ -24,6 +24,7 @@ use Tests\TestCase;
 class VipPricingTest extends TestCase
 {
     use RefreshDatabase;
+    use \Tests\Concerns\CreatesLegacyPriceEvents;
 
     private int $beer;
 
@@ -96,7 +97,7 @@ class VipPricingTest extends TestCase
     /** A +20% event on the given days for the current VIP list. */
     private function event(string $start, ?string $end = null, float $percent = 20): PriceEvent
     {
-        return $this->prices()->schedule($this->admin, $start, $end ?? $start, $percent, 'Independence Day');
+        return $this->legacyEvent($this->admin->id, $start, $end ?? $start, $percent, null, null, null, 'Independence Day');
     }
 
     private function beerPrice(?string $at = null): float
@@ -133,7 +134,7 @@ class VipPricingTest extends TestCase
         $this->assertSame(10.0, $this->beerPrice('2026-10-31 00:30'), 'with a midnight cut-off the day ends at midnight');
     }
 
-    public function test_a_discount_is_applied_and_prices_are_rounded_to_two_decimals(): void
+    public function test_a_discount_is_applied_and_older_percentage_days_charge_whole_cedis(): void
     {
         $this->event('2026-10-30', null, -10);
         $this->assertSame(9.0, $this->beerPrice('2026-10-30 12:00'));
@@ -141,7 +142,7 @@ class VipPricingTest extends TestCase
         $this->prices()->setVip($this->admin, Product::find($this->water), true);
         $odd = $this->product(1, 'Odd Drink', 7.35, vip: true);
         $this->event('2026-11-05', null, 12.5);
-        $this->assertSame(8.27, $this->prices()->priceOn($odd, 7.35, '2026-11-05'));
+        $this->assertSame(8.0, $this->prices()->priceOn($odd, 7.35, '2026-11-05'), '7.35 + 12.5% is 8.27, charged as 8');
     }
 
     public function test_only_vip_products_are_affected(): void
@@ -180,13 +181,15 @@ class VipPricingTest extends TestCase
 
     public function test_scheduling_rules(): void
     {
+        $price = fn (string $start, ?string $end = null, array $prices = null) => fn () => $this->prices()->scheduleCustom($this->admin, $start, $end ?? $start, $prices ?? [$this->beer => '12']);
+
         $cases = [
-            'no vip products' => fn () => DB::table('products')->update(['is_vip' => false]) && $this->event('2026-10-30'),
-            'past day' => fn () => $this->event('2026-10-27'),
-            'end before start' => fn () => $this->event('2026-10-31', '2026-10-30'),
-            'zero percent' => fn () => $this->event('2026-10-30', null, 0),
-            'discount of 100%' => fn () => $this->event('2026-10-30', null, -100),
-            'huge increase' => fn () => $this->event('2026-10-30', null, 501),
+            'nothing priced' => $price('2026-10-30', null, []),
+            'past day' => $price('2026-10-27'),
+            'end before start' => $price('2026-10-31', '2026-10-30'),
+            'a decimal price' => $price('2026-10-30', null, [$this->beer => '12.5']),
+            'a zero price' => $price('2026-10-30', null, [$this->beer => '0']),
+            'the normal price again' => $price('2026-10-30', null, [$this->beer => '10']),
         ];
 
         foreach ($cases as $label => $attempt) {
@@ -196,19 +199,23 @@ class VipPricingTest extends TestCase
             } catch (\DomainException) {
                 $this->assertTrue(true);
             }
-
-            DB::table('products')->where('id', $this->beer)->update(['is_vip' => true]);
         }
 
         $this->assertSame(0, PriceEvent::count());
     }
 
+    public function test_percentages_can_no_longer_be_scheduled(): void
+    {
+        $this->assertFalse(method_exists(PriceService::class, 'schedule'));
+        $this->assertFalse(property_exists(Products::class, 'vipPercent'));
+    }
+
     public function test_overlapping_events_for_the_same_products_are_refused(): void
     {
-        $this->event('2026-10-30', '2026-11-01');
+        $this->prices()->scheduleCustom($this->admin, '2026-10-30', '2026-11-01', [$this->beer => '12']);
 
         $this->expectException(\DomainException::class);
-        $this->event('2026-11-01', '2026-11-03');
+        $this->prices()->scheduleCustom($this->admin, '2026-11-01', '2026-11-03', [$this->beer => '13']);
     }
 
     public function test_events_that_do_not_share_products_or_days_can_coexist(): void
@@ -390,13 +397,13 @@ class VipPricingTest extends TestCase
     {
         $this->event('2026-10-28'); // running now
         $this->prices()->setVip($this->admin, Product::find($this->water), true);
-        $this->event('2026-11-05', null, -10); // next week, for beer and water
+        $this->event('2026-11-05', null, -20); // next week, for beer and water
 
         $this->actingAs($this->admin);
 
         Livewire::test(Products::class)
             ->assertSee('VIP GH₵ 12.00 (+20%)')
-            ->assertSee('Thu 5 Nov: GH₵ 4.50 (-10%)'); // water has only the upcoming one
+            ->assertSee('Thu 5 Nov: GH₵ 4.00 (-20%)'); // water has only the upcoming one
     }
 
     public function test_a_vip_product_without_an_event_shows_a_vip_tag_and_the_vip_filter_works(): void
@@ -429,16 +436,16 @@ class VipPricingTest extends TestCase
             ->set('vipName', 'Derby Night')
             ->set('vipStart', '2026-10-31')
             ->assertSet('vipEnd', '2026-10-31')
-            ->set('vipPercent', '25')
-            ->assertSee('12.50') // preview of the new price
+            ->set("customPrices.{$this->beer}", '13')
             ->call('scheduleVipPrices')
             ->assertHasNoErrors()
             ->assertSet('showVipModal', false);
 
         $event = PriceEvent::firstOrFail();
         $this->assertSame('Derby Night', $event->name);
-        $this->assertSame('25.00', $event->percent);
+        $this->assertNull($event->percent);
         $this->assertSame('2026-10-31', $event->starts_on);
+        $this->assertEquals(13, $event->products()->first()->pivot->custom_price);
 
         $page->call('openVipModal')->assertSee('Derby Night')->call('cancelVipEvent', $event->id);
         $this->assertNotNull($event->fresh()->cancelled_at);
@@ -450,20 +457,30 @@ class VipPricingTest extends TestCase
 
         Livewire::test(Products::class)
             ->call('openVipModal')
-            ->set('vipPercent', '')
+            ->call('scheduleVipPrices') // nothing priced
+            ->assertHasErrors(['customPrices'])
+            ->set("customPrices.{$this->beer}", '12.5') // not a whole number
             ->call('scheduleVipPrices')
-            ->assertHasErrors(['vipPercent' => 'required'])
-            ->set('vipPercent', '0')
-            ->call('scheduleVipPrices')
-            ->assertHasErrors(['vipPercent'])
+            ->assertHasErrors(['customPrices.'.$this->beer => 'regex'])
+            ->set("customPrices.{$this->beer}", '12')
             ->set('vipStart', '2026-10-20') // in the past
             ->set('vipEnd', '2026-10-20')
-            ->set('vipPercent', '10')
             ->call('scheduleVipPrices')
-            ->assertHasErrors(['vipPercent'])
+            ->assertHasErrors(['customPrices'])
             ->assertSee('cannot be in the past');
 
         $this->assertSame(0, PriceEvent::count());
+    }
+
+    public function test_the_form_offers_whole_numbers_only_and_no_percentage_or_times(): void
+    {
+        $this->actingAs($this->admin);
+
+        Livewire::test(Products::class)
+            ->call('openVipModal')
+            ->assertSeeHtml('inputmode="numeric"')
+            ->assertDontSee('Percentage')
+            ->assertDontSeeHtml('type="time"');
     }
 
     public function test_only_roles_that_can_modify_products_can_manage_vip_prices(): void
@@ -473,7 +490,7 @@ class VipPricingTest extends TestCase
 
         Livewire::test(Products::class)->assertDontSee('VIP Price Days')->call('toggleVip', $this->water)->assertForbidden();
         Livewire::test(Products::class)->call('openVipModal')->assertForbidden();
-        Livewire::test(Products::class)->set('vipStart', '2026-10-30')->set('vipEnd', '2026-10-30')->set('vipPercent', '10')->call('scheduleVipPrices')->assertForbidden();
+        Livewire::test(Products::class)->set('vipStart', '2026-10-30')->set('vipEnd', '2026-10-30')->call('scheduleVipPrices')->assertForbidden();
 
         $event = $this->event('2026-10-30');
         Livewire::test(Products::class)->call('cancelVipEvent', $event->id)->assertForbidden();

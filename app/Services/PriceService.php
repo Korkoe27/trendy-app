@@ -26,7 +26,6 @@ use Illuminate\Support\Facades\DB;
  */
 class PriceService
 {
-    public const MAX_PERCENT = 500;
 
     public const MAX_CUSTOM_PRICE = 100000;
 
@@ -106,7 +105,8 @@ class PriceService
             return $none;
         }
 
-        $price = round($base + $delta, 2);
+        // Only an event covering part of the trading hours is weighed (older timed events); keep that in whole cedis.
+        $price = round($base + $delta, $mainShare >= 0.9999 ? 2 : 0);
 
         return ['price' => $price, 'base' => $base, 'event' => $main['event']] + $this->describeChange($main['event'], $price, $base);
     }
@@ -206,77 +206,16 @@ class PriceService
     // ------------------------------------------------------------------ changes
 
     /**
-     * Schedule a price day (or range). Covers the products that are on the VIP list right now.
-     *
-     * @throws \DomainException
-     */
-    public function schedule(User $by, Carbon|string $start, Carbon|string $end, float $percent, ?string $name = null, ?string $startTime = null, ?string $endTime = null): PriceEvent
-    {
-        $start = Carbon::parse($start)->startOfDay();
-        $end = Carbon::parse($end)->startOfDay();
-        $percent = round($percent, 2);
-        $name = $name !== null && trim($name) !== '' ? mb_substr(trim($name), 0, 255) : null;
-
-        if ($percent == 0.0) {
-            throw new \DomainException('Enter a percentage other than 0.');
-        }
-
-        if ($percent <= -100) {
-            throw new \DomainException('A discount cannot be 100% or more.');
-        }
-
-        if ($percent > self::MAX_PERCENT) {
-            throw new \DomainException('The increase cannot be more than '.self::MAX_PERCENT.'%.');
-        }
-
-        $this->assertDays($start, $end);
-        [$startTime, $endTime] = $this->normalizeTimes($start, $end, $startTime, $endTime);
-
-        return DB::transaction(function () use ($by, $start, $end, $percent, $name, $startTime, $endTime) {
-            $productIds = Product::where('is_vip', true)->pluck('id')->all();
-
-            if ($productIds === []) {
-                throw new \DomainException('Add at least one product to the VIP list first.');
-            }
-
-            $this->assertNoClash($start, $end, $startTime, $endTime, $productIds);
-
-            $event = PriceEvent::create([
-                'name' => $name,
-                'starts_on' => $start->toDateString(),
-                'ends_on' => $end->toDateString(),
-                'starts_time' => $startTime,
-                'ends_time' => $endTime,
-                'percent' => $percent,
-                'created_by' => $by->id,
-            ]);
-
-            $event->products()->attach($productIds);
-
-            $this->log($by, 'price_event_create', 'Scheduled VIP price day', $event, [
-                'name' => $name,
-                'starts_on' => $event->starts_on,
-                'ends_on' => $event->ends_on,
-                'starts_time' => $startTime,
-                'ends_time' => $endTime,
-                'percent' => $percent,
-                'product_ids' => $productIds,
-            ]);
-
-            return $event;
-        });
-    }
-
-    /**
-     * Schedule a price day (or range) with an exact price per product instead of a percentage.
-     * Blank prices and prices equal to the normal price mean "unchanged" and are left out; the
-     * products that remain are the event's products (the VIP flag is not used).
+     * Schedule a price day (or range) with an exact whole-cedi price per product, for the whole
+     * session. There are no percentages: what you type is what is charged and what the stock count
+     * uses, so revenue stays in whole numbers. Blank prices and prices equal to the normal price
+     * mean "unchanged" and are left out; the products that remain are the event's products.
      *
      * @param  array<int|string, mixed>  $prices  product id => price
      *
      * @throws \DomainException
      */
-    public function scheduleCustom(User $by, Carbon|string $start, Carbon|string $end, array $prices, ?string $name = null, ?string $startTime = null, ?string $endTime = null): PriceEvent
+    public function scheduleCustom(User $by, Carbon|string $start, Carbon|string $end, array $prices, ?string $name = null): PriceEvent
     {
         $start = Carbon::parse($start)->startOfDay();
         $end = Carbon::parse($end)->startOfDay();
@@ -293,7 +232,11 @@ class PriceService
                 throw new \DomainException('Every custom price must be a number.');
             }
 
-            $price = round((float) $price, 2);
+            $price = (float) $price;
+
+            if ($price != floor($price)) {
+                throw new \DomainException('Every price must be a whole number of cedis, for example 12.');
+            }
 
             if ($price <= 0) {
                 throw new \DomainException('A custom price must be more than 0.');
@@ -307,7 +250,7 @@ class PriceService
         }
 
         $this->assertDays($start, $end);
-        [$startTime, $endTime] = $this->normalizeTimes($start, $end, $startTime, $endTime);
+        $startTime = $endTime = null; // price days cover the whole session
 
         return DB::transaction(function () use ($by, $start, $end, $entered, $name, $startTime, $endTime) {
             $products = Product::where('is_active', true)->whereIn('id', array_keys($entered))->get(['id', 'selling_price'])->keyBy('id');
@@ -446,7 +389,8 @@ class PriceService
 
     private function applyPercent(float $base, float $percent): float
     {
-        return round($base * (1 + $percent / 100), 2);
+        // Percentage days can no longer be created; any still on the calendar charge whole cedis.
+        return round($base * (1 + $percent / 100));
     }
 
     /** The price an event sets for a product: its custom price, or the event's percentage on the base. */
@@ -484,37 +428,6 @@ class PriceService
         if ($start->lt($this->businessDate())) {
             throw new \DomainException('The first day cannot be in the past.');
         }
-    }
-
-    /**
-     * Times are optional and must be HH:MM. Both are placed on the session, so a one-day event must
-     * end after it starts ("01:00" is after "18:00" because it falls after midnight).
-     *
-     * @return array{0: ?string, 1: ?string}
-     *
-     * @throws \DomainException
-     */
-    private function normalizeTimes(Carbon $start, Carbon $end, ?string $startTime, ?string $endTime): array
-    {
-        $clean = [];
-
-        foreach ([$startTime, $endTime] as $time) {
-            $time = $time === null ? '' : trim($time);
-
-            if ($time !== '' && ! preg_match('/^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/', $time)) {
-                throw new \DomainException('Enter the time as hours and minutes, for example 18:00.');
-            }
-
-            $clean[] = $time === '' ? null : substr($time, 0, 5);
-        }
-
-        [$startTime, $endTime] = $clean;
-
-        if ($start->equalTo($end) && $startTime && $endTime && SessionClock::endMinute($endTime) <= SessionClock::sessionMinute($startTime)) {
-            throw new \DomainException('The end time must be after the start time (times after midnight, up to the closing hour, count as the same night).');
-        }
-
-        return [$startTime, $endTime];
     }
 
     /**

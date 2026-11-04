@@ -20,6 +20,7 @@ use Tests\TestCase;
 class VipCustomPricingTest extends TestCase
 {
     use RefreshDatabase;
+    use \Tests\Concerns\CreatesLegacyPriceEvents;
 
     private int $beer;
 
@@ -122,12 +123,12 @@ class VipCustomPricingTest extends TestCase
 
     public function test_custom_prices_can_go_down_and_the_quote_describes_the_change_per_product(): void
     {
-        $this->custom('2026-10-30', null, [$this->beer => '12.50', $this->water => '4']);
+        $this->custom('2026-10-30', null, [$this->beer => '13', $this->water => '4']);
 
         $beer = $this->prices()->quoteNow(Product::find($this->beer), Carbon::parse('2026-10-30 12:00'));
         $water = $this->prices()->quoteNow(Product::find($this->water), Carbon::parse('2026-10-30 12:00'));
 
-        $this->assertSame('+25%', $beer['label']);
+        $this->assertSame('+30%', $beer['label']);
         $this->assertTrue($beer['increase']);
         $this->assertSame('-20%', $water['label']);
         $this->assertFalse($water['increase']);
@@ -159,6 +160,7 @@ class VipCustomPricingTest extends TestCase
             'zero' => fn () => $this->custom('2026-10-30', null, [$this->beer => '0']),
             'negative' => fn () => $this->custom('2026-10-30', null, [$this->beer => '-3']),
             'text' => fn () => $this->custom('2026-10-30', null, [$this->beer => 'abc']),
+            'decimal' => fn () => $this->custom('2026-10-30', null, [$this->beer => '12.5']),
             'huge' => fn () => $this->custom('2026-10-30', null, [$this->beer => '9999999']),
             'past day' => fn () => $this->custom('2026-10-27', null, [$this->beer => '12']),
             'end before start' => fn () => $this->custom('2026-10-31', '2026-10-30', [$this->beer => '12']),
@@ -177,6 +179,14 @@ class VipCustomPricingTest extends TestCase
         $this->assertSame(0, PriceEvent::count());
     }
 
+    public function test_a_whole_number_typed_with_zero_decimals_is_accepted_and_stored_whole(): void
+    {
+        $event = $this->custom('2026-10-30', null, [$this->beer => '12.00']);
+
+        $this->assertEquals(12, $event->products()->first()->pivot->custom_price);
+        $this->assertSame(12.0, $this->priceOf($this->beer, '2026-10-30 12:00'));
+    }
+
     public function test_an_inactive_product_cannot_be_priced(): void
     {
         $old = $this->product(1, 'Old Drink', 8, active: false);
@@ -188,7 +198,7 @@ class VipCustomPricingTest extends TestCase
     public function test_custom_and_percentage_events_coexist_on_different_products_and_clash_on_the_same_one(): void
     {
         DB::table('products')->where('id', $this->beer)->update(['is_vip' => true]);
-        $this->prices()->schedule($this->admin, '2026-10-30', '2026-10-30', 20, 'Percent');
+        $this->legacyEvent($this->admin->id, '2026-10-30', '2026-10-30', 20, [$this->beer => null], null, null, 'Percent');
         $this->custom('2026-10-30', null, [$this->water => '7']);
 
         $this->assertSame(12.0, $this->priceOf($this->beer, '2026-10-30 12:00'));
@@ -287,19 +297,17 @@ class VipCustomPricingTest extends TestCase
 
         $listed = Livewire::test(Products::class)
             ->call('openVipModal')
-            ->call('setVipMode', 'custom')
             ->viewData('customProducts')->pluck('name')->all();
         $this->assertEqualsCanonicalizing(['Club Beer', 'Voltic Water', 'Jollof Rice'], $listed, 'every ACTIVE product, VIP or not');
 
         $page = Livewire::test(Products::class)
             ->call('openVipModal')
-            ->call('setVipMode', 'custom')
             ->assertSee('Club Beer')
             ->assertSee('Voltic Water')
             ->assertSee('Jollof Rice') // food is listed too
             ->set('vipName', 'Derby Night')
             ->set('vipStart', '2026-10-31')
-            ->set("customPrices.{$this->beer}", '14.50')
+            ->set("customPrices.{$this->beer}", '15')
             ->set("customPrices.{$this->water}", '')
             ->call('scheduleVipPrices')
             ->assertHasNoErrors()
@@ -310,7 +318,7 @@ class VipCustomPricingTest extends TestCase
         $this->assertSame('Derby Night', $event->name);
         $this->assertSame('2026-10-31', $event->starts_on);
         $this->assertSame(1, $event->products()->count());
-        $this->assertEquals(14.5, (float) $event->products()->first()->pivot->custom_price);
+        $this->assertEquals(15, (float) $event->products()->first()->pivot->custom_price);
 
         $page->call('openVipModal')->assertSee('Custom prices')->assertSee('Derby Night');
     }
@@ -321,7 +329,6 @@ class VipCustomPricingTest extends TestCase
 
         Livewire::test(Products::class)
             ->call('openVipModal')
-            ->call('setVipMode', 'custom')
             ->call('scheduleVipPrices')
             ->assertHasErrors('customPrices')
             ->set("customPrices.{$this->beer}", 'abc')
@@ -346,9 +353,7 @@ class VipCustomPricingTest extends TestCase
     {
         $this->actingAs($this->userWith(['products' => ['view']], 'Viewer'));
 
-        Livewire::test(Products::class)->call('setVipMode', 'custom')->assertForbidden();
         Livewire::test(Products::class)
-            ->set('vipMode', 'custom')
             ->set('vipStart', '2026-10-30')
             ->set('vipEnd', '2026-10-30')
             ->set("customPrices.{$this->beer}", '15')

@@ -22,6 +22,7 @@ use Tests\TestCase;
 class VipEventTimesTest extends TestCase
 {
     use RefreshDatabase;
+    use \Tests\Concerns\CreatesLegacyPriceEvents;
 
     private int $beer;
 
@@ -93,7 +94,7 @@ class VipEventTimesTest extends TestCase
     /** A custom-price event: beer at 16.00 (normal 10.00). */
     private function beerEvent(string $start, ?string $end = null, ?string $startTime = null, ?string $endTime = null, string $price = '16'): PriceEvent
     {
-        return $this->prices()->scheduleCustom($this->admin, $start, $end ?? $start, [$this->beer => $price], 'Event', $startTime, $endTime);
+        return $this->legacyEvent($this->admin->id, $start, $end ?? $start, null, [$this->beer => (float) $price], $startTime, $endTime, 'Event');
     }
 
     private function beerAt(string $moment): float
@@ -167,36 +168,9 @@ class VipEventTimesTest extends TestCase
         $this->assertSame(10.0, $this->beerAt('2026-11-10 01:00'));
     }
 
-    public function test_times_are_validated(): void
+    public function test_an_older_percentage_event_with_times_keeps_working(): void
     {
-        $bad = [
-            'not a time' => ['abc', null],
-            'hour out of range' => ['25:00', null],
-            'minutes out of range' => [null, '10:75'],
-            'end before start' => ['18:00', '17:00'],
-            'start after the end of the same night' => ['01:00', '18:00'],
-            'same time' => ['18:00', '18:00'],
-        ];
-
-        foreach ($bad as $label => [$from, $until]) {
-            try {
-                $this->beerEvent('2026-11-07', null, $from, $until);
-                $this->fail("Expected a refusal: $label");
-            } catch (\DomainException) {
-                $this->assertTrue(true);
-            }
-        }
-
-        $this->assertSame(0, PriceEvent::count());
-
-        // Ending after midnight on the same night is fine.
-        $this->beerEvent('2026-11-07', null, '18:00', '01:00');
-        $this->assertSame(1, PriceEvent::count());
-    }
-
-    public function test_the_percentage_flow_takes_times_too(): void
-    {
-        $event = $this->prices()->schedule($this->admin, '2026-11-07', '2026-11-07', 20, 'Percent', '18:00', '01:00');
+        $event = $this->legacyEvent($this->admin->id, '2026-11-07', '2026-11-07', 20, [$this->beer => null], '18:00', '01:00', 'Percent');
 
         $this->assertSame('18:00', $event->startTime());
         $this->assertSame('01:00', $event->endTime());
@@ -233,6 +207,13 @@ class VipEventTimesTest extends TestCase
         $this->assertSame(13.0, $this->countPrice('2026-11-07'), '10 + (16 - 10) x 6/12');
     }
 
+    public function test_a_blended_count_price_is_kept_in_whole_cedis(): void
+    {
+        $this->beerEvent('2026-11-07', null, '23:00', null, '17'); // 4 of 12 trading hours: 10 + 7 x 1/3 = 12.33
+
+        $this->assertSame(12.0, $this->countPrice('2026-11-07'));
+    }
+
     public function test_an_event_outside_trading_hours_does_not_change_the_count(): void
     {
         $this->beerEvent('2026-11-07', null, '04:00', '10:00');
@@ -243,7 +224,7 @@ class VipEventTimesTest extends TestCase
 
     // ------------------------------------------------------------------ overlap
 
-    public function test_adjacent_windows_can_sit_side_by_side_but_overlapping_ones_clash(): void
+    public function test_older_timed_windows_sit_side_by_side_and_block_a_new_whole_session_price_day(): void
     {
         $this->beerEvent('2026-11-07', null, '15:00', '18:00');
         $this->beerEvent('2026-11-07', null, '18:00', null, '14');
@@ -251,17 +232,15 @@ class VipEventTimesTest extends TestCase
         $this->assertSame(16.0, $this->beerAt('2026-11-07 17:00'));
         $this->assertSame(14.0, $this->beerAt('2026-11-07 19:00'));
 
-        foreach ([['17:00', '19:00'], [null, null]] as [$from, $until]) {
-            try {
-                $this->beerEvent('2026-11-07', null, $from, $until, '12');
-                $this->fail('An overlapping window must be refused.');
-            } catch (\DomainException $e) {
-                $this->assertStringContainsString('overlap', $e->getMessage());
-            }
+        try {
+            $this->prices()->scheduleCustom($this->admin, '2026-11-07', '2026-11-07', [$this->beer => '12']);
+            $this->fail('A whole-session price day overlaps the older timed ones.');
+        } catch (\DomainException $e) {
+            $this->assertStringContainsString('overlap', $e->getMessage());
         }
 
         // A different night is unaffected.
-        $this->beerEvent('2026-11-14', null, '17:00', '19:00');
+        $this->prices()->scheduleCustom($this->admin, '2026-11-14', '2026-11-14', [$this->beer => '12']);
         $this->assertSame(3, PriceEvent::count());
     }
 
@@ -288,57 +267,6 @@ class VipEventTimesTest extends TestCase
         $this->assertSame('active', $at('2026-11-07 18:00'));
         $this->assertSame('active', $at('2026-11-08 00:30'));
         $this->assertSame('ended', $at('2026-11-08 01:00'));
-    }
-
-    // ------------------------------------------------------------------ the form
-
-    public function test_the_form_shows_what_the_times_mean_and_schedules_the_event(): void
-    {
-        $this->actingAs($this->admin);
-
-        $page = Livewire::test(Products::class)
-            ->call('openVipModal')
-            ->set('vipStart', '2026-11-07')
-            ->set('vipEnd', '2026-11-07')
-            ->assertSee('Runs: Sat 7 Nov session, until Sun 8 Nov 03:00')
-            ->set('vipStartTime', '18:00')
-            ->set('vipEndTime', '01:00')
-            ->assertSee('Runs: Sat 7 Nov 18:00 to Sun 8 Nov 01:00')
-            ->set('vipPercent', '20')
-            ->call('scheduleVipPrices')
-            ->assertHasNoErrors()
-            ->assertSet('showVipModal', false);
-
-        $event = PriceEvent::firstOrFail();
-        $this->assertSame('18:00', $event->startTime());
-        $this->assertSame('01:00', $event->endTime());
-
-        $page->call('openVipModal')->assertSee('Sat 7 Nov 18:00 to Sun 8 Nov 01:00');
-    }
-
-    public function test_the_custom_form_takes_times_and_invalid_times_are_rejected(): void
-    {
-        $this->actingAs($this->admin);
-
-        Livewire::test(Products::class)
-            ->call('openVipModal')
-            ->call('setVipMode', 'custom')
-            ->set('vipStart', '2026-11-07')
-            ->set('vipEnd', '2026-11-07')
-            ->set("customPrices.{$this->beer}", '16')
-            ->set('vipStartTime', '99:99')
-            ->call('scheduleVipPrices')
-            ->assertHasErrors(['vipStartTime'])
-            ->set('vipStartTime', '18:00')
-            ->set('vipEndTime', '17:00')
-            ->call('scheduleVipPrices')
-            ->assertHasErrors('customPrices')
-            ->set('vipEndTime', '01:00')
-            ->call('scheduleVipPrices')
-            ->assertHasNoErrors();
-
-        $this->assertSame(1, PriceEvent::count());
-        $this->assertSame('18:00', PriceEvent::first()->startTime());
     }
 
     public function test_events_without_times_keep_their_old_behaviour(): void

@@ -874,19 +874,11 @@
                 <div class="flex justify-between items-start mb-4">
                     <div>
                         <h3 class="text-lg font-semibold text-gray-900">VIP Price Days</h3>
-                        <p class="text-sm text-gray-500">Change prices on the days you pick, by a percentage on the VIP products or with an exact price per product. Prices go back to normal by themselves after the last day.</p>
+                        <p class="text-sm text-gray-500">Type the exact price, in whole cedis, for each product on the days you pick. The whole session is covered, and prices go back to normal by themselves after the last day.</p>
                     </div>
                     <button type="button" wire:click="closeVipModal" class="text-gray-400 hover:text-gray-600" aria-label="Close">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                     </button>
-                </div>
-
-                {{-- How the prices are set --}}
-                <div class="inline-flex rounded-lg border border-gray-300 overflow-hidden mb-4" role="group" aria-label="Pricing type">
-                    <button type="button" wire:click="setVipMode('percent')"
-                        class="px-4 py-2 text-sm font-semibold {{ $vipMode === 'percent' ? 'bg-amber-500 text-white' : 'bg-white text-gray-700 hover:bg-gray-50' }}">Percentage</button>
-                    <button type="button" wire:click="setVipMode('custom')"
-                        class="px-4 py-2 text-sm font-semibold border-l border-gray-300 {{ $vipMode === 'custom' ? 'bg-amber-500 text-white' : 'bg-white text-gray-700 hover:bg-gray-50' }}">Custom prices</button>
                 </div>
 
                 <form wire:submit="scheduleVipPrices" class="space-y-4">
@@ -899,46 +891,21 @@
                         </div>
                         <div>
                             <label for="vipStart" class="block text-xs font-semibold text-gray-600 uppercase mb-1">First day</label>
-                            <div class="flex gap-2">
-                                <input id="vipStart" type="date" wire:model.live="vipStart" min="{{ $today }}"
-                                    class="min-w-0 flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-400" />
-                                <input id="vipStartTime" type="time" wire:model.live="vipStartTime" aria-label="Start time (optional)" title="Start time (optional). Leave blank to start with the session."
-                                    class="w-32 px-2 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-400" />
-                            </div>
+                            <input id="vipStart" type="date" wire:model.live="vipStart" min="{{ $today }}"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-400" />
                             @error('vipStart') <div class="text-red-500 text-xs mt-1">{{ $message }}</div> @enderror
-                            @error('vipStartTime') <div class="text-red-500 text-xs mt-1">{{ $message }}</div> @enderror
                         </div>
                         <div>
                             <label for="vipEnd" class="block text-xs font-semibold text-gray-600 uppercase mb-1">Last day (same as first for one day)</label>
-                            <div class="flex gap-2">
-                                <input id="vipEnd" type="date" wire:model.live="vipEnd" min="{{ $vipStart ?: $today }}"
-                                    class="min-w-0 flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-400" />
-                                <input id="vipEndTime" type="time" wire:model.live="vipEndTime" aria-label="End time (optional)" title="End time (optional). Leave blank to run to the end of the session."
-                                    class="w-32 px-2 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-400" />
-                            </div>
+                            <input id="vipEnd" type="date" wire:model.live="vipEnd" min="{{ $vipStart ?: $today }}"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-400" />
                             @error('vipEnd') <div class="text-red-500 text-xs mt-1">{{ $message }}</div> @enderror
-                            @error('vipEndTime') <div class="text-red-500 text-xs mt-1">{{ $message }}</div> @enderror
                         </div>
                         <div class="sm:col-span-2">
-                            <p class="text-xs text-gray-500">Times are optional. Leave them blank to cover the whole session (it runs past midnight, up to the closing hour). A time after midnight counts as the same night: Saturday until 01:00 means Sunday 01:00.</p>
-                            @if ($vipRunsText)
-                                <p class="mt-1 text-sm font-semibold text-amber-700" data-testid="vip-runs">Runs: {{ $vipRunsText }}</p>
-                            @endif
+                            <p class="text-xs text-gray-500">A price day covers the whole session, from opening until the closing hour (it runs past midnight).</p>
                         </div>
-                        @if ($vipMode === 'percent')
-                        <div class="sm:col-span-2">
-                            <label for="vipPercent" class="block text-xs font-semibold text-gray-600 uppercase mb-1">Percentage (use a minus sign for a discount)</label>
-                            <div class="flex items-center gap-2">
-                                <input id="vipPercent" type="text" oninput="this.value = this.value.replace(/[^-0-9]/g, '');" type="number" step="0.01" inputmode="decimal" wire:model.live.debounce.300ms="vipPercent" placeholder="e.g. 20 or -10"
-                                    class="w-40 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-400" />
-                                <span class="text-gray-500">%</span>
-                            </div>
-                            @error('vipPercent') <div class="text-red-500 text-xs mt-1">{{ $message }}</div> @enderror
-                        </div>
-                        @endif
                     </div>
 
-                    @if ($vipMode === 'custom')
                     {{-- Every active product with a box for its custom price; blank = unchanged --}}
                     <div class="border border-gray-200 rounded-lg overflow-hidden"
                         x-data="{ q: '', n: 0 }"
@@ -963,12 +930,12 @@
                                         <p class="text-xs text-gray-500">{{ $cp->category->name ?? 'No category' }} · normal GH₵ {{ number_format($cp->selling_price, 2) }}</p>
                                     </div>
                                     <div class="flex items-center gap-2 shrink-0">
-                                        <span class="text-xs font-semibold w-14 text-right"
-                                            :class="parseFloat(v) > base ? 'text-amber-700' : 'text-green-700'"
-                                            x-text="(parseFloat(v) > 0 && base > 0 && Math.abs(parseFloat(v) - base) >= 0.005) ? ((parseFloat(v) > base ? '+' : '-') + Math.abs((parseFloat(v) / base - 1) * 100).toFixed(1).replace(/\.0$/, '') + '%') : ''"></span>
+                                        <span class="text-xs font-semibold w-16 text-right"
+                                            :class="parseInt(v) > base ? 'text-amber-700' : 'text-green-700'"
+                                            x-text="(parseInt(v) > 0 && Math.abs(parseInt(v) - base) >= 0.005) ? ((parseInt(v) > base ? '+' : '-') + Math.abs(parseInt(v) - base).toFixed(2).replace(/\.00$/, '')) : ''"></span>
                                         <span class="text-gray-500 text-xs">GH₵</span>
-                                        <input type="text" inputmode="decimal" data-price x-model="v" wire:model="customPrices.{{ $cp->id }}"
-                                            oninput="this.value = this.value.replace(/[^0-9.]/g, '');" placeholder="—" aria-label="Custom price for {{ $cp->name }}"
+                                        <input type="text" inputmode="numeric" data-price x-model="v" wire:model="customPrices.{{ $cp->id }}"
+                                            oninput="this.value = this.value.replace(/[^0-9]/g, '');" placeholder="—" aria-label="Price for {{ $cp->name }}"
                                             class="w-24 px-2 py-1 border border-gray-300 rounded-lg text-right focus:ring-2 focus:ring-amber-400" />
                                     </div>
                                 </div>
@@ -979,42 +946,12 @@
                     </div>
                     @error('customPrices') <div class="text-red-500 text-xs">{{ $message }}</div> @enderror
                     @error('customPrices.*') <div class="text-red-500 text-xs">{{ $message }}</div> @enderror
-                    @else
-                    {{-- Preview of the new prices --}}
-                    <div class="border border-gray-200 rounded-lg overflow-hidden">
-                        <div class="px-3 py-2 bg-gray-50 text-xs font-semibold text-gray-500 uppercase">VIP products ({{ $vipPreview->count() }})</div>
-                        @if ($vipPreview->isEmpty())
-                            <p class="px-3 py-4 text-sm text-gray-500">No products are on the VIP list yet. Close this window and tap the ★ beside a product to add it.</p>
-                        @else
-                            <div class="max-h-56 overflow-y-auto divide-y divide-gray-100">
-                                @foreach ($vipPreview as $vp)
-                                    @php
-                                        $newPrice = $vipPercentValue !== null && $vipPercentValue > -100
-                                            ? round((float) $vp->selling_price * (1 + $vipPercentValue / 100), 2)
-                                            : null;
-                                    @endphp
-                                    <div class="flex items-center justify-between px-3 py-2 text-sm" wire:key="vip-prev-{{ $vp->id }}">
-                                        <span class="uppercase text-gray-900">{{ $vp->name }}</span>
-                                        <span class="text-gray-600">
-                                            GH₵ {{ number_format($vp->selling_price, 2) }}
-                                            @if ($newPrice !== null)
-                                                <span class="mx-1">→</span>
-                                                <span class="font-semibold {{ $vipPercentValue > 0 ? 'text-amber-700' : 'text-green-700' }}">GH₵ {{ number_format($newPrice, 2) }}</span>
-                                            @endif
-                                        </span>
-                                    </div>
-                                @endforeach
-                            </div>
-                        @endif
-                    </div>
-
-                    @endif
 
                     <div class="flex justify-end gap-3">
                         <button type="button" wire:click="closeVipModal" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">Close</button>
                         <button type="submit" wire:loading.attr="disabled" wire:target="scheduleVipPrices"
                             class="px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 font-semibold disabled:opacity-50">
-                            Apply {{ $vipMode === 'custom' ? 'custom prices' : ($vipPercentValue !== null && $vipPercentValue != 0 ? ($vipPercentValue > 0 ? '+' : '').rtrim(rtrim(number_format($vipPercentValue, 2, '.', ''), '0'), '.').'%' : 'prices') }}
+                            Apply prices
                             @if ($vipStart) on {{ \Carbon\Carbon::parse($vipStart)->format('D j M') }}@if ($vipEnd && $vipEnd !== $vipStart) to {{ \Carbon\Carbon::parse($vipEnd)->format('D j M') }}@endif @endif
                         </button>
                     </div>
