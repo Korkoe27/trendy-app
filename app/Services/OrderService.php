@@ -368,7 +368,7 @@ class OrderService
     /** Unpaid, still-open tabs: the "pending debt" list. */
     public function unpaidTabs()
     {
-        return Order::unpaid()->with('items')->orderBy('created_at');
+        return Order::unpaid()->with('items')->orderBy('created_at','desc');
     }
 
     /**
