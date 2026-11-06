@@ -22,12 +22,12 @@
         </div>
     </div>
 
-    <h3 class="mt-1 text-lg font-bold text-gray-900">{{ $order['customer_name'] }}</h3>
+    <h3 class="mt-1 text-lg font-bold capitalize text-gray-900">{{ $order['customer_name'] }}</h3>
     @if ($order['payment_pending'])
         <p class="mt-1 inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold text-blue-800 bg-blue-100 rounded-full">⏳ Awaiting mobile money approval</p>
     @endif
     <p class="text-sm text-gray-500">
-        <a href="tel:{{ $order['customer_phone'] }}" class="font-semibold text-blue-700 hover:underline">{{ \App\Support\Phone::local($order['customer_phone']) ?? $order['customer_phone'] }}</a>
+        <a href="tel:{{ $order['customer_phone'] }}" class="font-semibold capitalize text-blue-700 hover:underline">{{ \App\Support\Phone::local($order['customer_phone']) ?? $order['customer_phone'] }}</a>
         • Waiter: {{ $order['taken_by_name'] }} • {{ $ago }} ago
     </p>
 

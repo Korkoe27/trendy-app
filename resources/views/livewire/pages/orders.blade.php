@@ -124,13 +124,13 @@
                 </thead>
                 <tbody class="divide-y divide-gray-200">
                     @forelse ($history as $done)
-                        <tr wire:key="done-{{ $done->id }}" wire:click="openViewOrder({{ $done->id }})" class="hover:bg-gray-50 cursor-pointer">
+                        <tr wire:key="done-{{ $done->id }}" wire:click="openViewOrder({{ $done->id }})" class="hover:bg-gray-50  cursor-pointer">
                             <td class="px-3 lg:px-4 xl:px-6 py-3 lg:py-4 text-sm font-bold text-gray-900 whitespace-nowrap">{{ $done->code }}</td>
-                            <td class="px-3 lg:px-4 xl:px-6 py-3 lg:py-4 max-w-[10rem] lg:max-w-[14rem]">
+                            <td class="px-3 lg:px-4 xl:px-6 py-3 lg:py-4 max-w-[10rem] capitalize lg:max-w-[14rem]">
                                 <div class="text-sm font-semibold text-gray-900 truncate">{{ $done->customer_name }}</div>
                                 <div class="text-xs text-gray-500">{{ \App\Support\Phone::local($done->customer_phone) ?? $done->customer_phone }}</div>
                             </td>
-                            <td class="hidden lg:table-cell px-4 xl:px-6 py-4 text-sm text-gray-700 whitespace-nowrap">{{ $done->taken_by_name }}</td>
+                            <td class="hidden lg:table-cell px-4 xl:px-6 py-4 text-sm text-gray-700 capitalize whitespace-nowrap">{{ $done->taken_by_name }}</td>
                             <td class="hidden xl:table-cell px-6 py-4 text-sm text-gray-600 max-w-xs">
                                 {{ $done->items->sum('quantity') }} items
                                 <span class="text-gray-400">({{ $done->items->take(2)->map(fn ($i) => $i->quantity.' '.$i->product_name)->join(', ') }}{{ $done->items->count() > 2 ? '…' : '' }})</span>
