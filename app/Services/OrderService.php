@@ -368,7 +368,7 @@ class OrderService
     /** Unpaid, still-open tabs: the "pending debt" list. */
     public function unpaidTabs()
     {
-        return Order::unpaid()->with('items')->orderBy('created_at','desc');
+        return Order::unpaid()->with('items')->orderBy('created_at','asc');
     }
 
     /**
@@ -680,7 +680,7 @@ class OrderService
     {
         $board = ['pending' => [], 'ready' => [], 'served' => []];
 
-        $orders = Order::open()->with('items')->orderBy('created_at')->orderBy('id')->get();
+        $orders = Order::open()->with('items')->orderBy('created_at','desc')->orderBy('id')->get();
         $awaitingPayment = OrderPayment::active()->whereIn('order_id', $orders->pluck('id'))->pluck('order_id')->flip();
 
         $orders->each(function (Order $order) use (&$board, $awaitingPayment) {
