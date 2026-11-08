@@ -26,6 +26,7 @@
             </div>
             
             {{-- Show alert if displaying previous day's data --}}
+            @haspermission('create','inventory')
             @if (!$hasTodayData)
                 <div class="flex items-center gap-4">
                     <div class="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded-lg flex items-center gap-2">
@@ -42,6 +43,7 @@
                     </button>
                 </div>
             @endif
+            @endhaspermission
         </header>
 
         {{-- Stats Grid --}}
