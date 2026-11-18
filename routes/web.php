@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\HubtelWebhookController;
+use App\Http\Controllers\OrderReceiptController;
 use App\Http\Controllers\PinResetController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\UserAuthController;
@@ -43,6 +44,10 @@ Route::middleware(['auth', 'must.change.password'])->group(function () {
     Route::get('/', Dashboard::class)->name('dashboard');
 
     Route::get('orders', Orders::class)->name('orders')->middleware('permission:orders,view');
+
+    Route::get('orders/{order}/receipt', [OrderReceiptController::class, 'show'])
+        ->name('orders.receipt')
+        ->middleware('permission:orders,view');
 
     Route::get('kitchen', Kitchen::class)->name('kitchen')->middleware('permission:kitchen,view');
 

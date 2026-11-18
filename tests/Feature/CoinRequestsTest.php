@@ -262,6 +262,30 @@ class CoinRequestsTest extends TestCase
         $this->assertDatabaseHas('activity_logs', ['action_type' => 'coin_request_void']);
     }
 
+    public function test_the_bartender_cannot_void_a_coin_request(): void
+    {
+        $given = $this->coins->give($this->request(2), $this->bartender);
+
+        // Defence in depth: the service refuses even if the screen guard were bypassed.
+        try {
+            $this->coins->void($given, $this->bartender, 'Wrong table');
+            $this->fail('The bartender must not void coins.');
+        } catch (\DomainException $e) {
+            $this->assertStringContainsString('Only a manager', $e->getMessage());
+        }
+
+        $this->assertSame('given', $given->fresh()->status);
+
+        // The Void control is hidden, and the actions themselves are refused.
+        $this->actingAs($this->bartender);
+        Livewire::test(CoinRequests::class)
+            ->assertDontSee('Void')
+            ->call('openVoid', $given->id)
+            ->assertForbidden();
+
+        Livewire::test(CoinRequests::class)->call('voidGiven')->assertForbidden();
+    }
+
     public function test_an_attendant_can_request_only_one_coin_at_a_time(): void
     {
         config(['coins.max_per_request' => 1]);

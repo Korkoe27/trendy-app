@@ -79,6 +79,12 @@ class Orders extends Component
     #[Locked]
     public ?int $viewingOrderId = null;
 
+    // Receipt prompt after a tab is paid
+    public bool $showReceiptModal = false;
+
+    #[Locked]
+    public ?int $receiptOrderId = null;
+
     protected $queryString = ['searchTerm'];
 
     public function updatedSearchTerm(): void
@@ -408,6 +414,7 @@ class Orders extends Component
 
         session()->flash('message', "{$order->code} paid in cash (GH₵ ".number_format((float) $order->total, 2).') and closed.');
         $this->closeCloseModal();
+        $this->showReceipt($order);
     }
 
     /** Send the mobile-money prompt to the customer's phone (only works once HUBTEL_PAYMENTS_ENABLED is on). */
@@ -461,6 +468,7 @@ class Orders extends Component
             $order = Order::find($payment->order_id);
             session()->flash('message', "{$order->code} paid by mobile money (GH₵ ".number_format((float) $payment->amount, 2).') and closed.');
             $this->closeCloseModal();
+            $this->showReceipt($order);
 
             return;
         }
@@ -520,6 +528,21 @@ class Orders extends Component
     {
         $this->showViewModal = false;
         $this->viewingOrderId = null;
+    }
+
+    // ------------------------------------------------------------------ receipt
+
+    /** Offer the printable receipt right after a tab is settled. */
+    private function showReceipt(?Order $order): void
+    {
+        $this->receiptOrderId = $order?->id;
+        $this->showReceiptModal = $order !== null;
+    }
+
+    public function closeReceiptModal(): void
+    {
+        $this->showReceiptModal = false;
+        $this->receiptOrderId = null;
     }
 
     // ------------------------------------------------------------------ render
@@ -612,6 +635,7 @@ class Orders extends Component
             'cancellingOrder' => $this->showCancelModal ? Order::find($this->cancellingOrderId) : null,
             'viewingOrder' => $viewingOrder = $this->showViewModal ? Order::with('items')->find($this->viewingOrderId) : null,
             'viewingCancelledBy' => $viewingOrder?->cancelled_by ? User::whereKey($viewingOrder->cancelled_by)->value('name') : null,
+            'receiptOrder' => $this->showReceiptModal ? Order::with('items')->find($this->receiptOrderId) : null,
             'momoEnabled' => $momo->available(),
             'momoSwitchedOn' => $momo->enabled(),
             'canOrder' => Auth::user()->hasPermission('create', 'orders'),
@@ -622,7 +646,7 @@ class Orders extends Component
             'canTakeCash' => Order::canTakeCash(Auth::user()),
             'userId' => (int) Auth::id(),
             'canCancel' => Auth::user()->hasPermission('delete', 'orders'),
-            'modalOpen' => $this->showOrderModal || $this->showCloseModal || $this->showCancelModal || $this->showViewModal || $this->showAvailability,
+            'modalOpen' => $this->showOrderModal || $this->showCloseModal || $this->showCancelModal || $this->showViewModal || $this->showAvailability || $this->showReceiptModal,
             'canToggleAvailability' => $this->canToggleAvailability(),
             'unservedOrder' => $orders->unservedOrderFor(Auth::user()),
             'availabilityProducts' => $this->showAvailability ? $this->availabilityList() : collect(),

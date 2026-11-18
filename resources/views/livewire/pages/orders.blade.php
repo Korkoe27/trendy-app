@@ -475,6 +475,28 @@
         </div>
     @endif
 
+    <!-- Payment received: the receipt is ready to print -->
+    @if ($showReceiptModal && $receiptOrder)
+        <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div class="bg-white rounded-xl shadow-xl w-full max-w-sm p-6 text-center space-y-4" role="dialog" aria-modal="true" data-testid="receipt-modal">
+                <div class="mx-auto w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
+                    <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                </div>
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-900">Payment received</h3>
+                    <p class="text-sm text-gray-500">{{ $receiptOrder->code }} &middot; {{ $receiptOrder->customer_name }}</p>
+                    <p class="mt-1 text-2xl font-extrabold text-gray-900">GH₵ {{ number_format((float) $receiptOrder->total, 2) }}</p>
+                </div>
+                <p class="text-sm text-gray-500">The receipt is ready. Open it to print a copy for the customer.</p>
+                <div class="flex flex-col gap-2">
+                    <a href="{{ route('orders.receipt', $receiptOrder) }}" target="_blank" rel="noopener"
+                        class="px-5 py-2.5 bg-gray-900 text-white rounded-lg hover:bg-black font-semibold" data-testid="open-receipt">Print receipt</a>
+                    <button wire:click="closeReceiptModal" class="px-5 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">Done</button>
+                </div>
+            </div>
+        </div>
+    @endif
+
     <!-- View order modal (read-only) -->
     @if ($showViewModal && $viewingOrder)
         @php
@@ -559,7 +581,11 @@
                     </div>
                 </div>
 
-                <div class="p-4 sm:p-6 border-t flex justify-end">
+                <div class="p-4 sm:p-6 border-t flex justify-end gap-3">
+                    @if ($viewingOrder->isPaid())
+                        <a href="{{ route('orders.receipt', $viewingOrder) }}" target="_blank" rel="noopener"
+                            class="px-6 py-2 bg-gray-900 text-white rounded-lg hover:bg-black font-semibold" data-testid="view-receipt">Print receipt</a>
+                    @endif
                     <button wire:click="closeViewModal" class="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">Close</button>
                 </div>
             </div>
