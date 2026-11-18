@@ -382,6 +382,14 @@
                         <p class="text-sm font-semibold text-red-700">{{ $closingOrder->items->sum('quantity') }} items ordered</p>
                     </div>
 
+                    <div class="flex justify-end -mt-2">
+                        <a href="{{ route('orders.bill', $closingOrder) }}" target="_blank" rel="noopener"
+                            class="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-600 hover:text-gray-900 underline decoration-dotted underline-offset-2" data-testid="print-bill-close">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M6.75 8.25V3.75h10.5v4.5M6.75 17.25H5.25a1.5 1.5 0 0 1-1.5-1.5v-6a1.5 1.5 0 0 1 1.5-1.5h13.5a1.5 1.5 0 0 1 1.5 1.5v6a1.5 1.5 0 0 1-1.5 1.5h-1.5M6.75 13.5h10.5v6.75H6.75V13.5Z"/></svg>
+                            Print bill for the customer
+                        </a>
+                    </div>
+
                     @if ($closingOrder->status === 'pending')
                         <div class="bg-yellow-50 border border-yellow-300 text-yellow-800 text-sm rounded-lg px-3 py-2">
                             The bartender has not marked this order ready yet. Close the tab once it is ready.

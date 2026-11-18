@@ -65,9 +65,9 @@ class OrderReceiptTest extends TestCase
         return $this->userWith(['orders' => ['view', 'create', 'modify'], 'order_debts' => ['view', 'modify']], 'Boss');
     }
 
-    private function placeOrder(User $by): Order
+    private function placeOrder(User $by, string $name = 'Kwame Mensah', string $phone = '0241234567'): Order
     {
-        return app(OrderService::class)->place($by, 'Kwame Mensah', '0241234567', [$this->beer => 2]);
+        return app(OrderService::class)->place($by, $name, $phone, [$this->beer => 2]);
     }
 
     private function paidOrder(User $waiter, User $manager): Order
@@ -139,5 +139,68 @@ class OrderReceiptTest extends TestCase
             ->assertSeeHtml('data-testid="open-receipt"');
 
         $this->get(route('orders.receipt', $order->fresh()))->assertOk();
+    }
+
+    public function test_a_bill_can_be_printed_before_the_tab_is_paid(): void
+    {
+        $waiter = $this->waiter();
+        $order = $this->placeOrder($waiter);
+        app(OrderService::class)->markReady($order, $this->manager());
+
+        $this->actingAs($waiter);
+
+        $this->get(route('orders.bill', $order))
+            ->assertOk()
+            ->assertSee($order->code)
+            ->assertSee('KWAME MENSAH')
+            ->assertSee('CLUB BEER')
+            ->assertSee('Served by GARNET')
+            ->assertSee('UNPAID')
+            ->assertSee('Total due')
+            ->assertSee('Please settle at the counter')
+            ->assertSee('Print bill');
+    }
+
+    public function test_a_paid_order_has_no_bill(): void
+    {
+        $waiter = $this->waiter();
+        $order = $this->paidOrder($waiter, $this->manager());
+
+        $this->actingAs($waiter);
+
+        $this->get(route('orders.bill', $order))->assertNotFound();
+    }
+
+    public function test_a_waiter_cannot_print_another_waiters_bill(): void
+    {
+        $waiter = $this->waiter('Garnet');
+        $order = $this->placeOrder($waiter);
+
+        $this->actingAs($this->waiter('Akua'));
+
+        $this->get(route('orders.bill', $order))->assertForbidden();
+    }
+
+    public function test_the_board_offers_print_bill_for_ready_and_ongoing_tabs(): void
+    {
+        $manager = $this->manager();
+        $orders = app(OrderService::class);
+
+        $ready = $this->placeOrder($this->waiter('Garnet'));
+        $orders->markReady($ready, $manager);
+
+        $akua = $this->waiter('Akua');
+        $served = $this->placeOrder($akua, 'Ama Boateng', '0249999999');
+        $orders->markReady($served, $manager);
+        $orders->serve($served, $akua);
+
+        $this->actingAs($manager);
+
+        Livewire::test(Orders::class)
+            ->assertSeeHtml('data-testid="print-bill"')
+            ->assertSee(route('orders.bill', $ready->id))
+            ->assertSee(route('orders.bill', $served->id))
+            ->call('openCloseModal', $served->id)
+            ->assertSeeHtml('data-testid="print-bill-close"');
     }
 }

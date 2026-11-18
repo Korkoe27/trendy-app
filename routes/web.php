@@ -49,6 +49,10 @@ Route::middleware(['auth', 'must.change.password'])->group(function () {
         ->name('orders.receipt')
         ->middleware('permission:orders,view');
 
+    Route::get('orders/{order}/bill', [OrderReceiptController::class, 'bill'])
+        ->name('orders.bill')
+        ->middleware('permission:orders,view');
+
     Route::get('kitchen', Kitchen::class)->name('kitchen')->middleware('permission:kitchen,view');
 
     Route::get('coin-requests', CoinRequests::class)->name('coin-requests')->middleware('permission:coin_requests,view');

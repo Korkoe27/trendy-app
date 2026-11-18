@@ -19,6 +19,20 @@ class OrderReceiptController extends Controller
 
         $order->loadMissing('items');
 
-        return view('receipts.order', ['order' => $order]);
+        return view('receipts.order', ['order' => $order, 'isBill' => false]);
+    }
+
+    /**
+     * A pre-payment bill for an open tab, so the customer can check the items and total before
+     * settling. Paid orders use the receipt instead.
+     */
+    public function bill(Order $order)
+    {
+        abort_unless($order->canBeSeenBy(Auth::user()), 403);
+        abort_unless(! $order->isPaid() && $order->status !== Order::STATUS_CANCELLED, 404);
+
+        $order->loadMissing('items');
+
+        return view('receipts.order', ['order' => $order, 'isBill' => true]);
     }
 }

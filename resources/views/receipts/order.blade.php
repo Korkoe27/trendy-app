@@ -1,42 +1,43 @@
 @php
+    $isBill = $isBill ?? false;
     $subtotal = (float) $order->items->sum(fn ($item) => (float) $item->line_total);
     $total = (float) $order->total;
     $paidWith = $order->payment_method === 'momo' ? 'MOBILE MONEY' : 'CASH';
-    $receiptDate = ($order->paid_at ?? $order->created_at)->format('d/m/Y');
+    $receiptDate = ($isBill ? $order->created_at : ($order->paid_at ?? $order->created_at))->format('d/m/Y');
 @endphp
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Receipt {{ $order->code }}</title>
+    <title>{{ $isBill ? 'Bill' : 'Receipt' }} {{ $order->code }}</title>
 
     <style>
         @font-face {
             font-family: 'Urbanist';
             src: url('{{ asset('assets/fonts/Urbanist/static/Urbanist-Regular.ttf') }}') format('truetype');
-            font-weight: 400;
+            font-weight: 800;
             font-style: normal;
             font-display: swap;
         }
         @font-face {
             font-family: 'Urbanist';
             src: url('{{ asset('assets/fonts/Urbanist/static/Urbanist-Medium.ttf') }}') format('truetype');
-            font-weight: 500;
+            font-weight: 800;
             font-style: normal;
             font-display: swap;
         }
         @font-face {
             font-family: 'Urbanist';
             src: url('{{ asset('assets/fonts/Urbanist/static/Urbanist-SemiBold.ttf') }}') format('truetype');
-            font-weight: 600;
+            font-weight: 800;
             font-style: normal;
             font-display: swap;
         }
         @font-face {
             font-family: 'Urbanist';
             src: url('{{ asset('assets/fonts/Urbanist/static/Urbanist-Bold.ttf') }}') format('truetype');
-            font-weight: 700;
+            font-weight: 800;
             font-style: normal;
             font-display: swap;
         }
@@ -48,7 +49,7 @@
         body {
             font-family: 'Urbanist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             background: #ececec;
-            color: #111827;
+            color: black;
             min-height: 100vh;
             -webkit-font-smoothing: antialiased;
         }
@@ -68,7 +69,7 @@
         .toolbar a,
         .toolbar button {
             font-family: inherit;
-            font-size: 12px;
+            font-size: 15px;
             font-weight: 600;
             padding: 9px 14px;
             border-radius: 8px;
@@ -79,7 +80,7 @@
         }
 
         .toolbar .ghost { background: #fff; color: #374151; border-color: #d1d5db; }
-        .toolbar .primary { background: #111827; color: #fff; }
+        .toolbar .primary { background: black; color: #fff; }
 
         .stage {
             display: flex;
@@ -131,17 +132,17 @@
             gap: 4mm;
         }
         .meta-label {
-            font-size: 8.5px;
-            font-weight: 500;
+            font-size: 12px;
+            font-weight: 800;
             letter-spacing: .09em;
             text-transform: uppercase;
             color: #6b7280;
         }
         .meta-value {
-            font-size: 11px;
+            font-size: 14px;
             font-weight: 600;
             text-transform: uppercase;
-            color: #111827;
+            color: black;
             text-align: right;
             word-break: break-word;
         }
@@ -158,7 +159,7 @@
             table-layout: fixed;
         }
         .items thead th {
-            font-size: 8.5px;
+            font-size: 10px;
             font-weight: 600;
             letter-spacing: .09em;
             text-transform: uppercase;
@@ -167,19 +168,19 @@
             padding: 0 0 3mm;
         }
         .items tbody td {
-            font-size: 11px;
-            color: #111827;
+            font-size: 15px;
+            color: black;
             vertical-align: top;
             padding: 2.4mm 0;
         }
-        .items .c-item { width: 44%; text-transform: uppercase; font-weight: 500; padding-right: 2mm; }
-        .items .c-qty { width: 9%; text-align: center; }
-        .items .c-price { width: 24%; text-align: right; white-space: nowrap; padding-left: 2.5mm; }
-        .items .c-amount { width: 23%; text-align: right; white-space: nowrap; padding-left: 2.5mm; }
+        .items .c-item { width: 40%; text-transform: uppercase; font-weight: 800; padding-right: 2mm; }
+        .items .c-qty { width: 10%; text-align: center; }
+        .items .c-price { width: 25%; text-align: right; white-space: nowrap; padding-left: 2.5mm; }
+        .items .c-amount { width: 25%; text-align: right; white-space: nowrap; padding-left: 2.5mm; }
         .items .c-qty,
         .items .c-price { color: #374151; }
         .items tbody .c-price,
-        .items tbody .c-amount { font-size: 10.5px; }
+        .items tbody .c-amount { font-size: 12px; }
 
         .totals {
             margin-top: 5mm;
@@ -191,16 +192,16 @@
             align-items: baseline;
             justify-content: space-between;
             gap: 4mm;
-            font-size: 11px;
+            font-size: 15px;
         }
         .total-row .label {
-            font-size: 8.5px;
-            font-weight: 500;
+            font-size: 10px;
+            font-weight: 800;
             letter-spacing: .09em;
             text-transform: uppercase;
             color: #6b7280;
         }
-        .total-row .value { color: #111827; white-space: nowrap; }
+        .total-row .value { color: black; white-space: nowrap; }
         .total-row--muted .value { color: #9ca3af; }
         .total-row--grand {
             margin-top: 2mm;
@@ -210,19 +211,19 @@
         }
         .total-row--grand .label {
             font-size: 12px;
-            font-weight: 700;
-            color: #111827;
+            font-weight: 800;
+            color: black;
         }
         .total-row--grand .value {
             font-size: 17px;
-            font-weight: 700;
-            color: #111827;
+            font-weight: 800;
+            color: black;
         }
 
         .thanks { margin-top: 7mm; text-align: center; }
         .thanks p {
             margin: 0;
-            font-size: 8.5px;
+            font-size: 10px;
             letter-spacing: .14em;
             text-transform: uppercase;
             color: #9ca3af;
@@ -230,7 +231,7 @@
         .thanks .served-by {
             margin-bottom: 2mm;
             font-size: 9px;
-            font-weight: 600;
+            font-weight: 800;
             letter-spacing: .12em;
             color: #6b7280;
         }
@@ -266,7 +267,7 @@
 <body>
     <div class="toolbar">
         <a href="{{ route('orders') }}" class="ghost">&larr; Back to orders</a>
-        <button type="button" class="primary" onclick="window.print()">Print receipt</button>
+        <button type="button" class="primary" onclick="window.print()">{{ $isBill ? 'Print bill' : 'Print receipt' }}</button>
     </div>
 
     <main class="stage">
@@ -292,8 +293,8 @@
                         <span class="meta-value">{{ $receiptDate }}</span>
                     </div>
                     <div class="meta-row">
-                        <span class="meta-label">Paid with</span>
-                        <span class="meta-value">{{ $paidWith }}</span>
+                        <span class="meta-label">{{ $isBill ? 'Status' : 'Paid with' }}</span>
+                        <span class="meta-value">{{ $isBill ? 'UNPAID' : $paidWith }}</span>
                     </div>
                 </section>
 
@@ -334,14 +335,14 @@
                         <span class="value">&mdash;</span>
                     </div>
                     <div class="total-row total-row--grand">
-                        <span class="label">Total</span>
+                        <span class="label">{{ $isBill ? 'Total due' : 'Total' }}</span>
                         <span class="value">GH₵ {{ number_format($total, 2) }}</span>
                     </div>
                 </section>
 
                 <footer class="thanks">
                     <p class="served-by">Served by {{ mb_strtoupper($order->taken_by_name) }}</p>
-                    <p>Thank you for your patronage</p>
+                    <p>{{ $isBill ? 'Please settle at the counter' : 'Thank you for your patronage' }}</p>
                     <p class="thanks-code">{{ $order->code }}</p>
                 </footer>
             </div>

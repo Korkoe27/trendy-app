@@ -69,6 +69,8 @@
                 @if ($canServe)
                     <button wire:click="serve({{ $order['id'] }})" wire:loading.attr="disabled" class="px-3 py-2 text-sm font-semibold text-white bg-gray-900 rounded-lg hover:bg-black disabled:opacity-50">Serve to Table</button>
                 @endif
+                <a href="{{ route('orders.bill', $order['id']) }}" target="_blank" rel="noopener"
+                    class="px-3 py-2 text-sm font-semibold border border-gray-300 rounded-lg bg-white hover:bg-gray-50" data-testid="print-bill">Print bill</a>
                 @if ($manage)
                     <button wire:click="openCloseModal({{ $order['id'] }})" class="px-3 py-2 text-sm font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700">Close Tab</button>
                 @endif
@@ -76,6 +78,8 @@
                 @if ($manage)
                     <button wire:click="openAddItems({{ $order['id'] }})" class="px-3 py-2 text-sm font-semibold border border-gray-300 rounded-lg bg-white hover:bg-gray-50">+ Add Items</button>
                 @endif
+                <a href="{{ route('orders.bill', $order['id']) }}" target="_blank" rel="noopener"
+                    class="px-3 py-2 text-sm font-semibold border border-gray-300 rounded-lg bg-white hover:bg-gray-50" data-testid="print-bill">Print bill</a>
                 @if ($manage)
                     <button wire:click="openCloseModal({{ $order['id'] }})" class="px-3 py-2 text-sm font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700">Close Tab</button>
                 @endif
