@@ -9,6 +9,7 @@ use App\Livewire\Pages\CoinRequests;
 use App\Livewire\Pages\Dashboard;
 use App\Livewire\Pages\DebtPayments;
 use App\Livewire\Pages\Inventory;
+use App\Livewire\Pages\Kitchen;
 use App\Livewire\Pages\Logs;
 use App\Livewire\Pages\Orders;
 use App\Livewire\Pages\Products;
@@ -16,6 +17,7 @@ use App\Livewire\Pages\Settings;
 use App\Livewire\Pages\Spending;
 use App\Livewire\Pages\StockMovements;
 use App\Livewire\Pages\Stocks;
+use App\Livewire\Pages\Suppliers;
 use App\Livewire\Pages\Users;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
@@ -42,11 +44,15 @@ Route::middleware(['auth', 'must.change.password'])->group(function () {
 
     Route::get('orders', Orders::class)->name('orders')->middleware('permission:orders,view');
 
+    Route::get('kitchen', Kitchen::class)->name('kitchen')->middleware('permission:kitchen,view');
+
     Route::get('coin-requests', CoinRequests::class)->name('coin-requests')->middleware('permission:coin_requests,view');
 
     Route::get('products', Products::class)->name('products')->middleware('permission:products,view');
 
     Route::get('stocks', Stocks::class)->name('stocks')->middleware('permission:stocks,view');
+
+    Route::get('suppliers', Suppliers::class)->name('suppliers')->middleware('permission:suppliers,view');
 
     Route::get('stock-movements', StockMovements::class)->name('stock-movements')->middleware('permission:stocks,modify');
 

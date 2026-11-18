@@ -20,7 +20,7 @@ class StocksSheet implements FromCollection, WithHeadings, WithTitle, WithMappin
         $this->endDate = $endDate;
     }
 
-    public function collection()
+    public function collection(): \Illuminate\Support\Collection
     {
         return DB::table('stocks')
             ->join('products', 'stocks.product_id', '=', 'products.id')

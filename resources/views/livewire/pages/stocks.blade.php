@@ -239,7 +239,7 @@
     <!-- Add New Stock Modal -->
     @if ($addNewStockModal)
         <div class="fixed inset-0 bg-black/50 bg-opacity-50 flex items-center justify-center z-50">
-            <div class="bg-white roundead-lg p-6 w-full max-w-9/12 mx-4 max-h-[90vh] overflow-y-auto">
+            <div class="bg-white rounded-lg p-6 w-full max-w-9/12 mx-4 max-h-[90vh] overflow-y-auto">
                 <div class="flex justify-between items-center mb-6">
                     <h3 class="text-xl font-semibold text-gray-900">Add New Stock</h3>
 
@@ -393,7 +393,13 @@
     class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm {{ !empty($item['supplier_id']) ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : '' }}"
 />
                                                     </div>
-                                                    
+
+                                                    @if (!empty($item['supplier_unit_cost']))
+                                                        <p class="text-xs text-emerald-600 font-medium leading-tight">
+                                                            ₵{{ number_format($item['supplier_unit_cost'], 2) }}/unit — total cost auto-filled
+                                                        </p>
+                                                    @endif
+
                                                     @error('newStockItems.' . $index . '.supplier_id')
                                                         <div class="text-red-500 text-xs mt-1">{{ $message }}</div>
                                                     @enderror

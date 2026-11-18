@@ -75,6 +75,11 @@ class Product extends Model
         return $this->isSoldOut() || $this->isOutOfStock();
     }
 
+    public function isFood(): bool
+    {
+        return (bool) $this->category?->isFood();
+    }
+
     public function isGame(): bool
     {
         return (bool) $this->category?->isGames();
@@ -82,6 +87,19 @@ class Product extends Model
 
     public function stocks(){
         return $this->hasMany(Stock::class)->orderBy('created_at', 'desc');
+    }
+
+    /** The catalog rows linking this product to the suppliers who sell it, with prices. */
+    public function supplierProducts()
+    {
+        return $this->hasMany(SupplierProduct::class);
+    }
+
+    public function suppliers()
+    {
+        return $this->belongsToMany(Supplier::class, 'supplier_product')
+            ->withPivot(['unit_cost', 'supplier_sku', 'units_per_box', 'is_preferred', 'is_active'])
+            ->withTimestamps();
     }
 
     public function currentStock()
@@ -104,8 +122,4 @@ class Product extends Model
         return $this->hasMany(CoinSales::class);
     }
 
-    public function foodSales(){
-        //add condition to check if product is a food product like pizza
-        return $this->hasMany(FoodSales::class);
-    }
 }

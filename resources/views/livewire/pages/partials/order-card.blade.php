@@ -35,7 +35,11 @@
         @foreach ($order['items'] as $item)
             @php($isNew = $order['is_new_round'] && $item['status'] === 'pending')
             <li class="flex items-center justify-between gap-2 text-sm font-medium text-gray-800 {{ $isNew ? 'bg-red-50 -mx-2 px-2 py-1 rounded-md' : '' }}">
-                <span>{{ $item['quantity'] }}x {{ $item['name'] }}</span>
+                <span>{{ $item['quantity'] }}x {{ $item['name'] }}
+                    @if (($item['station'] ?? 'bar') === 'kitchen')
+                        <span class="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold {{ $item['status'] === 'ready' ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800' }}" data-testid="kitchen-item-tag">Kitchen{{ $item['status'] === 'ready' ? ' ✓' : '' }}</span>
+                    @endif
+                </span>
                 @if ($isNew)
                     <span class="px-2 py-0.5 rounded-full bg-red-600 text-white text-[10px] font-bold uppercase tracking-wide" data-testid="new-item-tag">New</span>
                 @endif
@@ -55,8 +59,11 @@
                 @if ($manage || $canReady)
                     <button wire:click="openAddItems({{ $order['id'] }})" class="px-3 py-2 text-sm font-semibold border border-gray-300 rounded-lg bg-gray-50 hover:bg-gray-100">Edit</button>
                 @endif
-                @if ($canReady)
-                    <button wire:click="markReady({{ $order['id'] }})" wire:loading.attr="disabled" class="px-3 py-2 text-sm font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50">Order Ready ✓</button>
+                @if ($canReady && ($order['bar_pending'] ?? true))
+                    <button wire:click="markReady({{ $order['id'] }})" wire:loading.attr="disabled" class="px-3 py-2 text-sm font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50">{{ ($order['kitchen_pending'] ?? false) ? 'Drinks Ready ✓' : 'Order Ready ✓' }}</button>
+                @endif
+                @if ($order['kitchen_pending'] ?? false)
+                    <span class="px-3 py-2 text-xs font-semibold text-orange-800 bg-orange-50 border border-orange-200 rounded-lg" data-testid="waiting-kitchen">Waiting for the kitchen</span>
                 @endif
             @elseif ($status === 'ready')
                 @if ($canServe)

@@ -80,6 +80,7 @@ class OrderService
 
             $this->insertItems($order, $lines, $staff);
             $this->recalculate($order);
+            app(FoodOrderService::class)->sync($order);
 
             $this->log($staff, 'order_create', "Placed {$order->code} for {$order->customer_name}", $order, ['total' => (float) $order->total]);
 
@@ -187,6 +188,7 @@ class OrderService
                 'notes' => $notes ? trim(($order->notes ? $order->notes."\n" : '').$notes) : $order->notes,
             ]);
             $this->recalculate($order);
+            app(FoodOrderService::class)->sync($order);
 
             $this->log($staff, 'order_add_items', "Added items to {$order->code}", $order, [
                 'items' => collect($lines)->map(fn ($l) => $l['product_name'].' x'.$l['quantity'])->all(),
@@ -232,6 +234,7 @@ class OrderService
 
             $this->syncStatus($order);
             $this->recalculate($order);
+            app(FoodOrderService::class)->sync($order);
 
             $this->log($staff, 'order_edit_item', "Changed {$item->product_name} on {$order->code}", $order, [
                 'item' => $item->product_name,
@@ -243,22 +246,46 @@ class OrderService
         });
     }
 
-    /** Bartender: everything waiting on the order has been prepared. */
-    public function markReady(Order $order, User $staff): Order
+    /**
+     * The bar marks its drinks ready, the kitchen marks its food ready. The order becomes ready for
+     * pickup once nothing is left to prepare at either.
+     *
+     * @throws \DomainException
+     */
+    public function markReady(Order $order, User $staff, string $station = OrderItem::STATION_BAR): Order
     {
-        return $this->locked($order, function (Order $order) use ($staff) {
+        $kitchen = $station === OrderItem::STATION_KITCHEN;
+
+        // The page already limits the bar's button to orders, modify; the kitchen's right is checked here too
+        // so nobody else (the bartender included) can mark food ready.
+        if ($kitchen && ! $staff->hasPermission('modify', 'kitchen')) {
+            throw new \DomainException('Only the kitchen can mark food as ready.');
+        }
+
+        return $this->locked($order, function (Order $order) use ($staff, $station, $kitchen) {
             if ($order->status !== Order::STATUS_PENDING) {
                 throw new \DomainException('This order is not waiting to be prepared.');
             }
 
-            $order->items()->where('status', OrderItem::STATUS_PENDING)->update([
+            $waiting = $order->items()->where('status', OrderItem::STATUS_PENDING)->where('station', $station);
+
+            if (! $waiting->exists()) {
+                throw new \DomainException($kitchen ? 'There is no food waiting on this order.' : 'There are no drinks waiting on this order.');
+            }
+
+            $waiting->update([
                 'status' => OrderItem::STATUS_READY,
                 'ready_at' => now(),
+                'ready_by' => $staff->id,
             ]);
 
-            $order->update(['status' => Order::STATUS_READY, 'ready_at' => now(), 'ready_by' => $staff->id]);
+            if (! $order->items()->where('status', OrderItem::STATUS_PENDING)->exists()) {
+                $order->update(['status' => Order::STATUS_READY, 'ready_at' => now(), 'ready_by' => $staff->id]);
+            }
 
-            $this->log($staff, 'order_ready', "{$order->code} marked ready", $order);
+            app(FoodOrderService::class)->sync($order);
+
+            $this->log($staff, 'order_ready', $kitchen ? "{$order->code}: food marked ready" : "{$order->code}: drinks marked ready", $order);
 
             return $order;
         });
@@ -278,6 +305,7 @@ class OrderService
             }
 
             $order->update(['status' => Order::STATUS_SERVED, 'served_at' => now()]);
+            app(FoodOrderService::class)->markPickedUp($order, $staff);
 
             $this->log($staff, 'order_served', "{$order->code} served", $order);
 
@@ -333,6 +361,7 @@ class OrderService
                 'cancelled_by' => $staff->id,
                 'cancel_reason' => $reason,
             ]);
+            app(FoodOrderService::class)->cancelFor($order);
 
             $this->log($staff, 'order_cancel', "Cancelled {$order->code}", $order, ['reason' => $reason, 'total' => (float) $order->total]);
 
@@ -505,6 +534,8 @@ class OrderService
                 'unit_price' => $quotes[$productId]['price'],
                 'price_event_id' => $quotes[$productId]['event']?->id,
                 'quantity' => $quantity,
+                // Food is prepared by the kitchen; everything else by the bar.
+                'station' => $product->isFood() ? OrderItem::STATION_KITCHEN : OrderItem::STATION_BAR,
             ];
         }
 
@@ -561,6 +592,7 @@ class OrderService
                 'quantity' => $line['quantity'],
                 'line_total' => round($line['unit_price'] * $line['quantity'], 2),
                 'status' => OrderItem::STATUS_PENDING,
+                'station' => $line['station'] ?? OrderItem::STATION_BAR,
                 'added_by' => $staff->id,
                 'added_by_name' => $staff->name ?? 'Unknown',
             ]);
@@ -699,11 +731,15 @@ class OrderService
                 'created_at' => $order->created_at->toIso8601String(),
                 'is_new_round' => $order->status === Order::STATUS_PENDING && $hasReadyItems,
                 'payment_pending' => $awaitingPayment->has($order->id),
+                // What the bar and the kitchen still have to prepare.
+                'bar_pending' => $order->items->contains(fn ($i) => $i->station === OrderItem::STATION_BAR && ! $i->isLocked()),
+                'kitchen_pending' => $order->items->contains(fn ($i) => $i->station === OrderItem::STATION_KITCHEN && ! $i->isLocked()),
                 'items' => $order->items->map(fn (OrderItem $i) => [
                     'id' => $i->id,
                     'name' => $i->product_name,
                     'quantity' => $i->quantity,
                     'status' => $i->status,
+                    'station' => $i->station,
                     'line_total' => (float) $i->line_total,
                 ])->all(),
             ];

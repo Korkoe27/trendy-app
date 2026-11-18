@@ -38,4 +38,9 @@ class Stock extends Model
     {
         return $this->belongsTo(Supplier::class);
     }
+
+    public function supplierProduct()
+    {
+        return $this->belongsTo(SupplierProduct::class, 'supplier_product_id');
+    }
 }

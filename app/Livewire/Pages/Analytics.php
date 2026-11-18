@@ -41,6 +41,9 @@ public $chartsLoaded = false;
     public $totalExpenses = 0;
     public $expensesGrowth = 0;
 
+    // Supplier Metrics
+    public $supplierSpend = [];
+
     // Profit Metrics
     public $totalProfit = 0;
     public $averageProfitMargin = 0;
@@ -140,6 +143,7 @@ public function loadMetrics()
     $this->calculateSnookerMetrics();
     $this->calculateSalesMetrics();
     $this->calculateExpenseMetrics();
+    $this->calculateSupplierMetrics();
     $this->calculateProfitMetrics();
     $this->calculateLossMetrics();
     $this->calculateFoodSalesMetrics();
@@ -385,6 +389,40 @@ private function calculateExpenseMetrics()
     Log::info('Analytics: Expenses calculated', [
         'total_expenses' => $this->totalExpenses,
     ]);
+}
+
+/**
+ * Supplier spend for the selected period, from purchase history (stocks).
+ * The supplier_id FK makes this reliable where the free-text expenses.supplier is not.
+ */
+private function calculateSupplierMetrics()
+{
+    $rows = DB::table('stocks as s')
+        ->join('suppliers as sp', 'sp.id', '=', 's.supplier_id')
+        ->whereBetween('s.restock_date', [$this->startDate, $this->endDate])
+        ->selectRaw('
+            sp.id,
+            sp.name,
+            SUM(s.total_cost) as total_cost,
+            COUNT(s.id) as purchases,
+            SUM(s.total_units) as units
+        ')
+        ->groupBy('sp.id', 'sp.name')
+        ->orderByDesc('total_cost')
+        ->get();
+
+    $grandTotal = (float) $rows->sum('total_cost');
+
+    $this->supplierSpend = $rows->map(function ($row) use ($grandTotal) {
+        return [
+            'supplier_id' => $row->id,
+            'name' => $row->name,
+            'total_cost' => (float) $row->total_cost,
+            'purchases' => (int) $row->purchases,
+            'units' => (float) $row->units,
+            'share' => $grandTotal > 0 ? round(((float) $row->total_cost / $grandTotal) * 100, 1) : 0,
+        ];
+    })->toArray();
 }
 
 private function calculateProfitMetrics()

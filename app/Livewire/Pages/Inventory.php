@@ -10,6 +10,7 @@ use App\Models\DailySalesSummary;
 use App\Models\Product;
 use App\Models\Stock;
 use App\Services\CoinRequestService;
+use App\Services\FoodSalesService;
 use App\Services\PriceService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
@@ -116,7 +117,6 @@ class Inventory extends Component
         'cashAmount' => 'required|numeric|min:0',
         'momoAmount' => 'required|numeric|min:0',
         'hubtelAmount' => 'required|numeric|min:0',
-        'foodTotal' => 'required|numeric|min:0',
         'onTheHouse' => 'nullable|numeric|min:0',
     ];
 
@@ -197,6 +197,44 @@ class Inventory extends Component
             'amount' => $save['snooker'],
             'recorded_earlier' => $save['snooker_expected'] === null,
             'waiting' => (int) CoinRequest::whereDate('business_date', Carbon::parse($date)->toDateString())->where('status', CoinRequest::STATUS_REQUESTED)->count(),
+        ];
+    }
+
+    /**
+     * The food revenue stored on the day: what the food orders for that sales date came to. The one
+     * exception is correcting an old day recorded before food orders existed (a typed amount, no
+     * food orders and no saved summary): it keeps the amount it already had.
+     *
+     * @return array{amount: float, record: bool} record = also save the day's food summary
+     */
+    private function foodForSave($date): array
+    {
+        $food = app(FoodSalesService::class);
+        $date = $date ?: $this->defaultRecordDate();
+        $day = $food->forDate($date);
+        $original = $this->isEditing ? $this->editingOriginalRecord : null;
+
+        if ($original && $day['orders'] === 0 && ! $food->recordedOn($date)) {
+            return ['amount' => (float) $original['food_total'], 'record' => false];
+        }
+
+        return ['amount' => $day['revenue'], 'record' => true];
+    }
+
+    /** What the form shows in place of a Food total box for the chosen sales date. */
+    public function getFoodSummaryProperty(): array
+    {
+        $date = $this->salesDate ?: $this->defaultRecordDate();
+        $day = app(FoodSalesService::class)->forDate($date);
+        $save = $this->foodForSave($date);
+
+        return [
+            'amount' => $save['amount'],
+            'orders' => $day['orders'],
+            'items' => $day['items'],
+            'unfinished' => $day['unfinished'],
+            'breakdown' => $day['breakdown'],
+            'recorded_earlier' => ! $save['record'],
         ];
     }
 
@@ -400,7 +438,6 @@ class Inventory extends Component
                     'cashAmount' => 'required|numeric|min:0',
                     'momoAmount' => 'required|numeric|min:0',
                     'hubtelAmount' => 'required|numeric|min:0',
-                    'foodTotal' => 'required|numeric|min:0',
                     'onTheHouse' => 'nullable|numeric|min:0',
                 ]);
             } catch (\Illuminate\Validation\ValidationException $e) {
@@ -714,7 +751,7 @@ class Inventory extends Component
                 'total_cash' => (float) $this->cashAmount,
                 'total_momo' => (float) $this->momoAmount,
                 'total_hubtel' => (float) $this->hubtelAmount,
-                'food_total' => (float) $this->foodTotal,
+                'food_total' => $this->foodForSave($salesDate)['amount'],
                 ...$this->snookerForSave($salesDate),
                 'on_the_house' => (float) $this->onTheHouse,
                 'total_money' => $totalMoney, // This is correct now
@@ -726,6 +763,10 @@ class Inventory extends Component
             }
 
             $summary->update($updateData);
+
+            if ($this->foodForSave($salesDate)['record']) {
+                app(FoodSalesService::class)->record($salesDate, Auth::user());
+            }
 
             Log::info('Summary updated', $updateData);
 
@@ -793,7 +834,6 @@ class Inventory extends Component
                 'cashAmount' => 'required|numeric|min:0',
                 'momoAmount' => 'required|numeric|min:0',
                 'hubtelAmount' => 'required|numeric|min:0',
-                'foodTotal' => 'required|numeric|min:0',
                 'onTheHouse' => 'nullable|numeric|min:0',
             ]);
         }
@@ -871,7 +911,6 @@ class Inventory extends Component
             'cashAmount' => 'required|numeric|min:0',
             'momoAmount' => 'required|numeric|min:0',
             'hubtelAmount' => 'required|numeric|min:0',
-            'foodTotal' => 'required|numeric|min:0',
             'onTheHouse' => 'nullable|numeric|min:0',
         ]);
 
@@ -1111,7 +1150,7 @@ class Inventory extends Component
                     'total_cash' => (float) $this->cashAmount,
                     'total_momo' => (float) $this->momoAmount,
                     'total_hubtel' => (float) $this->hubtelAmount,
-                    'food_total' => (float) $this->foodTotal,
+                    'food_total' => $this->foodForSave($recordDate)['amount'],
                     'on_the_house' => (float) $this->onTheHouse,
                     ...$this->snookerForSave($recordDate),
                     'product_id' => $mostSoldProductId,
@@ -1122,6 +1161,10 @@ class Inventory extends Component
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]);
+
+                if ($this->foodForSave($recordDate)['record']) {
+                    app(FoodSalesService::class)->record($recordDate, Auth::user());
+                }
 
                 DB::table('activity_logs')->insert([
                     'user_id' => Auth::id(),

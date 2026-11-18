@@ -8,6 +8,7 @@ use App\Models\Expense;
 use App\Models\Product;
 use App\Models\Stock;
 use App\Models\Supplier;
+use App\Models\SupplierProduct;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -203,6 +204,7 @@ use Livewire\WithPagination;
                     'total_cost' => '',
                     'supplier_id' => '',
                     'new_supplier_name' => '',
+                    'supplier_unit_cost' => null,
                     'calculated_cost_price' => 0,
                     'calculated_profit_margin' => 0,
                 ],
@@ -222,6 +224,7 @@ use Livewire\WithPagination;
                 'total_cost' => '',
                 'supplier_id' => '', // Changed from 'supplier'
                 'new_supplier_name' => '',
+                'supplier_unit_cost' => null,
                 'calculated_cost_price' => 0,
                 'calculated_profit_margin' => 0,
             ];
@@ -377,31 +380,90 @@ use Livewire\WithPagination;
     public function updatedNewStockItems($value, $key)
     {
         $parts = explode('.', $key);
-        $index = $parts[0];
-        $field = $parts[1];
+        $index = (int) ($parts[0] ?? 0);
+        $field = $parts[1] ?? '';
+
+        if (! isset($this->newStockItems[$index])) {
+            return;
+        }
 
         // Mutual exclusion: picking from dropdown clears new name, and vice versa
         if ($field === 'supplier_id' && ! empty($value)) {
             $this->newStockItems[$index]['new_supplier_name'] = '';
-            return;
         }
 
         if ($field === 'new_supplier_name' && ! empty($value)) {
             $this->newStockItems[$index]['supplier_id'] = '';
+            $this->newStockItems[$index]['supplier_unit_cost'] = null;
         }
 
-        if (! isset($this->newStockItems[$index]['product_id']) || empty($this->newStockItems[$index]['product_id'])) {
+        if (empty($this->newStockItems[$index]['product_id'])) {
+            if ($field === 'product_id') {
+                $this->newStockItems[$index]['supplier_unit_cost'] = null;
+            }
+
             return;
         }
 
-        if (in_array($field, ['input_units', 'total_cost'])) {
-            if ($this->editStockModal) {
-                $this->newStockItems[$index]['calculated_total_units'] = (int) ($this->newStockItems[$index]['input_units'] ?? 0);
-            } else {
-                $this->calculateTotalUnits($index);
-            }
-            $this->calculateCostAndMargin($index);
+        if (in_array($field, ['input_units', 'input_boxes'])) {
+            $this->calculateTotalUnits($index);
         }
+
+        // Re-apply the supplier's price when product/supplier/units change.
+        if (in_array($field, ['product_id', 'supplier_id', 'input_units', 'input_boxes'])) {
+            $this->applySupplierPrice($index);
+        }
+
+        $this->calculateCostAndMargin($index);
+    }
+
+    /**
+     * Look up the price a supplier charges for a product and auto-fill total cost.
+     * Falls back to the most recent purchase price when no catalog row exists yet.
+     */
+    private function applySupplierPrice(int $index): void
+    {
+        $item = $this->newStockItems[$index] ?? [];
+        $productId = (int) ($item['product_id'] ?? 0);
+        $supplierId = (int) ($item['supplier_id'] ?? 0);
+
+        $this->newStockItems[$index]['supplier_unit_cost'] = null;
+
+        if (! $productId || ! $supplierId) {
+            return;
+        }
+
+        $unitCost = $this->resolveUnitCost($productId, $supplierId);
+
+        if ($unitCost === null || $unitCost <= 0) {
+            return;
+        }
+
+        $this->newStockItems[$index]['supplier_unit_cost'] = round($unitCost, 2);
+
+        $paidUnits = (int) ($this->newStockItems[$index]['calculated_total_units'] ?? 0);
+
+        if ($paidUnits > 0) {
+            $this->newStockItems[$index]['total_cost'] = round($unitCost * $paidUnits, 2);
+        }
+    }
+
+    private function resolveUnitCost(int $productId, int $supplierId): ?float
+    {
+        $catalog = SupplierProduct::where('supplier_id', $supplierId)
+            ->where('product_id', $productId)
+            ->first();
+
+        if ($catalog) {
+            return (float) $catalog->unit_cost;
+        }
+
+        $last = Stock::where('product_id', $productId)
+            ->where('supplier_id', $supplierId)
+            ->latest('created_at')
+            ->value('cost_price');
+
+        return $last !== null ? (float) $last : null;
     }
 
         /**
@@ -522,6 +584,29 @@ use Livewire\WithPagination;
             }
 
             return null;
+        }
+
+        /**
+         * Upsert the supplier_product catalog row for a purchase and return its id.
+         * The first purchase seeds the catalog price; later purchases only update the
+         * last-paid snapshot so an admin-pinned price on the Suppliers page is respected.
+         */
+        private function syncSupplierProduct(int $supplierId, int $productId, float $unitCost): int
+        {
+            $row = SupplierProduct::firstOrNew([
+                'supplier_id' => $supplierId,
+                'product_id' => $productId,
+            ]);
+
+            if (! $row->exists) {
+                $row->unit_cost = round($unitCost, 2);
+            }
+
+            $row->last_purchase_price = round($unitCost, 2);
+            $row->last_purchased_at = now();
+            $row->save();
+
+            return $row->id;
         }
 
         /**
@@ -743,10 +828,21 @@ use Livewire\WithPagination;
                     $costPrice = $totalUnitsToAdd > 0 ? $totalCost / $totalUnitsToAdd : 0;
                     $costMargin = (float) $product->selling_price - $costPrice;
 
+                    // Keep the supplier_product catalog in sync with this purchase and
+                    // trace the stock row back to the catalog entry that priced it.
+                    // Seed the catalog price from the paid-unit price (free units excluded)
+                    // so the next auto-calculation reflects what the supplier actually charges.
+                    $paidUnits = (int) $item['calculated_total_units'];
+                    $paidUnitCost = $paidUnits > 0 ? $totalCost / $paidUnits : $costPrice;
+                    $supplierProductId = $supplierId
+                        ? $this->syncSupplierProduct($supplierId, $product->id, $paidUnitCost)
+                        : null;
+
                     $newStockId = DB::table('stocks')->insertGetId([
                         'product_id' => $product->id,
                         'total_units' => $cumulativeTotalUnits,   // running total becomes current stock
                         'supplier_id' => $supplierId,
+                        'supplier_product_id' => $supplierProductId,
                         'total_cost' => $totalCost,               // cost of THIS purchase only
                         'cost_price' => round($costPrice, 2),     // cost per unit of THIS purchase
                         'cost_margin' => round($costMargin, 2),   // margin based on THIS purchase cost
@@ -769,11 +865,19 @@ use Livewire\WithPagination;
                             'free_units' => $freeUnits,
                             'total_cost' => $totalCost,
                             'supplier_id' => $supplierId,
+                            'supplier_product_id' => $supplierProductId,
                         ]),
                         'created_by' => Auth::id(),
                         'created_at' => now(),
                         'updated_at' => now(),
                     ]);
+
+                    // Maintain the supplier's first/last purchase profile fields.
+                    if ($supplier) {
+                        $supplier->first_purchase_at = $supplier->first_purchase_at ?? Carbon::parse($restockDate);
+                        $supplier->last_purchase_at = Carbon::parse($restockDate);
+                        $supplier->save();
+                    }
 
                     $productDetails[] = [
                         'name' => $product->name,

@@ -434,6 +434,48 @@
             </div>
         </div>
 
+        {{-- Supplier spend --}}
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2 mb-4">
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-900">Supplier Spend</h3>
+                    <p class="text-sm text-gray-500">Stock purchases by supplier in this period.</p>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase">Supplier</th>
+                            <th class="px-4 py-2 text-right text-xs font-semibold text-gray-500 uppercase">Spend</th>
+                            <th class="px-4 py-2 text-right text-xs font-semibold text-gray-500 uppercase">Purchases</th>
+                            <th class="px-4 py-2 text-right text-xs font-semibold text-gray-500 uppercase">Units</th>
+                            <th class="px-4 py-2 text-right text-xs font-semibold text-gray-500 uppercase">Share</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+                        @forelse (array_slice($supplierSpend, 0, 10) as $supplier)
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-4 py-2 text-sm text-gray-900">{{ $supplier['name'] }}</td>
+                            <td class="px-4 py-2 text-sm text-gray-900 text-right">GH₵ {{ number_format($supplier['total_cost'], 2) }}</td>
+                            <td class="px-4 py-2 text-sm text-gray-600 text-right">{{ $supplier['purchases'] }}</td>
+                            <td class="px-4 py-2 text-sm text-gray-600 text-right">{{ number_format($supplier['units']) }}</td>
+                            <td class="px-4 py-2 text-right">
+                                <span class="text-sm text-gray-600">{{ $supplier['share'] }}%</span>
+                                <div class="w-20 inline-block bg-gray-200 rounded-full h-1.5 ml-2 align-middle">
+                                    <div class="bg-indigo-500 h-1.5 rounded-full" style="width: {{ min(100, $supplier['share']) }}%"></div>
+                                </div>
+                            </td>
+                        </tr>
+                        @empty
+                        <tr><td colspan="5" class="px-4 py-6 text-center text-sm text-gray-500">No supplier spend recorded in this period.</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
         {{-- Staff performance (from orders) --}}
         <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6" data-testid="staff-performance">
             <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2 mb-4">
@@ -483,7 +525,7 @@
             </div>
 
             @if (! empty($barPerformance))
-                <h4 class="mt-6 mb-2 text-sm font-semibold text-gray-900">Bar: preparing orders</h4>
+                <h4 class="mt-6 mb-2 text-sm font-semibold text-gray-900">Preparing orders (bar and kitchen)</h4>
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3" data-testid="bar-performance">
                     @foreach ($barPerformance as $bar)
                         <div class="p-3 bg-gray-50 rounded-lg" wire:key="bar-{{ $bar['user_id'] }}">

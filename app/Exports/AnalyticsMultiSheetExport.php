@@ -2,13 +2,15 @@
 
 namespace App\Exports;
 
+use Maatwebsite\Excel\Concerns\Export;
 use Maatwebsite\Excel\Concerns\WithMultipleSheets;
 use App\Exports\Sheets\AnalyticsSummarySheet;
 use App\Exports\Sheets\ProductsSheet;
 use App\Exports\Sheets\StocksSheet;
 use App\Exports\Sheets\DailySalesSheet;
 
-class AnalyticsMultiSheetExport implements WithMultipleSheets
+// maatwebsite/excel 4 only accepts classes that implement Export (the FromCollection sheets already do).
+class AnalyticsMultiSheetExport implements Export, WithMultipleSheets
 {
     private $startDate;
     private $endDate;

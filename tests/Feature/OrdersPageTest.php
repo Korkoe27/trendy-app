@@ -64,6 +64,12 @@ class OrdersPageTest extends TestCase
         return $this->userWith(['orders' => ['view', 'modify']], 'Akua');
     }
 
+    /** The chef marks food ready; drinks are the bartender's. */
+    private function chef(): User
+    {
+        return $this->userWith(['kitchen' => ['view', 'create', 'modify']], 'Kofi Chef');
+    }
+
     private function order(User $by, ?array $items = null): Order
     {
         return app(OrderService::class)->place($by, 'Kwame Mensah', '0241234567', $items ?? [$this->beer => 2]);
@@ -140,6 +146,7 @@ class OrdersPageTest extends TestCase
 
         $paid = $orders->place($waiter, 'Kwame Mensah', '0241234567', [$this->beer => 2, $this->jollof => 1, ], 'Table 4');
         $orders->markReady($paid, $bartender);
+        $orders->markReady($paid, $this->chef(), 'kitchen');
         $orders->closeWithCash($paid, $waiter);
 
         $cancelled = $orders->place($waiter, 'Ama Serwaa', '0249999999', [$this->beer => 1]);
@@ -226,6 +233,9 @@ class OrdersPageTest extends TestCase
         Livewire::test(Orders::class)
             ->assertSee('Kwame Mensah')
             ->call('markReady', $order->id);
+        $this->assertSame('pending', $order->fresh()->status, 'the drinks are ready, the food is still with the kitchen');
+
+        app(OrderService::class)->markReady($order, $this->chef(), 'kitchen');
         $this->assertSame('ready', $order->fresh()->status);
 
         // Waiter serves it, adds a round, it goes back to the bartender, then the tab is closed with cash.
@@ -241,8 +251,7 @@ class OrdersPageTest extends TestCase
         $this->assertSame('pending', $order->fresh()->status);
         $this->assertSame('210.00', $order->fresh()->total);
 
-        $this->actingAs($bartender);
-        Livewire::test(Orders::class)->call('markReady', $order->id);
+        app(OrderService::class)->markReady($order, $this->chef(), 'kitchen'); // the new round is food only
 
         $this->actingAs($waiter);
         Livewire::test(Orders::class)

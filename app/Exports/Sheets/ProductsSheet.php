@@ -11,7 +11,7 @@ use App\Models\Product;
 
 class ProductsSheet implements FromCollection, WithHeadings, WithTitle, WithMapping, ShouldAutoSize
 {
-    public function collection()
+    public function collection(): \Illuminate\Support\Collection
     {
         return Product::with('category')
             ->where('is_active', true)

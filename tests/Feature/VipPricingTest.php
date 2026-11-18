@@ -181,7 +181,7 @@ class VipPricingTest extends TestCase
 
     public function test_scheduling_rules(): void
     {
-        $price = fn (string $start, ?string $end = null, array $prices = null) => fn () => $this->prices()->scheduleCustom($this->admin, $start, $end ?? $start, $prices ?? [$this->beer => '12']);
+        $price = fn (string $start, ?string $end = null, ?array $prices = null) => fn () => $this->prices()->scheduleCustom($this->admin, $start, $end ?? $start, $prices ?? [$this->beer => '12']);
 
         $cases = [
             'nothing priced' => $price('2026-10-30', null, []),

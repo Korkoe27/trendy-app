@@ -84,12 +84,15 @@ class OrderStatistics
             ];
         })->sortByDesc('revenue')->values()->all();
 
-        // The bar: each item's wait from being added to being marked ready, credited to whoever marked the order ready.
+        // Preparing orders (the bar and the kitchen): each item's wait from being added to being marked ready,
+        // credited to whoever marked it. Items prepared before items carried their own marker fall back to the order's.
         $prep = $this->orders($from, $to)
             ->join('order_items', 'order_items.order_id', '=', 'orders.id')
-            ->whereNotNull('orders.ready_by')->whereNotNull('order_items.ready_at')
-            ->leftJoin('users', 'users.id', '=', 'orders.ready_by')
-            ->get(['orders.ready_by', 'users.name as bartender', 'order_items.created_at as added_at', 'order_items.ready_at as item_ready_at', 'orders.id as order_id'])
+            ->whereNotNull('order_items.ready_at')
+            ->whereRaw('COALESCE(order_items.ready_by, orders.ready_by) IS NOT NULL')
+            ->leftJoin('users', 'users.id', '=', DB::raw('COALESCE(order_items.ready_by, orders.ready_by)'))
+            ->selectRaw('COALESCE(order_items.ready_by, orders.ready_by) as ready_by, users.name as bartender, order_items.created_at as added_at, order_items.ready_at as item_ready_at, orders.id as order_id')
+            ->get()
             ->groupBy('ready_by');
 
         $bar = $prep->map(function ($group, $userId) {

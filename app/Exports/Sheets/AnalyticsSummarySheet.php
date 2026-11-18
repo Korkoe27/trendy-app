@@ -20,7 +20,7 @@ class AnalyticsSummarySheet implements FromCollection, WithHeadings, WithTitle, 
         $this->endDate = $endDate;
     }
 
-    public function collection()
+    public function collection(): \Illuminate\Support\Collection
     {
         return DB::table('daily_sales_summaries')
             ->whereBetween('sales_date', [$this->startDate, $this->endDate])

@@ -406,10 +406,22 @@
                             Food Total (GH₵)
                         </span>
                     </label>
-                    <input type="text" pattern="[0-9]*" oninput="this.value = this.value.replace(/[^0-9]/g, '');"
-                        wire:model.defer="foodTotal" placeholder="0.00"
-                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
-                    @error('foodTotal') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
+                    {{-- Food is not typed: it is the revenue of the food orders for the sales date --}}
+                    @php $foodCheck = $this->foodSummary; @endphp
+                    <div class="w-full px-4 py-3 border border-amber-200 bg-amber-50 rounded-lg" data-testid="food-revenue">
+                        <p class="text-2xl font-bold text-amber-900">GH₵ {{ number_format($foodCheck['amount'], 2) }}</p>
+                        @if ($foodCheck['recorded_earlier'])
+                            <p class="text-sm text-amber-800">Recorded earlier, before food orders. It is kept as it was.</p>
+                        @else
+                            <p class="text-sm text-amber-800">From the food orders: <strong>{{ $foodCheck['orders'] }}</strong> {{ $foodCheck['orders'] === 1 ? 'order' : 'orders' }}, {{ $foodCheck['items'] }} {{ $foodCheck['items'] === 1 ? 'dish' : 'dishes' }}. Added automatically when you submit.</p>
+                            @if (! empty($foodCheck['breakdown']))
+                                <p class="mt-1 text-xs text-amber-700">{{ collect($foodCheck['breakdown'])->map(fn ($row) => $row['quantity'].'x '.$row['name'])->implode(', ') }}</p>
+                            @endif
+                        @endif
+                        @if ($foodCheck['unfinished'] > 0)
+                            <p class="mt-1 text-sm font-semibold text-red-700" data-testid="food-unfinished">{{ $foodCheck['unfinished'] }} {{ $foodCheck['unfinished'] === 1 ? 'food order has' : 'food orders have' }} not been picked up yet. They are counted; check the kitchen.</p>
+                        @endif
+                    </div>
                 </div>
 
                 {{-- On the House --}}
@@ -432,7 +444,7 @@
                 @endhaspermission
                 {{-- Snooker --}}
                 <div class="">
-                    <label class="block text-basw font-medium text-gray-700 mb-2">
+                    <label class="block text-base font-medium text-gray-700 mb-2">
                         <span class="flex items-center">
                             {{-- <svg class="w-4 h-4 mr-1 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"

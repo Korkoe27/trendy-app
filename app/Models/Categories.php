@@ -19,6 +19,9 @@ class Categories extends Model
     /** The one category whose products have a stock process (counted, restocked, low-stock alerts). */
     public const STOCKED_NAME = 'drinks';
 
+    /** Food products are prepared by the kitchen, not the bar. */
+    public const FOOD_NAME = 'food';
+
     /** Games products (snooker) work on coins that come back every day instead of stock. */
     public const GAMES_NAME = 'games';
 
@@ -41,6 +44,12 @@ class Categories extends Model
     }
 
     /** @return array<int, int> */
+    public static function foodIds(): array
+    {
+        return static::idsNamed(self::FOOD_NAME);
+    }
+
+    /** @return array<int, int> */
     private static function idsNamed(string $name): array
     {
         return static::query()
@@ -53,6 +62,11 @@ class Categories extends Model
     public function isStocked(): bool
     {
         return strtolower(trim((string) $this->name)) === self::STOCKED_NAME;
+    }
+
+    public function isFood(): bool
+    {
+        return strtolower(trim((string) $this->name)) === self::FOOD_NAME;
     }
 
     public function isGames(): bool

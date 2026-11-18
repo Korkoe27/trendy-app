@@ -39,6 +39,11 @@ class Order extends Model
         ];
     }
 
+    public function foodOrders(): HasMany
+    {
+        return $this->hasMany(FoodOrder::class);
+    }
+
     public function items(): HasMany
     {
         return $this->hasMany(OrderItem::class);

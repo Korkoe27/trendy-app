@@ -20,7 +20,7 @@ class DailySalesSheet implements FromCollection, WithHeadings, WithTitle, WithMa
         $this->endDate = $endDate;
     }
 
-    public function collection()
+    public function collection(): \Illuminate\Support\Collection
     {
         return DB::table('daily_sales')
             ->join('products', 'daily_sales.product_id', '=', 'products.id')

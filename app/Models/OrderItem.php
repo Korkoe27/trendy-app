@@ -11,6 +11,11 @@ class OrderItem extends Model
 
     public const STATUS_READY = 'ready';
 
+    /** Who prepares an item: the bar (drinks and everything else) or the kitchen (food). */
+    public const STATION_BAR = 'bar';
+
+    public const STATION_KITCHEN = 'kitchen';
+
     protected $guarded = [];
 
     protected function casts(): array

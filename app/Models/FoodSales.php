@@ -2,26 +2,22 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
+/** The summary of one business day's food orders, written when the end-of-day count is submitted. */
 class FoodSales extends Model
 {
-    /** @use HasFactory<\Database\Factories\FoodSalesFactory> */
-    use HasFactory;
-
-    protected $fillable = [
-        "product_id",
-        "created_by",
-        "quantity_sold"
-    ];
-
     protected $table = 'food_sales';
 
+    protected $guarded = [];
 
-    public function product(){
-
-        //add condition to check and confirm if product is a food product
-        return $this->belongsTo(Product::class, 'product_id');
+    protected function casts(): array
+    {
+        return [
+            'sales_date' => 'date:Y-m-d',
+            'revenue' => 'decimal:2',
+            'breakdown' => 'array',
+            'recorded_at' => 'datetime',
+        ];
     }
 }
