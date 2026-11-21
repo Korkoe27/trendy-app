@@ -349,6 +349,78 @@ class KitchenFlowTest extends TestCase
         $this->assertSame(0, Foodstuff::count());
     }
 
+    public function test_a_foodstuff_item_can_be_edited(): void
+    {
+        $tomatoes = $this->stuff('Tomatoes');
+
+        $this->actingAs($this->chef);
+        Livewire::test(Kitchen::class)
+            ->call('openFoodstuff')
+            ->call('editFoodstuff', $tomatoes->id)
+            ->assertSee('Save')
+            ->assertSet('editFoodstuffName', 'Tomatoes')
+            ->set('editFoodstuffName', 'Ripe Tomatoes')
+            ->set('editFoodstuffUnit', 'crate')
+            ->set('editFoodstuffSupplier', 'Kantamanto')
+            ->call('saveFoodstuff')
+            ->assertHasNoErrors()
+            ->assertSet('editingFoodstuffId', null)
+            ->assertSee('Ripe Tomatoes');
+
+        $tomatoes->refresh();
+        $this->assertSame('Ripe Tomatoes', $tomatoes->name);
+        $this->assertSame('crate', $tomatoes->unit);
+        $this->assertSame('Kantamanto', $tomatoes->supplier);
+        $this->assertDatabaseHas('activity_logs', ['action_type' => 'foodstuff_update']);
+    }
+
+    public function test_editing_foodstuff_refuses_a_duplicate_name(): void
+    {
+        $tomatoes = $this->stuff('Tomatoes');
+        $this->stuff('Onions');
+
+        $this->actingAs($this->chef);
+        Livewire::test(Kitchen::class)
+            ->call('openFoodstuff')
+            ->call('editFoodstuff', $tomatoes->id)
+            ->set('editFoodstuffName', ' onions ')
+            ->call('saveFoodstuff')
+            ->assertHasErrors('editFoodstuffName');
+
+        $this->assertSame('Tomatoes', $tomatoes->fresh()->name);
+    }
+
+    public function test_editing_foodstuff_requires_the_create_right(): void
+    {
+        $tomatoes = $this->stuff('Tomatoes');
+
+        $this->actingAs($this->accountant);
+        Livewire::test(Kitchen::class)
+            ->call('openFoodstuff')
+            ->assertDontSeeHtml('data-testid="edit-foodstuff"')
+            ->call('editFoodstuff', $tomatoes->id)
+            ->assertForbidden();
+    }
+
+    public function test_a_blank_foodstuff_name_is_refused(): void
+    {
+        $tomatoes = $this->stuff('Tomatoes');
+
+        $this->expectExceptionMessage('Enter the name of the item.');
+        app(KitchenService::class)->updateFoodstuff($this->chef, $tomatoes, '   ');
+    }
+
+    public function test_renaming_foodstuff_leaves_existing_shopping_lists_alone(): void
+    {
+        $tomatoes = $this->stuff('Tomatoes');
+        $kitchen = app(KitchenService::class);
+        $list = $kitchen->createList($this->chef, [['foodstuff_id' => $tomatoes->id, 'quantity' => 1, 'cost' => 5]]);
+
+        $kitchen->updateFoodstuff($this->chef, $tomatoes, 'Ripe Tomatoes');
+
+        $this->assertSame('Tomatoes', $list->items->first()->fresh()->item_name, 'a saved line keeps its own wording');
+    }
+
     // ------------------------------------------------------------------ shopping lists
 
     private function stuff(string $name, ?string $unit = 'kg'): Foodstuff

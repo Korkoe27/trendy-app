@@ -61,7 +61,8 @@ class OrdersPageTest extends TestCase
 
     private function bartender(): User
     {
-        return $this->userWith(['orders' => ['view', 'modify']], 'Akua');
+        // Processes drink orders and may place food orders (food_orders), but never serve or settle.
+        return $this->userWith(['orders' => ['view', 'modify'], 'food_orders' => ['view', 'create']], 'Akua');
     }
 
     /** The chef marks food ready; drinks are the bartender's. */
@@ -199,6 +200,7 @@ class OrdersPageTest extends TestCase
         $this->assertTrue($bartender->hasPermission('view', 'orders'));
         $this->assertTrue($bartender->hasPermission('modify', 'orders'));
         $this->assertFalse($bartender->hasPermission('create', 'orders'));
+        $this->assertTrue($bartender->hasPermission('create', 'food_orders'), 'the bartender may place food orders');
         $this->assertFalse($bartender->hasPermission('view', 'order_debts'));
     }
 
@@ -268,20 +270,46 @@ class OrdersPageTest extends TestCase
         $this->assertSame('cash', $order->payment_method);
     }
 
-    public function test_a_bartender_cannot_take_orders_or_close_tabs(): void
+    public function test_a_bartender_can_take_food_orders_but_not_drinks_or_close_tabs(): void
     {
         $order = $this->order($this->waiter());
         $this->actingAs($this->bartender());
 
-        Livewire::test(Orders::class)->call('openTakeOrder')->assertForbidden();
-        Livewire::test(Orders::class)->call('openCloseModal', $order->id)->assertForbidden();
-
-        // The bartender can change an order, but a brand new one is still not theirs to take.
+        // The form opens; a drink is refused but food goes through.
         Livewire::test(Orders::class)
-            ->set('customerName', 'Walk In')->set('customerPhone', '0249998888')
+            ->call('openTakeOrder')
+            ->assertSet('showOrderModal', true)
             ->call('addToCart', $this->beer)
+            ->assertHasErrors('cart');
+
+        Livewire::test(Orders::class)
+            ->call('openTakeOrder')
+            ->set('customerName', 'Walk In')->set('customerPhone', '0249998888')
+            ->call('addToCart', $this->jollof)
             ->call('saveOrder')
-            ->assertForbidden();
+            ->assertHasNoErrors()
+            ->assertSet('showOrderModal', false);
+
+        $this->assertSame(2, Order::count());
+
+        // Serving and closing tabs stay with the waiter/manager.
+        Livewire::test(Orders::class)->call('serve', $order->id)->assertForbidden();
+        Livewire::test(Orders::class)->call('openCloseModal', $order->id)->assertForbidden();
+    }
+
+    public function test_the_order_service_refuses_drinks_for_a_food_only_orderer(): void
+    {
+        $bartender = $this->bartender();
+
+        try {
+            app(OrderService::class)->place($bartender, 'Ama', '0247777777', [$this->beer => 1]);
+            $this->fail('A bartender must not be able to order drinks.');
+        } catch (\DomainException $e) {
+            $this->assertStringContainsString('only order food', $e->getMessage());
+        }
+
+        $food = app(OrderService::class)->place($bartender, 'Ama', '0247777777', [$this->jollof => 1]);
+        $this->assertSame('ORD-'.str_pad((string) $food->id, 4, '0', STR_PAD_LEFT), $food->code);
     }
 
     public function test_a_waiter_cannot_mark_orders_ready_or_cancel_them(): void
@@ -305,7 +333,7 @@ class OrdersPageTest extends TestCase
         Livewire::test(Orders::class)->assertSee('TAKE ORDER')->assertSee('Edit')->assertDontSee('Order Ready');
 
         $this->actingAs($this->bartender());
-        Livewire::test(Orders::class)->assertDontSee('TAKE ORDER')->assertSee('Order Ready');
+        Livewire::test(Orders::class)->assertSee('TAKE FOOD ORDER')->assertDontSee('TAKE ORDER')->assertSee('Order Ready');
     }
 
     public function test_placing_requires_customer_details_and_items(): void

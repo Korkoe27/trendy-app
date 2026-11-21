@@ -27,6 +27,15 @@ class Kitchen extends Component
 
     public string $foodstuffSupplier = '';
 
+    // Editing one item on the foodstuff list
+    public ?int $editingFoodstuffId = null;
+
+    public string $editFoodstuffName = '';
+
+    public string $editFoodstuffUnit = '';
+
+    public string $editFoodstuffSupplier = '';
+
     // New / edited shopping list
     public bool $showListModal = false;
 
@@ -82,6 +91,7 @@ class Kitchen extends Component
     {
         $this->allow('view');
 
+        $this->cancelEditFoodstuff();
         $this->reset('foodstuffName', 'foodstuffUnit', 'foodstuffSupplier');
         $this->resetErrorBag();
         $this->showFoodstuff = true;
@@ -90,6 +100,7 @@ class Kitchen extends Component
     public function closeFoodstuff(): void
     {
         $this->showFoodstuff = false;
+        $this->cancelEditFoodstuff();
         $this->resetErrorBag();
     }
 
@@ -108,6 +119,51 @@ class Kitchen extends Component
         $this->resetErrorBag();
         $this->reset('foodstuffName', 'foodstuffUnit', 'foodstuffSupplier');
         session()->flash('message', "{$item->name} added to the foodstuff list.");
+    }
+
+    /** Put one foodstuff row into edit mode inside the list. */
+    public function editFoodstuff(int $id): void
+    {
+        $this->allow('create');
+
+        $item = Foodstuff::findOrFail($id);
+
+        $this->editingFoodstuffId = $id;
+        $this->editFoodstuffName = $item->name;
+        $this->editFoodstuffUnit = $item->unit ?? '';
+        $this->editFoodstuffSupplier = $item->supplier ?? '';
+        $this->resetErrorBag();
+    }
+
+    public function cancelEditFoodstuff(): void
+    {
+        $this->editingFoodstuffId = null;
+        $this->editFoodstuffName = '';
+        $this->editFoodstuffUnit = '';
+        $this->editFoodstuffSupplier = '';
+        $this->resetErrorBag();
+    }
+
+    public function saveFoodstuff(KitchenService $kitchen): void
+    {
+        $this->allow('create');
+
+        try {
+            $item = $kitchen->updateFoodstuff(
+                Auth::user(),
+                Foodstuff::findOrFail($this->editingFoodstuffId),
+                $this->editFoodstuffName,
+                $this->editFoodstuffUnit,
+                $this->editFoodstuffSupplier
+            );
+        } catch (\DomainException $e) {
+            $this->addError('editFoodstuffName', $e->getMessage());
+
+            return;
+        }
+
+        $this->cancelEditFoodstuff();
+        session()->flash('message', "{$item->name} updated on the foodstuff list.");
     }
 
     // ------------------------------------------------------------------ shopping lists

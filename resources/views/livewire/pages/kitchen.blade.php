@@ -170,9 +170,37 @@
 
                 <div class="mt-4 overflow-y-auto divide-y divide-gray-100 border border-gray-200 rounded-lg">
                     @forelse ($foodstuff as $item)
-                        <div class="flex items-center justify-between gap-3 px-3 py-2 text-sm" wire:key="foodstuff-{{ $item->id }}">
-                            <span class="font-semibold text-gray-900">{{ $item->name }}</span>
-                            <span class="text-gray-500">{{ $item->unit ?: '—' }}{{ $item->supplier ? ' · '.$item->supplier : '' }}</span>
+                        <div class="px-3 py-2 text-sm {{ $editingFoodstuffId === $item->id ? 'bg-orange-50' : '' }}" wire:key="foodstuff-{{ $item->id }}">
+                            @if ($editingFoodstuffId === $item->id)
+                                <div class="space-y-2">
+                                    <input type="text" wire:model="editFoodstuffName" maxlength="120" aria-label="Item name"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-400" />
+                                    @error('editFoodstuffName') <div class="text-sm text-red-600">{{ $message }}</div> @enderror
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                        <input type="text" wire:model="editFoodstuffUnit" maxlength="30" aria-label="Unit" placeholder="Unit (kg, bag, piece)"
+                                            class="px-3 py-2 border border-gray-300 rounded-lg" />
+                                        <input type="text" wire:model="editFoodstuffSupplier" maxlength="255" aria-label="Supplier" placeholder="Usual supplier (optional)"
+                                            class="px-3 py-2 border border-gray-300 rounded-lg" />
+                                    </div>
+                                    <div class="flex justify-end gap-2">
+                                        <button type="button" wire:click="cancelEditFoodstuff"
+                                            class="px-3 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">Cancel</button>
+                                        <button type="button" wire:click="saveFoodstuff" data-testid="save-foodstuff"
+                                            class="px-3 py-2 bg-orange-600 text-white rounded-lg font-semibold hover:bg-orange-700">Save</button>
+                                    </div>
+                                </div>
+                            @else
+                                <div class="flex items-center justify-between gap-3">
+                                    <span class="font-semibold text-gray-900">{{ $item->name }}</span>
+                                    <span class="flex items-center gap-3 text-gray-500">
+                                        {{ $item->unit ?: '—' }}{{ $item->supplier ? ' · '.$item->supplier : '' }}
+                                        @if ($canCreate)
+                                            <button wire:click="editFoodstuff({{ $item->id }})" data-testid="edit-foodstuff"
+                                                class="text-xs font-semibold text-orange-700 underline decoration-dotted underline-offset-2 hover:text-orange-900">Edit</button>
+                                        @endif
+                                    </span>
+                                </div>
+                            @endif
                         </div>
                     @empty
                         <p class="px-3 py-6 text-center text-sm text-gray-500">No items yet. Add the things the kitchen regularly buys.</p>

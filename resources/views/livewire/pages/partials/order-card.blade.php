@@ -8,7 +8,7 @@
     ][$status];
     $ago = \Carbon\Carbon::parse($order['created_at'])->diffForHumans(null, true, true);
     // Adding items, editing and closing belong to admins, managers and the waiter who took the order.
-    $manage = $canSettleAny || ($canOrder && ($order['taken_by'] ?? null) === $userId);
+    $manage = $canSettleAny || ($canCreateOrders && ($order['taken_by'] ?? null) === $userId);
 @endphp
 
 <div wire:key="order-{{ $order['id'] }}-{{ $status }}" class="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">

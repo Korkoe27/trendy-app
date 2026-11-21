@@ -58,7 +58,7 @@ class OrderService
 
         $this->assertNotBlocked($phone);
 
-        $lines = $this->priceItems($items);
+        $lines = $this->priceItems($items, $staff);
 
         $order = DB::transaction(function () use ($staff, $customerName, $phone, $lines, $notes) {
             // One order at a time per waiter. Locking the waiter's row makes two submits from two devices queue up.
@@ -156,7 +156,7 @@ class OrderService
     {
         $this->assertNotBlocked($order->customer_phone);
 
-        $lines = $this->priceItems($items);
+        $lines = $this->priceItems($items, $staff);
         $notes = $notes !== null ? trim($notes) : null;
 
         return $this->locked($order, function (Order $order) use ($staff, $lines, $notes) {
@@ -489,7 +489,7 @@ class OrderService
      * @param  array<int, int>  $items
      * @return list<array{product_id:int, product_name:string, unit_price:float, price_event_id:?int, quantity:int}>
      */
-    private function priceItems(array $items): array
+    private function priceItems(array $items, ?User $staff = null): array
     {
         $quantities = [];
 
@@ -506,6 +506,11 @@ class OrderService
             throw new \DomainException('Add at least one item to the order.');
         }
 
+        // A food-only orderer (the bartender) may order kitchen items, but never drinks.
+        $foodOnly = $staff
+            && ! $staff->hasPermission('create', 'orders')
+            && $staff->hasPermission('create', 'food_orders');
+
         $products = Product::whereIn('id', array_keys($quantities))->where('is_active', true)->with(['category', 'currentStock'])->get()->keyBy('id');
 
         // The price is the normal one, or the VIP price while a price day is running.
@@ -518,6 +523,10 @@ class OrderService
 
             if (! $product) {
                 throw new \DomainException('One of the items is no longer available.');
+            }
+
+            if ($foodOnly && ! $product->isFood()) {
+                throw new \DomainException('You can only order food here. Drinks are ordered by the waiters.');
             }
 
             if ((float) $product->selling_price <= 0) {

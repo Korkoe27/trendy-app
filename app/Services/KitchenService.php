@@ -8,6 +8,7 @@ use App\Models\Foodstuff;
 use App\Models\ShoppingList;
 use App\Models\ShoppingListItem;
 use App\Models\User;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -56,6 +57,47 @@ class KitchenService
         $this->log($by, 'foodstuff_add', "Added {$name} to the foodstuff list", 'foodstuff', $item->id);
 
         return $item;
+    }
+
+    /**
+     * Change an item on the foodstuff list (its name, unit and usual supplier). Existing shopping
+     * lists keep the wording they were saved with, because each line stores its own item_name.
+     *
+     * @throws \DomainException
+     */
+    public function updateFoodstuff(User $by, Foodstuff $foodstuff, string $name, ?string $unit = null, ?string $supplier = null): Foodstuff
+    {
+        $this->assertMay($by, 'create');
+
+        $name = trim($name);
+
+        if ($name === '') {
+            throw new \DomainException('Enter the name of the item.');
+        }
+
+        if (mb_strlen($name) > 120) {
+            throw new \DomainException('The item name is too long.');
+        }
+
+        $duplicate = Foodstuff::whereRaw('LOWER(name) = ?', [mb_strtolower($name)])
+            ->whereKeyNot($foodstuff->id)
+            ->exists();
+
+        if ($duplicate) {
+            throw new \DomainException("{$name} is already on the foodstuff list.");
+        }
+
+        $oldName = $foodstuff->name;
+
+        $foodstuff->update([
+            'name' => $name,
+            'unit' => $this->clean($unit, 30),
+            'supplier' => $this->clean($supplier, 255),
+        ]);
+
+        $this->log($by, 'foodstuff_update', "Renamed {$oldName} to {$name} on the foodstuff list", 'foodstuff', $foodstuff->id);
+
+        return $foodstuff->fresh();
     }
 
     // ------------------------------------------------------------------ shopping lists
@@ -265,7 +307,7 @@ class KitchenService
                 'description' => "Foodstuff shopping list {$list->code}: {$items->count()} ".($items->count() === 1 ? 'item' : 'items'),
                 'incurred_at' => now(),
                 'payment_method' => $paymentMethod,
-                'paid_by' => $by->name ?? 'Unknown',
+                'paid_by' => Auth::id(),
                 'category' => 'foodstuff',
                 'notes' => $list->notes,
                 'status' => 'paid',

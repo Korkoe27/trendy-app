@@ -119,6 +119,22 @@ class Orders extends Component
         return (bool) Auth::user()?->hasPermission('modify', 'order_debts');
     }
 
+    /** May place orders at all: waiters (orders.create) or the bartender (food_orders.create). */
+    private function canOrder(): bool
+    {
+        $user = Auth::user();
+
+        return (bool) ($user?->hasPermission('create', 'orders') || $user?->hasPermission('create', 'food_orders'));
+    }
+
+    /** The bartender may only place food orders (kitchen items); drinks are ordered by the waiters. */
+    private function canOrderFoodOnly(): bool
+    {
+        $user = Auth::user();
+
+        return ! $user?->hasPermission('create', 'orders') && (bool) $user?->hasPermission('create', 'food_orders');
+    }
+
     /** An order this user is allowed to see, or 403 (a waiter never reaches another waiter's order). */
     private function visibleOrder(?int $orderId): Order
     {
@@ -153,7 +169,7 @@ class Orders extends Component
 
     public function openTakeOrder(OrderService $orders): void
     {
-        $this->allow('create');
+        abort_unless($this->canOrder(), 403);
 
         if ($pending = $orders->unservedOrderFor(Auth::user())) {
             $this->failWith("Serve {$pending->code} to the customer before taking another order.");
@@ -250,6 +266,14 @@ class Orders extends Component
 
         $product = Product::with(['category', 'currentStock'])->find($productId);
 
+        // The bartender may order food from the kitchen, but drinks are ordered by the waiters.
+        if ($product && $this->canOrderFoodOnly() && ! $product->isFood()) {
+            unset($this->cart[$productId]);
+            $this->addError('cart', 'You can only order food. Drinks are added by the waiters.');
+
+            return;
+        }
+
         if ($product?->isUnavailable()) {
             unset($this->cart[$productId]);
             $this->addError('cart', "{$product->name} is out of stock.");
@@ -284,7 +308,7 @@ class Orders extends Component
         if ($this->editingOrderId) {
             $this->editableOrder($this->editingOrderId);
         } else {
-            $this->allow('create');
+            abort_unless($this->canOrder(), 403);
         }
 
         $this->resetErrorBag();
@@ -589,7 +613,8 @@ class Orders extends Component
                 ->with(['category', 'currentStock'])
                 ->orderBy('name')
                 ->get()
-                ->reject(fn (Product $product) => $product->isUnavailable());
+                ->reject(fn (Product $product) => $product->isUnavailable())
+                ->when($this->canOrderFoodOnly(), fn ($rows) => $rows->filter(fn (Product $product) => $product->isFood()));
 
             $categories = $orderable->pluck('category')->filter()->unique('id')->sortBy('name')->values();
 
@@ -638,7 +663,9 @@ class Orders extends Component
             'receiptOrder' => $this->showReceiptModal ? Order::with('items')->find($this->receiptOrderId) : null,
             'momoEnabled' => $momo->available(),
             'momoSwitchedOn' => $momo->enabled(),
-            'canOrder' => Auth::user()->hasPermission('create', 'orders'),
+            'canOrder' => $this->canOrder(),
+            'canOrderFoodOnly' => $this->canOrderFoodOnly(),
+            'canCreateOrders' => Auth::user()->hasPermission('create', 'orders'),
             'canReady' => Auth::user()->hasPermission('modify', 'orders'),
             'canServe' => $this->canServe(),
             'canSettle' => $this->canSettle(),
