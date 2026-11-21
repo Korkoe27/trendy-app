@@ -72,6 +72,14 @@ public $chartsLoaded = false;
     public $averageDailyFoodSales = 0;
     public $foodSalesGrowth = 0;
 
+    // Food Profit & Loss: food sold against the foodstuff bought to make it
+    public $foodRevenue = 0;
+    public $foodCost = 0;
+    public $foodProfit = 0;
+    public $foodMargin = 0;
+    public $foodPurchasesCount = 0;
+    public $averageDailyFoodProfit = 0;
+
     // Product Performance
     public $topSellingProducts = [];
     public $leastSellingProducts = [];
@@ -147,6 +155,7 @@ public function loadMetrics()
     $this->calculateProfitMetrics();
     $this->calculateLossMetrics();
     $this->calculateFoodSalesMetrics();
+    $this->calculateFoodProfitMetrics();
     $this->calculateInventoryMetrics();
     $this->calculateGrowthRates();
 
@@ -283,6 +292,7 @@ public function updatedSelectedMonth()
             $this->calculateProfitMetrics();
             $this->calculateLossMetrics();
             $this->calculateFoodSalesMetrics(); // NEW
+            $this->calculateFoodProfitMetrics();
             $this->calculateSnookerMetrics();
             $this->calculateInventoryMetrics();
             $this->calculateProductPerformance();
@@ -562,6 +572,41 @@ private function calculateFoodSalesMetrics()
     Log::info('Analytics: Food sales calculated', [
         'total_food_sales' => $this->totalFoodSales,
         'avg_daily_food' => round($this->averageDailyFoodSales, 2),
+    ]);
+}
+
+/**
+ * Food profit and loss: what the food sold earned against what the foodstuff bought to make it
+ * cost. This is a period comparison (purchases in the period against food sold in the period), so
+ * a big market run can show a loss in the week it lands even though the food is still in the kitchen.
+ */
+private function calculateFoodProfitMetrics()
+{
+    $this->foodRevenue = (float) $this->totalFoodSales;
+
+    // Shopping lists marked as bought land here as expenses categorised "foodstuff".
+    $purchases = DB::table('expenses')
+        ->where('category', 'foodstuff')
+        ->whereDate('incurred_at', '>=', $this->startDate)
+        ->whereDate('incurred_at', '<=', $this->endDate);
+
+    $this->foodCost = round((float) (clone $purchases)->sum('amount'), 2);
+    $this->foodPurchasesCount = (int) (clone $purchases)->count();
+
+    $this->foodProfit = round($this->foodRevenue - $this->foodCost, 2);
+    $this->foodMargin = $this->foodRevenue > 0
+        ? round(($this->foodProfit / $this->foodRevenue) * 100, 1)
+        : 0.0;
+
+    $daysInPeriod = max(1, Carbon::parse($this->startDate)->diffInDays($this->endDate) + 1);
+    $this->averageDailyFoodProfit = round($this->foodProfit / $daysInPeriod, 2);
+
+    Log::info('Analytics: Food profit calculated', [
+        'food_revenue' => $this->foodRevenue,
+        'food_cost' => $this->foodCost,
+        'food_profit' => $this->foodProfit,
+        'food_margin_pct' => $this->foodMargin,
+        'food_purchases' => $this->foodPurchasesCount,
     ]);
 }
 

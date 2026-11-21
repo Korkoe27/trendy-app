@@ -243,6 +243,42 @@
             </div>
         </div>
 
+        {{-- Food Profit & Loss: what was sold against the foodstuff bought to make it --}}
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2 mb-4">
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-900">Food Profit &amp; Loss</h3>
+                    <p class="text-sm text-gray-500">Foodstuff bought against food sold in this period.</p>
+                </div>
+                <span class="px-3 py-1 rounded-full text-sm font-bold {{ $foodProfit >= 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700' }}">
+                    {{ $foodProfit >= 0 ? 'Profit' : 'Loss' }}: GH₵ {{ number_format(abs($foodProfit), 2) }}
+                </span>
+            </div>
+
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="p-4 bg-emerald-50 rounded-lg">
+                    <p class="text-sm text-gray-600">Food Revenue</p>
+                    <p class="text-2xl font-bold text-emerald-700">GH₵ {{ number_format($foodRevenue, 2) }}</p>
+                    <p class="text-xs text-gray-500 mt-1">Food sold in this period</p>
+                </div>
+                <div class="p-4 bg-red-50 rounded-lg">
+                    <p class="text-sm text-gray-600">Foodstuff Purchases</p>
+                    <p class="text-2xl font-bold text-red-700">GH₵ {{ number_format($foodCost, 2) }}</p>
+                    <p class="text-xs text-gray-500 mt-1">{{ $foodPurchasesCount }} {{ \Illuminate\Support\Str::plural('purchase', $foodPurchasesCount) }}</p>
+                </div>
+                <div class="p-4 {{ $foodProfit >= 0 ? 'bg-green-50' : 'bg-red-50' }} rounded-lg">
+                    <p class="text-sm text-gray-600">{{ $foodProfit >= 0 ? 'Profit' : 'Loss' }}</p>
+                    <p class="text-2xl font-bold {{ $foodProfit >= 0 ? 'text-green-700' : 'text-red-700' }}">GH₵ {{ number_format(abs($foodProfit), 2) }}</p>
+                    <p class="text-xs text-gray-500 mt-1">Revenue &minus; foodstuff</p>
+                </div>
+                <div class="p-4 bg-gray-50 rounded-lg">
+                    <p class="text-sm text-gray-600">Food Margin</p>
+                    <p class="text-2xl font-bold {{ $foodMargin >= 0 ? 'text-gray-900' : 'text-red-700' }}">{{ number_format($foodMargin, 1) }}%</p>
+                    <p class="text-xs text-gray-500 mt-1">Avg daily profit: GH₵ {{ number_format($averageDailyFoodProfit, 2) }}</p>
+                </div>
+            </div>
+        </div>
+
         {{-- Charts Section (Lazy Loaded) --}}
         @if(!$chartsLoaded)
         <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-12">
